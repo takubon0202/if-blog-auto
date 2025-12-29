@@ -285,10 +285,14 @@ GOOGLE_AI_API_KEY=your_google_ai_api_key_here
 ### 5. GitHub Pages有効化
 
 1. リポジトリの **Settings** > **Pages**
-2. **Source**: `Deploy from a branch`
-3. **Branch**: `main` / `docs`
-4. **Save** をクリック
+2. **Build and deployment** > **Source**: `GitHub Actions` を選択
+3. **Settings** > **Actions** > **General**で:
+   - **Workflow permissions**: `Read and write permissions` を選択
+   - `Allow GitHub Actions to create and approve pull requests` にチェック
+4. **Actions** > **Deploy to GitHub Pages** を手動実行
 5. 数分後に公開: https://takubon0202.github.io/if-blog-auto/
+
+詳細は [GitHub Pages 設定ガイド](docs/GITHUB_PAGES_SETUP.md) を参照してください。
 
 ## 使い方
 

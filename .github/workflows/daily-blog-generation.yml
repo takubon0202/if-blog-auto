@@ -112,7 +112,7 @@ jobs:
           echo "### Published URL" >> $GITHUB_STEP_SUMMARY
           echo "https://takubon0202.github.io/if-blog-auto/" >> $GITHUB_STEP_SUMMARY
 
-  # GitHub Pagesへのデプロイ（オプション）
+  # GitHub Pagesへのデプロイ
   deploy-pages:
     needs: generate-blog
     runs-on: ubuntu-latest
@@ -126,22 +126,36 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Checkout
+      - name: Checkout latest commit
         uses: actions/checkout@v4
         with:
-          ref: main  # 最新のコミットを取得
+          ref: main
+          fetch-depth: 0
+
+      - name: Pull latest changes
+        run: git pull origin main
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1'
+          bundler-cache: true
+          working-directory: ./docs
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
       - name: Build with Jekyll
-        uses: actions/jekyll-build-pages@v1
-        with:
-          source: ./docs
-          destination: ./_site
+        run: |
+          cd docs
+          bundle exec jekyll build --destination ../_site --baseurl "/if-blog-auto"
+        env:
+          JEKYLL_ENV: production
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./_site
 
       - name: Deploy to GitHub Pages
         id: deployment

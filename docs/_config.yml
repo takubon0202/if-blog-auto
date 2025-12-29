@@ -19,12 +19,6 @@ plugins:
   - jekyll-seo-tag
   - jekyll-sitemap
 
-# Collections
-collections:
-  posts:
-    output: true
-    permalink: /posts/:year/:month/:day/:title/
-
 # Defaults
 defaults:
   - scope:
@@ -40,13 +34,10 @@ exclude:
   - Gemfile.lock
   - node_modules
   - vendor
+  - README.md
 
 # Japanese language settings
 lang: ja
-
-# Pagination
-paginate: 10
-paginate_path: "/page/:num/"
 
 # SEO
 twitter:
