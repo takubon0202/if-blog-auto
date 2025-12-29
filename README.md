@@ -6,11 +6,9 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 
 **https://takubon0202.github.io/if-blog-auto/**
 
-## 最新アップデート (2025-12-29)
+---
 
-### 設計変更: Google Search メイン + Deep Research 週1回
-
-**リサーチ方法を以下のように変更しました：**
+## 設計方針: Google Search メイン + Deep Research 週1回
 
 | 曜日 | リサーチ方法 | 処理時間 | 備考 |
 |------|-------------|---------|------|
@@ -18,37 +16,11 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 | **日曜日** | Deep Research API | 約5分 | 週1回の深層調査 |
 | **手動実行** | 選択可能 | - | GitHub Actionsで選択 |
 
-**変更理由**: Deep ResearchはRPM 1/分の厳しいレート制限があるため、
-週1回（日曜日）のみ使用し、通常はGoogle Search Toolを使用します。
+**設計理由**: Deep ResearchはRPM 1/分の厳しいレート制限があるため、週1回（日曜日）のみ使用し、通常はGoogle Search Toolを使用します。
 
-### Deep Research APIの課金要件
+---
 
-**Deep Research APIは有料プラン専用です。**（日曜日のみ使用）
-
-| 項目 | 要件 |
-|------|------|
-| 課金設定 | Google AI Studio で Billing 有効化が必須 |
-| 料金体系 | Gemini 3 Pro レート（入力$1.25/100万トークン、出力$5.00/100万トークン） |
-| 無料枠 | 使用不可（自動的にGoogle Search Toolにフォールバック） |
-| レート制限 | **RPM 1/分**（非常に厳しい） |
-
-課金設定がない場合や日曜日以外は、Google Search Tool（無料枠内）を使用します。
-
-### 新機能
-- **7日以内最新情報限定**: Deep Researchで必ず7日以内の最新情報のみを収集
-- **引用元必須**: 記事末尾に最低5つ以上の参考文献・引用元URLを自動記載
-- **日本時間対応**: すべての日時処理をJST (UTC+9) に統一
-- **リッチデザイン**: モダンでプレミアムなブログデザインに全面改修
-- **目次自動生成**: 記事ページに目次を自動表示
-- **シェアボタン**: Twitter, Facebook, はてなブックマーク対応
-
-### 修正・改善
-- **ライブラリバージョン更新**: `google-genai>=1.56.0` (Interactions API/Deep Research対応)
-- **画像生成修正**: `response_modalities=["IMAGE"]` 設定追加で正常な画像生成を保証
-- **画像検証強化**: PNGヘッダー検証・最低サイズ検証（10KB以上）
-- **フォールバック機能**: Deep Research失敗時に自動的にGoogle Search Toolへフォールバック
-
-## システム概要
+## システムフロー
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
@@ -83,7 +55,7 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 │  │                   Step 4: SEO最適化 & 品質レビュー                   │ │
 │  │  ┌─────────────────────────────────────────────────────────────┐   │ │
 │  │  │  Gemini 3 Flash Preview (gemini-3-flash-preview)            │   │ │
-│  │  │  🚀 思考モード: オフ（高速応答）                              │   │ │
+│  │  │  思考モード: オフ（高速応答）                                 │   │ │
 │  │  │  → SEOスコアリング、ファクトチェック、品質評価               │   │ │
 │  │  └─────────────────────────────────────────────────────────────┘   │ │
 │  └─────────────────────────────────────────────────────────────────────┘ │
@@ -98,10 +70,12 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
+---
+
 ## 使用AIモデル
 
-| ステップ | モデル | 曜日 | 応答時間 |
-|----------|--------|-----|----------|
+| ステップ | モデル | 曜日/タイミング | 応答時間 |
+|----------|--------|----------------|----------|
 | 情報収集（メイン） | `gemini-3-pro-preview` + Google Search | 月〜土 | 数秒 |
 | 情報収集（深層） | `deep-research-pro-preview-12-2025` | 日曜のみ | 約5分 |
 | 記事生成 | `gemini-3-pro-preview` | 全曜日 | 約30秒 |
@@ -109,9 +83,7 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 | SEO最適化 | `gemini-3-flash-preview`（思考オフ） | 全曜日 | 約3-5秒 |
 | 品質レビュー | `gemini-3-flash-preview`（思考オフ） | 全曜日 | 約5-8秒 |
 
-### 思考モードについて
-- **オン**: 深い推論が必要なタスク（記事生成）
-- **オフ**: 高速応答が必要なタスク（SEO/レビュー）→ `thinking_budget: 0`
+---
 
 ## クイックスタート
 
@@ -150,49 +122,103 @@ GOOGLE_AI_API_KEY=your_actual_api_key_here
 ```bash
 cd src/scripts
 
-# AIツールの記事を生成して投稿
-python main.py --topic ai_tools
+# AIツールの記事を生成して投稿（Google Search使用）
+python main.py --topic ai_tools --publish
+
+# Deep Researchを使用して生成
+python main.py --topic psychology --use-deep-research --publish
 
 # ドライラン（投稿せずにテスト）
-python main.py --topic psychology --dry-run
+python main.py --topic education --dry-run
 
 # 画像生成をスキップ
-python main.py --topic education --skip-images
+python main.py --topic startup --skip-images --publish
 ```
 
-### 3. 実行結果
+### 3. コマンドラインオプション
 
-実行すると以下の処理が自動で行われます：
+| オプション | 説明 | デフォルト |
+|-----------|------|-----------|
+| `--topic` | トピックID（必須） | - |
+| `--use-deep-research` | Deep Research APIを使用 | False（Google Search） |
+| `--skip-images` | 画像生成をスキップ | False |
+| `--dry-run` | ドライラン（投稿なし） | False |
+| `--publish` | GitHub Pagesに投稿 | True |
 
-```
-Step 1: Deep Research    → 最新情報を収集（約5分）
-Step 2: 記事生成         → ブログ記事を作成（約30秒）
-Step 3: 画像生成         → アイキャッチ画像を生成（約5秒）
-Step 4: SEO最適化        → メタデータを最適化（約3-5秒）
-Step 5: 品質レビュー     → ファクトチェック（約5-8秒）
-Step 6: GitHub投稿       → サイトに自動公開
-```
+---
 
-生成された記事は自動的に https://takubon0202.github.io/if-blog-auto/ に公開されます。
+## GitHub Actions 自動実行
 
-## 主要機能
+### 自動実行スケジュール
 
-| 機能 | 説明 |
+| 項目 | 設定 |
 |------|------|
-| **7日以内限定リサーチ** | Deep Research APIで**過去7日以内の最新情報のみ**を収集 |
-| **自動記事生成** | Gemini 3 ProでSEO最適化されたブログ記事を自動執筆 |
-| **引用元必須記載** | 記事末尾に**最低5つ以上**の参考文献URLを自動記載 |
-| **画像生成** | Gemini 2.5 Flash imageで記事用アイキャッチ画像を生成 |
-| **SEO最適化** | Gemini 3 Flash（思考オフ）でメタデータ・キーワード最適化 |
-| **品質レビュー** | Gemini 3 Flash（思考オフ）でファクトチェック・品質スコアリング |
-| **自動投稿** | GitHub Pages (Jekyll) へ自動投稿 |
-| **スケジュール実行** | GitHub Actionsで毎日JST 5:00に自動実行 |
+| 実行時刻 | 毎日 JST 5:00（UTC 20:00） |
+| トピック選択 | 曜日別に自動選択 |
+| リサーチ方法 | 日曜日のみDeep Research、他はGoogle Search |
+| タイムゾーン | Asia/Tokyo（JST） |
 
-## 7日以内最新情報限定ルール
+### 手動実行
+
+1. GitHub > Actions > **Manual Blog Generation**
+2. **Run workflow** をクリック
+3. パラメータを選択：
+   - **topic**: トピックを選択
+   - **research_method**: `google_search` または `deep_research`
+   - **skip_images**: 画像生成をスキップするか
+
+---
+
+## サブエージェント構成
+
+| エージェント | 役割 | モデル | 使用タイミング |
+|-------------|------|--------|--------------|
+| `google-search-agent` | 高速情報収集（メイン） | Gemini 3 Pro + Search | 月〜土（デフォルト） |
+| `deep-research-agent` | 深層調査 | Deep Research API | 日曜のみ |
+| `writing-agent` | ブログ記事の執筆 | Gemini 3 Pro | 全曜日 |
+| `image-agent` | アイキャッチ画像生成 | Gemini 2.5 Flash image | 全曜日 |
+| `seo-agent` | SEOメタデータ最適化 | Gemini 3 Flash（思考オフ） | 全曜日 |
+| `review-agent` | 品質チェック・ファクトチェック | Gemini 3 Flash（思考オフ） | 全曜日 |
+| `site-builder-agent` | Jekyllサイト構造管理 | - | 必要時 |
+| `blog-publisher-agent` | GitHub Pages投稿処理 | - | 全曜日 |
+
+---
+
+## スキル構成
+
+| スキル | 目的 | 使用API |
+|--------|------|---------|
+| `gemini-research` | 7日以内情報収集（Google Search/Deep Research） | Gemini API |
+| `gemini-content` | 引用元付きコンテンツ生成 | Gemini 3 Pro |
+| `gemini-3-flash` | SEO/レビュー高速処理（思考オフ） | Gemini 3 Flash |
+| `image-generation` | ブログ用画像生成 | Gemini 2.5 Flash image |
+| `timezone` | JST日時処理 | Python datetime |
+| `github-pages` | GitHub Pages操作 | Git API |
+| `jekyll-content` | Jekyll形式コンテンツ生成 | - |
+| `cms-integration` | CMS連携 | - |
+
+---
+
+## 対象トピック（7種類）
+
+| ID | トピック | 曜日 | キーワード例 |
+|----|----------|------|-------------|
+| `psychology` | 心理学・メンタルヘルス | 月曜 | 心理学、カウンセリング、ストレス |
+| `education` | 教育・学習科学 | 火曜 | 教育、EdTech、学習法 |
+| `startup` | 起業家育成・スタートアップ | 水曜 | 起業、スタートアップ、経営 |
+| `investment` | 投資教育・金融リテラシー | 木曜 | 投資、NISA、資産形成 |
+| `ai_tools` | AIツール・技術動向 | 金曜 | AI、ChatGPT、Gemini |
+| `school_refusal` | 不登校支援 | 土曜 | 不登校、フリースクール |
+| `neurodiversity` | 発達障害・ニューロダイバーシティ | 日曜 | 発達障害、ADHD、ASD |
+
+---
+
+## 重要なルール・制約
+
+### 7日以内最新情報限定ルール
 
 本システムは**必ず7日以内の最新情報のみ**を使用します。
 
-### 制約条件
 | 項目 | 設定 |
 |------|------|
 | 情報の鮮度 | 過去7日以内のみ |
@@ -200,91 +226,39 @@ Step 6: GitHub投稿       → サイトに自動公開
 | タイムゾーン | 日本標準時 (JST = UTC+9) |
 | 最低ソース数 | 5つ以上 |
 
-### 日付範囲の自動計算
-```python
-from lib.timezone import now_jst
-from datetime import timedelta
-
-today = now_jst()
-start_date = today - timedelta(days=7)
-# 例: 2025年12月22日〜2025年12月29日
-```
-
-### リサーチクエリ例
-```
-【重要】本日は2025年12月29日です。
-必ず過去7日以内（2025年12月22日〜2025年12月29日）の最新情報のみを調査してください。
-7日より古い情報は絶対に含めないでください。
-```
-
-## 引用元・参考文献必須ルール
+### 引用元・参考文献必須ルール
 
 すべての記事末尾に**引用元・参考文献**を自動記載します。
 
-### 必須要件
-| 項目 | 要件 |
-|------|------|
-| ソース数 | 最低5つ以上 |
-| URL形式 | 完全形式（https://で始まる） |
-| 記載形式 | Markdownリンク `[タイトル](URL)` |
-| HTMLタグ | `<div class="sources-section">` で囲む |
-
-### 引用元セクション例
 ```markdown
+---
+
 ## 参考文献・引用元
 
 <div class="sources-section">
 
-この記事は以下の情報源を参考に作成されました（2025年12月22日〜2025年12月29日の調査に基づく）：
+この記事は以下の情報源を参考に作成されました：
 
 - [ソースタイトル1](https://example.com/article1)
 - [ソースタイトル2](https://example.com/article2)
 - [ソースタイトル3](https://example.com/article3)
-- [ソースタイトル4](https://example.com/article4)
-- [ソースタイトル5](https://example.com/article5)
 
 </div>
 
-*この記事はAIによって生成されました。情報は2025年12月29日時点のものです。*
+---
+
+*この記事はAIによって生成されました。*
 ```
 
-## タイムゾーン設定
+### デザインガイドライン
 
-本システムはすべての日時処理で **日本標準時 (JST = UTC+9)** を使用します。
+| 禁止事項 | 推奨事項 |
+|---------|---------|
+| 絵文字の使用 | クリーンでミニマルなデザイン |
+| 紫色系の使用 | Deep Navy (#1a1a2e) 基調 |
+| AIっぽい表現（「革新的」「画期的」等） | 専門的だが親しみやすいトーン |
 
-| 設定箇所 | 設定値 |
-|---------|--------|
-| Python スクリプト | `src/lib/timezone.py` モジュール使用 |
-| Jekyll | `timezone: Asia/Tokyo` |
-| GitHub Actions | `TZ: 'Asia/Tokyo'` 環境変数 |
-| スケジュール実行 | 毎日 JST 5:00 (UTC 20:00) |
-
-### タイムゾーンユーティリティ
-
-```python
-from lib.timezone import now_jst, format_date, format_datetime_jst
-
-# 現在の日本時間
-current_time = now_jst()
-
-# 日付フォーマット
-date_str = format_date()  # "2025-12-29"
-
-# Jekyll用日時
-jekyll_date = format_datetime_jst()  # "2025-12-29 16:50:44 +0900"
-```
-
-## 対象トピック
-
-| ID | トピック | 曜日 |
-|----|----------|------|
-| `psychology` | 心理学・メンタルヘルス | 月曜 |
-| `education` | 教育・学習科学 | 火曜 |
-| `startup` | 起業家育成・スタートアップ | 水曜 |
-| `investment` | 投資教育・金融リテラシー | 木曜 |
-| `ai_tools` | AIツール・技術動向 | 金曜 |
-| `school_refusal` | 不登校支援 | 土曜 |
-| `neurodiversity` | 発達障害・ニューロダイバーシティ | 日曜 |
+---
 
 ## プロジェクト構造
 
@@ -293,10 +267,11 @@ if-blog-auto/
 ├── .github/
 │   └── workflows/
 │       ├── daily-blog-generation.yml  # 日次自動生成
-│       └── manual-trigger.yml         # 手動実行
+│       ├── manual-trigger.yml         # 手動実行
+│       └── deploy-pages.yml           # ページデプロイ
 │
 ├── docs/                    # GitHub Pages サイト (Jekyll)
-│   ├── _config.yml          # Jekyll設定
+│   ├── _config.yml          # Jekyll設定 (timezone: Asia/Tokyo)
 │   ├── _layouts/            # レイアウトテンプレート
 │   ├── _posts/              # ブログ記事（自動投稿先）
 │   ├── assets/
@@ -312,24 +287,24 @@ if-blog-auto/
 │   │   ├── deep-research-agent.md   # 日曜のみ
 │   │   ├── writing-agent.md
 │   │   ├── image-agent.md
-│   │   ├── seo-agent.md         # Gemini 3 Flash（思考オフ）
-│   │   ├── review-agent.md      # Gemini 3 Flash（思考オフ）
+│   │   ├── seo-agent.md
+│   │   ├── review-agent.md
 │   │   ├── site-builder-agent.md
 │   │   └── blog-publisher-agent.md
 │   │
 │   ├── skills/              # スキル定義（8種類）
 │   │   ├── gemini-research.md
 │   │   ├── gemini-content.md
-│   │   ├── gemini-3-flash.md    # 思考オフ高速処理
+│   │   ├── gemini-3-flash.md
 │   │   ├── image-generation.md
-│   │   ├── timezone.md          # JST日時処理
+│   │   ├── timezone.md
 │   │   ├── github-pages.md
 │   │   ├── jekyll-content.md
 │   │   └── cms-integration.md
 │   │
 │   ├── config/
 │   │   ├── topics.json      # トピック設定
-│   │   └── settings.json    # システム設定（モデル・思考モード）
+│   │   └── settings.json    # システム設定
 │   │
 │   ├── lib/
 │   │   ├── gemini_client.py # Gemini APIクライアント
@@ -337,383 +312,169 @@ if-blog-auto/
 │   │
 │   ├── scripts/
 │   │   ├── main.py          # メインスクリプト
-│   │   ├── research.py      # Deep Research実行
-│   │   ├── generate_content.py  # Gemini 3 Pro記事生成
-│   │   ├── generate_image.py    # Gemini 2.5 Flash画像生成
-│   │   ├── seo_optimize.py      # Gemini 3 Flash SEO最適化
-│   │   ├── review.py            # Gemini 3 Flash品質レビュー
+│   │   ├── research.py      # リサーチ実行
+│   │   ├── generate_content.py  # 記事生成
+│   │   ├── generate_image.py    # 画像生成
+│   │   ├── seo_optimize.py      # SEO最適化
+│   │   ├── review.py            # 品質レビュー
 │   │   └── publish.py           # GitHub Pages投稿
 │   │
 │   └── templates/
 │       ├── blog-post.md
 │       └── meta-template.json
 │
-├── dashboard/               # 管理ダッシュボード
 ├── output/                  # 生成された記事（ローカル保存）
 ├── CLAUDE.md                # プロジェクトルール
 ├── requirements.txt         # Python依存関係
 └── package.json             # Node.js依存関係
 ```
 
-## サブエージェント
+---
 
-| エージェント | 役割 | モデル | 使用タイミング |
-|-------------|------|--------|--------------|
-| `google-search-agent` | 高速情報収集（メイン） | Gemini 3 Pro + Search | **月〜土（デフォルト）** |
-| `deep-research-agent` | 深層調査 | Deep Research API | **日曜のみ** |
-| `writing-agent` | ブログ記事の執筆 | Gemini 3 Pro | 全曜日 |
-| `image-agent` | アイキャッチ画像生成 | Gemini 2.5 Flash image | 全曜日 |
-| `seo-agent` | SEOメタデータ最適化 | Gemini 3 Flash（思考オフ） | 全曜日 |
-| `review-agent` | 品質チェック | Gemini 3 Flash（思考オフ） | 全曜日 |
-| `site-builder-agent` | Jekyllサイト構造管理 | - | 全曜日 |
-| `blog-publisher-agent` | GitHub Pages投稿処理 | - | 全曜日 |
+## GeminiClient API リファレンス
 
-## スキル
+### 主要メソッド
 
-| スキル | 目的 | モデル |
-|--------|------|--------|
-| `gemini-research` | Deep Research API実行 | Deep Research |
-| `gemini-content` | 記事生成（引用元付き） | Gemini 3 Pro |
-| `gemini-3-flash` | SEO/レビュー高速処理 | Gemini 3 Flash（思考オフ） |
-| `image-generation` | 画像生成 | Gemini 2.5 Flash image |
-| `timezone` | 日本時間 (JST) 処理 | - |
-| `github-pages` | GitHub Pages操作 | - |
-| `jekyll-content` | Jekyll形式コンテンツ生成 | - |
-| `cms-integration` | CMS連携 | - |
+```python
+from lib.gemini_client import GeminiClient
 
-## セットアップ
+client = GeminiClient()
 
-### 1. リポジトリのクローン
+# コンテンツ生成
+result = await client.generate_content(
+    prompt="プロンプト",
+    model="gemini-3-pro-preview",
+    enable_search=False,
+    thinking_mode=True
+)
 
-```bash
-git clone https://github.com/takubon0202/if-blog-auto.git
-cd if-blog-auto
+# Google Search + 生成
+result = await client.search_and_generate(
+    query="検索クエリ",
+    generation_prompt="生成プロンプト"
+)
+
+# Deep Research（日曜日用）
+result = await client.deep_research(
+    query="調査クエリ",
+    timeout_seconds=1800
+)
+
+# 画像生成
+result = await client.generate_blog_image(
+    title="記事タイトル",
+    summary="記事概要",
+    style="modern, minimal"
+)
 ```
 
-### 2. 依存関係のインストール
+### モデル定数
 
-```bash
-# Python仮想環境
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-# Node.js依存関係
-npm install
+```python
+GeminiClient.MODEL_PRO = "gemini-3-pro-preview"
+GeminiClient.MODEL_FLASH = "gemini-2.0-flash"
+GeminiClient.MODEL_FLASH_3 = "gemini-3-flash-preview"
+GeminiClient.MODEL_IMAGE = "gemini-2.5-flash-image"
+GeminiClient.AGENT_DEEP_RESEARCH = "deep-research-pro-preview-12-2025"
 ```
 
-### 3. 環境変数の設定
+---
 
-```bash
-cp .env.example .env
+## タイムゾーンユーティリティ
+
+```python
+from lib.timezone import (
+    now_jst,              # 現在の日本時間
+    format_date,          # 日付フォーマット
+    format_datetime_jst,  # Jekyll用日時
+    get_weekday_name_jst  # 曜日名取得
+)
+
+# 使用例
+today = now_jst()
+date_str = format_date()  # "2025-12-29"
+jekyll_date = format_datetime_jst()  # "2025-12-29 16:50:44 +0900"
+weekday = get_weekday_name_jst()  # "sunday"
 ```
 
-`.env`ファイルを編集:
+---
+
+## トラブルシューティング
+
+### Deep Research 400エラー
+
 ```
-GOOGLE_AI_API_KEY=your_google_ai_api_key_here
-```
-
-### 4. GitHub Secrets設定
-
-リポジトリの Settings > Secrets and variables > Actions で追加:
-- `GOOGLE_AI_API_KEY`
-
-### 5. GitHub Pages有効化
-
-1. リポジトリの **Settings** > **Pages**
-2. **Build and deployment** > **Source**: `GitHub Actions` を選択
-3. **Settings** > **Actions** > **General**で:
-   - **Workflow permissions**: `Read and write permissions` を選択
-   - `Allow GitHub Actions to create and approve pull requests` にチェック
-4. **Actions** > **Deploy to GitHub Pages** を手動実行
-5. 数分後に公開: https://takubon0202.github.io/if-blog-auto/
-
-詳細は [GitHub Pages 設定ガイド](docs/GITHUB_PAGES_SETUP.md) を参照してください。
-
-## 使い方
-
-### ローカル実行
-
-```bash
-cd src/scripts
-
-# 記事生成＆GitHub Pages投稿
-python main.py --topic ai_tools
-
-# ドライラン（投稿なし）
-python main.py --topic psychology --dry-run
-
-# 画像生成スキップ
-python main.py --topic education --skip-images
+google.genai._interactions.BadRequestError: Error code: 400 - {'error': {'message': 'Request contains an invalid argument.'}}
 ```
 
-### 利用可能なトピック
+**考えられる原因と解決策**:
+
+1. **レート制限超過（最も多い原因）**
+   - 原因: Deep ResearchのRPMは**1リクエスト/分**と非常に厳しい
+   - 解決: 1分以上間隔を空けて再実行、または翌日に再試行
+   - 注意: 月〜土はGoogle Searchを使用すれば回避可能
+
+2. **課金設定がない**
+   - 原因: Deep Research APIは**有料プラン専用**
+   - 解決: [Google AI Studio](https://aistudio.google.com/) で Billing を有効化
+   - 注意: 課金なしでも自動的にGoogle Searchにフォールバック
+
+3. **ライブラリバージョンが古い**
+   - 原因: `google-genai`が古いバージョン
+   - 解決: `pip install google-genai>=1.56.0`
+
+### 画像生成エラー
+
 ```
-psychology, education, startup, investment, ai_tools, school_refusal, neurodiversity
+Error: Image generation failed
 ```
 
-### 個別スクリプト実行
+- **原因**: `response_modalities=["IMAGE"]`設定が不足
+- **解決**: 最新のコードでは自動設定されています
+- **回避**: `--skip-images`オプションで画像生成をスキップ
 
-```bash
-# リサーチのみ
-python research.py --topic ai_tools --use-deep-research
+### フォールバック動作
 
-# SEO最適化のみ
-python seo_optimize.py --file article.md
+Deep Research失敗時は自動的にGoogle Search Toolにフォールバックします：
 
-# 品質レビューのみ
-python review.py --file article.md
-
-# 画像生成のみ
-python generate_image.py --title "タイトル" --summary "概要"
+```
+┌─────────────────────────┐
+│ Deep Research API 呼び出し│
+└────────────┬────────────┘
+             │
+      失敗？ ─┴─ 成功？
+      │           │
+   ┌──▼──────────┐
+   │ エラーログ   │
+   │ 出力        │
+   └──┬──────────┘
+      │
+   ┌──▼──────────────────┐
+   │ Google Search Tool   │
+   │ にフォールバック    │
+   └──────────────────────┘
 ```
 
-### GitHub Actions
-
-| ワークフロー | トリガー | 説明 |
-|-------------|---------|------|
-| Daily Blog Generation | 毎日 JST 5:00 | 自動記事生成＆投稿 |
-| Manual Trigger | 手動 | 任意のタイミングで実行 |
-
-**手動実行方法**:
-1. GitHub > Actions > Daily Blog Generation with Gemini
-2. Run workflow をクリック
-3. トピックを選択（空白で自動選択）
-4. Run workflow
-
-### ダッシュボード
-
-```bash
-cd dashboard
-uvicorn api.server:app --reload
-# http://localhost:8000 でアクセス
-```
+---
 
 ## 技術スタック
 
 | カテゴリ | 技術 |
 |---------|------|
-| **AI モデル** | Gemini 3 Pro, Gemini 3 Flash（思考オフ）, Deep Research, Gemini 2.5 Flash image |
+| **AI モデル** | Gemini 3 Pro, Gemini 3 Flash, Deep Research, Gemini 2.5 Flash image |
 | **言語** | Python 3.11+, JavaScript (Node.js 20+) |
-| **ライブラリ** | `google-genai>=1.56.0` (Interactions API対応必須) |
+| **ライブラリ** | `google-genai>=1.56.0` |
 | **検索** | Google Search Tool (Gemini Built-in) |
 | **静的サイト** | Jekyll (GitHub Pages) |
 | **CI/CD** | GitHub Actions |
-| **Web Framework** | FastAPI |
 
-## API使用量の目安
-
-| 操作 | 1記事あたり | 応答時間 |
-|------|------------|----------|
-| Deep Research | 1リクエスト | 約5分 |
-| 記事生成 | 1-2リクエスト | 約30秒 |
-| 画像生成 | 1-3リクエスト | 約5秒 |
-| SEO最適化 | 1リクエスト | 約3-5秒 |
-| 品質レビュー | 1リクエスト | 約5-8秒 |
-
-## パフォーマンス
-
-### Gemini 3 Flash Preview（思考モードオフ）の効果
-
-| タスク | 思考モードオン | 思考モードオフ | 改善 |
-|--------|--------------|--------------|------|
-| SEO最適化 | 10-15秒 | 3-5秒 | **70%高速化** |
-| 品質レビュー | 15-25秒 | 5-8秒 | **65%高速化** |
-
-## トラブルシューティング
-
-### APIキーエラー
-```
-Error: Invalid API key
-```
-→ `.env`ファイルの`GOOGLE_AI_API_KEY`が正しく設定されているか確認してください。
-
-### モジュールが見つからない
-```
-ModuleNotFoundError: No module named 'google.genai'
-```
-→ 仮想環境が有効化されているか確認し、`pip install -r requirements.txt`を再実行してください。
-
-### Deep Research 400エラー
-```
-google.genai._interactions.BadRequestError: Error code: 400 - {'error': {'message': 'Request contains an invalid argument.'}}
-```
-**考えられる原因と解決策**:
-
-1. **課金設定がない（最も多い原因）**
-   - 原因: Deep Research APIは**有料プラン専用**。無料枠では使用不可
-   - 解決: [Google AI Studio](https://aistudio.google.com/) で Billing を有効化
-   - 料金: Gemini 3 Pro レート（入力$1.25/100万トークン、出力$5.00/100万トークン）
-   - 注意: 課金設定がなくても自動的にGoogle Search Toolにフォールバックして動作
-
-2. **storeパラメータを明示的に指定している**
-   - 原因: `store=True`を明示的に指定するとエラーになる場合がある
-   - 解決: storeパラメータは指定せず、デフォルト値（True）に任せる
-   ```python
-   interaction = await client.aio.interactions.create(
-       input=query,
-       agent="deep-research-pro-preview-12-2025",
-       background=True
-       # store は指定しない（デフォルトTrue）
-   )
-   ```
-
-3. **ライブラリバージョンが古い**
-   - 原因: `google-genai`が0.5.0等の古いバージョン
-   - 解決: `pip install google-genai>=1.56.0` でアップグレード
-
-4. **レート制限超過（最も多い原因の一つ）**
-   - 原因: Deep ResearchのRPMは**1リクエスト/分**と非常に厳しい
-   - 症状: 連続実行や短時間での再実行で400エラー
-   - 解決: 1分以上間隔を空けて再実行、または翌日に再試行
-   - 注意: レート制限はTier 1でもTier 2でも同じ（RPM 1）
-
-5. **同期クライアントの使用（公式推奨）**
-   - 注意: 本システムは公式ドキュメント通り**同期クライアント**を使用
-   ```python
-   # 正しい使用方法（公式ドキュメント準拠）
-   # https://ai.google.dev/gemini-api/docs/deep-research
-   client = genai.Client()
-   interaction = client.interactions.create(
-       input=query,
-       agent="deep-research-pro-preview-12-2025",
-       background=True
-   )
-   # ポーリングも同期クライアントを使用
-   interaction = client.interactions.get(interaction.id)
-   # 非同期環境では asyncio.to_thread() でラップ
-   ```
-
-**フォールバック**: エラー発生時は自動的にGoogle Search Toolにフォールバックします
-
-### Git pushエラー
-```
-Error: Permission denied
-```
-→ GitHubの認証情報を確認してください。Personal Access Tokenの設定が必要な場合があります。
-
-### 画像生成エラー
-```
-Error: Image generation failed
-```
-→ **原因**: `response_modalities=["IMAGE"]`設定が不足している可能性
-→ **解決**: 最新のコードでは自動的に設定されています
-→ **回避**: `--skip-images`オプションで画像生成をスキップして実行できます
-
-### 画像が小さすぎる/破損
-```
-Warning: Image too small (xxx bytes), likely corrupted
-```
-→ 画像生成APIのレスポンスが正常でない場合に発生します
-→ 再実行するか、`--skip-images`オプションで画像生成をスキップしてください
-
-## 内部動作フロー
-
-### Deep Research フォールバックフロー
-
-Deep Researchが失敗した場合、自動的にGoogle Search Toolにフォールバックします。
-**失敗時は必ずログに通知が出力されます。**
-
-```
-┌──────────────────────────────────────┐
-│ run_research(topic, use_deep=True)  │
-└─────────────────┬────────────────────┘
-                  │
-        ┌─────────▼─────────┐
-        │ Deep Research API │
-        │ 呼び出し          │
-        └─────────┬─────────┘
-                  │
-          成功？ ─┴─ 失敗？
-          │           │
-          │    ┌──────▼──────────────────────────┐
-          │    │ 【重要】エラー通知ログ出力       │
-          │    │ ============                    │
-          │    │ Deep Research APIが失敗しました │
-          │    │ エラー内容: {詳細}              │
-          │    │ フォールバック: Google Search   │
-          │    │ ============                    │
-          │    └──────┬──────────────────────────┘
-          │           │
-          │    ┌──────▼──────────────┐
-          │    │ Google Search Tool │
-          │    │ + gemini-3-pro     │
-          │    └──────┬──────────────┘
-          │           │
-    ┌─────▼───────────▼─────┐
-    │ 結果返却               │
-    │ method: deep_research │
-    │  or google_search     │
-    │ fallback_reason: ...  │
-    └───────────────────────┘
-```
-
-### 画像生成フロー
-
-```
-┌────────────────────────────────────┐
-│ generate_images(article)           │
-└─────────────────┬──────────────────┘
-                  │
-        ┌─────────▼─────────────────┐
-        │ response_modalities=      │
-        │ ["IMAGE"] を設定（必須）  │
-        └─────────┬─────────────────┘
-                  │
-        ┌─────────▼─────────────────┐
-        │ Gemini 2.5 Flash image    │
-        │ で画像生成                │
-        └─────────┬─────────────────┘
-                  │
-        ┌─────────▼─────────────────┐
-        │ 画像サイズ検証（1KB以上） │
-        └─────────┬─────────────────┘
-                  │
-          有効？ ─┴─ 無効？
-          │           │
-          │    ┌──────▼──────────────┐
-          │    │ 警告: "Image too   │
-          │    │  small" ログ出力   │
-          │    └──────┬──────────────┘
-          │           │
-    ┌─────▼───────────▼─────────────┐
-    │ output/images/ に保存         │
-    └─────────────────┬─────────────┘
-                      │
-        ┌─────────────▼─────────────┐
-        │ publish時にPNGヘッダー検証 │
-        │ (10KB以上 + 正しいヘッダー)│
-        └─────────────┬─────────────┘
-                      │
-    ┌─────────────────▼─────────────┐
-    │ docs/assets/images/ にコピー  │
-    └───────────────────────────────┘
-```
-
-## デザインガイドライン
-
-本システムでは以下のデザインガイドラインを遵守しています。
-
-### 禁止事項
-- 絵文字の使用禁止
-- 紫色系の使用禁止
-- AIっぽい表現（「革新的」「画期的」など）の禁止
-
-### 推奨スタイル
-- クリーンでミニマルなデザイン
-- Deep Navy (#0a192f) を基調とした配色
-- 専門的だが親しみやすいトーン
-
-### 記事構成
-- 参考文献・引用元を記事末尾に必ず記載
-- 目次を自動生成
-- シェアボタン（Twitter, Facebook, はてなブックマーク）
-
-詳細は `src/config/design-guidelines.md` を参照してください。
+---
 
 ## ライセンス
 
 MIT License
+
+---
 
 ## 関連リンク
 
