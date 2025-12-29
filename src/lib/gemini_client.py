@@ -65,8 +65,8 @@ class GeminiClient:
             raise ValueError("GOOGLE_AI_API_KEY is required")
 
         self.client = genai.Client(api_key=self.api_key)
-        # 非同期クライアント（Interactions API用）
-        self.aio = self.client.aio
+        # 注意: self.client.aio（非同期クライアント）は使用しない
+        # Deep Researchは公式ドキュメント通り同期クライアントを使用
         logger.info("GeminiClient initialized")
 
     async def generate_content(
