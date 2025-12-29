@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
 """
-コンテンツ生成スクリプト - デザインガイドライン準拠版
+コンテンツ生成スクリプト - 7日以内最新情報 & 引用元必須版
 
 Design Guidelines:
 - 絵文字禁止
 - 紫色系禁止
 - AIっぽい表現禁止
+- 7日以内の最新情報のみ使用
+- 引用元・参考文献を必ず記載
 """
 import asyncio
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from lib.gemini_client import GeminiClient
-from lib.timezone import format_date
+from lib.timezone import format_date, now_jst
 
 
 # デザインガイドラインを定数として定義
@@ -56,49 +59,78 @@ DESIGN_GUIDELINES = """
 """
 
 
+def extract_sources_text(sources: list) -> str:
+    """
+    ソースリストからMarkdown形式のテキストを生成
+
+    Args:
+        sources: ソース情報のリスト
+
+    Returns:
+        Markdown形式のソーステキスト
+    """
+    if not sources:
+        return "（調査結果から適切な参考文献を記載してください）"
+
+    sources_list = []
+    for source in sources:
+        if isinstance(source, dict):
+            title = source.get('title', '')
+            url = source.get('url', source.get('uri', ''))
+            if url:
+                # URLが完全形式でない場合は補完
+                if not url.startswith('http'):
+                    url = f"https://{url}"
+                sources_list.append(f"- [{title or url}]({url})")
+        elif isinstance(source, str):
+            if source.startswith('http'):
+                sources_list.append(f"- [{source}]({source})")
+            else:
+                sources_list.append(f"- {source}")
+
+    return "\n".join(sources_list) if sources_list else "（利用可能なソースがありません）"
+
+
 async def generate_article(topic_id: str, research_data: dict) -> dict:
     """
-    記事を生成
+    記事を生成（7日以内最新情報 & 引用元必須）
 
     Args:
         topic_id: トピックID
-        research_data: 調査データ
+        research_data: 調査データ（sources, date_range含む）
 
     Returns:
-        生成された記事データ
+        生成された記事データ（引用元セクション含む）
     """
     client = GeminiClient()
 
     topic_info = research_data.get('topic_info', {})
     today = format_date()  # JST date
 
-    # ソース情報を抽出
+    # リサーチ日付範囲を取得
+    date_range = research_data.get('date_range', {})
+    start_date = date_range.get('start', '')
+    end_date = date_range.get('end', today)
+    research_date = research_data.get('research_date', today)
+
+    # ソース情報を抽出（必須）
     sources = research_data.get('sources', [])
-    sources_text = ""
-    if sources:
-        sources_list = []
-        for source in sources:
-            if isinstance(source, dict):
-                title = source.get('title', '')
-                url = source.get('url', source.get('uri', ''))
-                if url:
-                    sources_list.append(f"- [{title or url}]({url})")
-            elif isinstance(source, str):
-                sources_list.append(f"- {source}")
-        sources_text = "\n".join(sources_list) if sources_list else "（利用可能なソースがありません）"
-    else:
-        sources_text = "（調査結果から適切な参考文献を記載してください）"
+    sources_text = extract_sources_text(sources)
+    sources_count = len(sources)
 
     prompt = f"""
 あなたはプロのブログライターです。以下の調査結果を基に、読者にとって価値のあるブログ記事を執筆してください。
 
+【重要】本日は{research_date}です。記事内の情報は過去7日以内（{start_date}〜{end_date}）の最新情報のみを使用してください。
+
 【トピック】{topic_info.get('name', topic_id)}
 【ターゲット読者】{topic_info.get('target_audience', '一般読者')}
+【調査期間】{start_date}〜{end_date}（7日以内の最新情報）
 
 【調査結果】
 {research_data.get('content', '')}
 
-【参考文献・引用元（記事末尾に必ず記載すること）】
+【参考文献・引用元（{sources_count}件 - 記事末尾に必ず記載すること）】
 {sources_text}
 
 {DESIGN_GUIDELINES}
@@ -108,9 +140,16 @@ async def generate_article(topic_id: str, research_data: dict) -> dict:
 - 導入で読者の興味を引く問いかけや具体的な事実から始める
 - 見出しは具体的で検索されやすいものに
 - 専門用語は初出時に解説
-- 具体的なデータ・事例を含める
+- 具体的なデータ・事例を含める（日付を明記）
 - 段落は3-4文で区切る
 - 結論で読者に具体的な行動指針を示す
+- 7日より古い情報は使用しない
+
+【引用元記載ルール - 必須】
+- 記事末尾に必ず「参考文献・引用元」セクションを設ける
+- 上記の参考文献リストをそのまま記載する
+- URLは必ずマークダウンリンク形式 [タイトル](URL) で記載
+- <div class="sources-section">タグで囲む
 
 【出力形式】
 Markdown形式で、以下の構造で出力してください:
@@ -129,7 +168,7 @@ author: "AI Blog Generator"
 
 ## セクション1の見出し
 
-本文（具体例やデータを含む）
+本文（具体例やデータを含む、日付を明記）
 
 ## セクション2の見出し
 
@@ -149,15 +188,15 @@ author: "AI Blog Generator"
 
 <div class="sources-section">
 
-この記事は以下の情報源を参考に作成されました：
+この記事は以下の情報源を参考に作成されました（{start_date}〜{end_date}の調査に基づく）：
 
-（ここに調査で使用した参考文献・引用元のURLをリスト形式で記載してください）
+{sources_text}
 
 </div>
 
 ---
 
-*この記事はAIによって生成されました。*
+*この記事はAIによって生成されました。情報は{research_date}時点のものです。*
 """
 
     result = await client.generate_content(
@@ -170,7 +209,6 @@ author: "AI Blog Generator"
     content = result.text
 
     # 絵文字を除去（安全策として）
-    import re
     emoji_pattern = re.compile(
         "["
         "\U0001F600-\U0001F64F"  # emoticons
@@ -183,6 +221,29 @@ author: "AI Blog Generator"
         flags=re.UNICODE
     )
     content = emoji_pattern.sub('', content)
+
+    # 引用元セクションが含まれているか確認
+    if "参考文献・引用元" not in content and sources:
+        # 引用元セクションがない場合は追加
+        sources_section = f"""
+
+---
+
+## 参考文献・引用元
+
+<div class="sources-section">
+
+この記事は以下の情報源を参考に作成されました（{start_date}〜{end_date}の調査に基づく）：
+
+{sources_text}
+
+</div>
+
+---
+
+*この記事はAIによって生成されました。情報は{research_date}時点のものです。*
+"""
+        content = content.rstrip() + sources_section
 
     # タイトルを抽出
     title_match = re.search(r'title:\s*["\']?(.+?)["\']?\s*\n', content)
@@ -199,7 +260,10 @@ author: "AI Blog Generator"
         "content": content,
         "word_count": len(content),
         "categories": [topic_info.get('name', topic_id)],
-        "tags": []
+        "tags": [],
+        "sources": sources,
+        "research_date": research_date,
+        "date_range": date_range
     }
 
 
