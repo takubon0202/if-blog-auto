@@ -1,0 +1,30 @@
+name: Test Deep Research API
+
+on:
+  workflow_dispatch:
+
+env:
+  TZ: 'Asia/Tokyo'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install httpx google-genai>=1.56.0
+
+      - name: Run Deep Research API Test
+        env:
+          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
+        run: |
+          python test_deep_research.py
