@@ -62,10 +62,12 @@ research_query = f"""
 """
 
 # 非同期リサーチの実行
+# 重要: background=True の場合、store=True は必須
 interaction = client.interactions.create(
     input=research_query,
     agent="deep-research-pro-preview-12-2025",
-    background=True
+    background=True,
+    store=True  # background実行時は必須パラメータ
 )
 
 # ポーリングで結果取得

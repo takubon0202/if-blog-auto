@@ -507,8 +507,24 @@ ModuleNotFoundError: No module named 'google.genai'
 ```
 google.genai._interactions.BadRequestError: Error code: 400 - {'error': {'message': 'Request contains an invalid argument.'}}
 ```
-→ **原因**: `google-genai`ライブラリのバージョンが古い（0.5.0等）
-→ **解決**: `pip install google-genai>=1.56.0` でアップグレード
+**考えられる原因と解決策**:
+
+1. **ライブラリバージョンが古い**
+   - 原因: `google-genai`が0.5.0等の古いバージョン
+   - 解決: `pip install google-genai>=1.56.0` でアップグレード
+
+2. **`store=True`パラメータの不足**
+   - 原因: `background=True`使用時に`store=True`が必須
+   - 解決: `interactions.create()`に`store=True`を追加
+   ```python
+   interaction = client.interactions.create(
+       input=query,
+       agent="deep-research-pro-preview-12-2025",
+       background=True,
+       store=True  # 必須パラメータ
+   )
+   ```
+
 → **フォールバック**: エラー発生時は自動的にGoogle Search Toolにフォールバックします
 
 ### Git pushエラー
