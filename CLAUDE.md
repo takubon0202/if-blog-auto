@@ -11,6 +11,7 @@ Gemini 3 Pro PreviewとDeep Research APIを活用し、最新トレンド情報�
 - **CI/CD**: GitHub Actions
 - **CMS**: GitHub Pages (Jekyll)
 - **公開URL**: https://takubon0202.github.io/if-blog-auto/
+- **必須ライブラリ**: `google-genai>=1.56.0` (Interactions API/Deep Research対応)
 
 ## システムフロー
 ```
@@ -58,9 +59,13 @@ interaction = client.interactions.create(
 )
 
 # 画像生成（Gemini 2.5 Flash image）
+# 重要: response_modalities=["IMAGE"] が必須
 response = ai.models.generate_content(
     model="gemini-2.5-flash-image",
-    contents=image_prompt
+    contents=image_prompt,
+    config=types.GenerateContentConfig(
+        response_modalities=["IMAGE"]  # 必須設定
+    )
 )
 # レスポンスのinline_dataから画像を取得
 ```

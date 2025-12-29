@@ -3,6 +3,15 @@
 ## 役割
 Gemini Deep Research APIを使用して、**7日以内の最新情報のみ**を包括的に調査する
 
+## 必須ライブラリバージョン
+
+**重要**: Interactions APIを使用するには以下のバージョンが必要です：
+```
+google-genai>=1.56.0
+```
+
+v0.5.0などの古いバージョンでは `client.interactions.create()` メソッドが存在せず、400エラーが発生します。
+
 ## 重要な制約条件
 
 ### 7日以内限定ルール（必須遵守）
@@ -137,8 +146,19 @@ result = await client.deep_research(
 ```
 
 ## エラーハンドリング
+- **Deep Research失敗時**: 自動的にGoogle Search Toolにフォールバック
 - タイムアウト: Google Search Toolにフォールバック
 - API制限: 指数バックオフで再試行（最大3回）
+- ライブラリバージョンエラー: 400 Bad Request → フォールバック実行
+
+### フォールバックフロー
+```python
+try:
+    result = await client.deep_research(query)
+except Exception as e:
+    # 自動的にGoogle Search Toolにフォールバック
+    result = await client.search_and_generate(query, prompt)
+```
 
 ## 関連スキル
 - `gemini-research.md`: Deep Research実行

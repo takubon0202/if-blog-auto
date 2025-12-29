@@ -97,29 +97,38 @@ async def run_research(topic_id: str, use_deep_research: bool = True) -> dict:
 """
 
     if use_deep_research:
-        result = await client.deep_research(research_query)
+        try:
+            result = await client.deep_research(research_query)
 
-        # ソース情報を強化（日付範囲を追加）
-        sources = result.sources or []
-        enhanced_sources = []
-        for source in sources:
-            enhanced_source = dict(source)
-            enhanced_source["research_date_range"] = f"{start_date}〜{end_date}"
-            enhanced_sources.append(enhanced_source)
+            # ソース情報を強化（日付範囲を追加）
+            sources = result.sources or []
+            enhanced_sources = []
+            for source in sources:
+                enhanced_source = dict(source)
+                enhanced_source["research_date_range"] = f"{start_date}〜{end_date}"
+                enhanced_sources.append(enhanced_source)
 
-        return {
-            "topic": topic_id,
-            "topic_info": topic_info,
-            "content": result.content,
-            "sources": enhanced_sources,
-            "research_date": today_jst,
-            "date_range": {
-                "start": start_date,
-                "end": end_date,
-                "max_age_days": MAX_AGE_DAYS
+            return {
+                "topic": topic_id,
+                "topic_info": topic_info,
+                "content": result.content,
+                "sources": enhanced_sources,
+                "research_date": today_jst,
+                "date_range": {
+                    "start": start_date,
+                    "end": end_date,
+                    "max_age_days": MAX_AGE_DAYS
+                },
+                "method": "deep_research"
             }
-        }
-    else:
+        except Exception as e:
+            # Deep Researchが失敗した場合、Google Searchにフォールバック
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Deep Research failed, falling back to Google Search: {e}")
+            use_deep_research = False  # フォールバック
+
+    if not use_deep_research:
         # Google Search Toolを使用（フォールバック）
         result = await client.search_and_generate(
             query=f"{topic_info['name']} 最新 {today_jst}",
@@ -135,7 +144,8 @@ async def run_research(topic_id: str, use_deep_research: bool = True) -> dict:
                 "start": start_date,
                 "end": end_date,
                 "max_age_days": MAX_AGE_DAYS
-            }
+            },
+            "method": "google_search"
         }
 
 

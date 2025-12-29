@@ -4,6 +4,15 @@
 Gemini Deep ResearchとGoogle Search Toolを使用した情報収集スキル。
 **必ず7日以内の最新情報のみを収集**します。
 
+## 必須ライブラリバージョン
+
+**重要**: Interactions API (Deep Research) を使用するには以下が必要です：
+```
+google-genai>=1.56.0
+```
+
+古いバージョン（0.5.0等）では400エラーが発生し、自動的にGoogle Searchにフォールバックします。
+
 ## 重要な制約条件
 
 ### 7日以内限定ルール（必須遵守）
