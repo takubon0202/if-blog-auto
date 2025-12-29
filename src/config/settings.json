@@ -4,7 +4,7 @@
       "content_generation": "gemini-3-pro-preview",
       "quick_tasks": "gemini-2.0-flash",
       "deep_research": "deep-research-pro-preview-12-2025",
-      "image_generation": "imagen-3.0-generate-002"
+      "image_generation": "gemini-2.5-flash-image"
     },
     "settings": {
       "temperature": 0.7,
@@ -32,11 +32,17 @@
     }
   },
   "publishing": {
-    "auto_publish": false,
+    "auto_publish": true,
     "review_required": true,
-    "default_status": "draft",
-    "platforms": ["wordpress"],
-    "schedule_posts": true
+    "default_status": "published",
+    "platforms": ["github_pages"],
+    "schedule_posts": true,
+    "github_pages": {
+      "repository": "takubon0202/if-blog-auto",
+      "branch": "main",
+      "source_dir": "docs",
+      "base_url": "https://takubon0202.github.io/if-blog-auto"
+    }
   },
   "quality": {
     "min_quality_score": 75,

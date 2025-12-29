@@ -45,17 +45,18 @@ cp .env.example .env
 
 必要な環境変数:
 - `GOOGLE_AI_API_KEY`: Google AI Studio APIキー
-- `WORDPRESS_URL`: WordPressサイトURL（オプション）
-- `WORDPRESS_USER`: WordPressユーザー名（オプション）
-- `WORDPRESS_APP_PASSWORD`: WordPressアプリパスワード（オプション）
 
 ### 3. GitHub Secrets設定（GitHub Actions使用時）
 
 リポジトリ設定で以下のSecretsを追加:
 - `GOOGLE_AI_API_KEY`
-- `WORDPRESS_URL`
-- `WORDPRESS_USER`
-- `WORDPRESS_APP_PASSWORD`
+
+### 4. GitHub Pages設定
+
+1. リポジトリのSettings > Pages
+2. Source: `Deploy from a branch`
+3. Branch: `main` / `docs`
+4. 保存して数分待つと公開される
 
 ## 使い方
 
@@ -106,10 +107,44 @@ blog-automation/
 - **AI**: Gemini 3 Pro Preview, Deep Research Pro Preview
 - **言語**: Python 3.11+, JavaScript (Node.js 20+)
 - **検索**: Google Search Tool (Gemini Built-in)
-- **画像生成**: Imagen 3
+- **画像生成**: Gemini 2.5 Flash image (`gemini-2.5-flash-image`)
 - **Web Framework**: FastAPI
 - **CI/CD**: GitHub Actions
-- **CMS**: WordPress REST API / Notion API
+- **CMS**: GitHub Pages (Jekyll)
+- **公開URL**: https://takubon0202.github.io/if-blog-auto/
+
+## システムフロー
+
+```
+┌─────────────────┐
+│  1. Deep Research │  ← deep-research-pro-preview-12-2025
+│    (情報収集)     │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  2. Gemini 3 Pro │  ← gemini-3-pro-preview
+│   (ブログ生成)   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ 3. Gemini 2.5    │  ← gemini-2.5-flash-image
+│ Flash (画像生成) │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  4. SEO最適化   │  ← gemini-2.0-flash
+│   & レビュー    │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ 5. GitHub Pages │
+│     投稿        │
+└─────────────────┘
+```
 
 ## ライセンス
 

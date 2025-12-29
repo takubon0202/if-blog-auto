@@ -1,56 +1,156 @@
 # CMS Integration Skill
 
 ## 概要
-WordPress/Notion APIを使用したコンテンツ公開スキル
+ブログ記事をCMS（GitHub Pages）に投稿するスキル
 
-## WordPress REST API
+## 対応プラットフォーム
 
-### 認証設定
+### Primary: GitHub Pages (Jekyll)
+- **状態**: アクティブ
+- **URL**: https://takubon0202.github.io/if-blog-auto/
+- **方式**: Git push → 自動ビルド&デプロイ
+
+### Secondary: WordPress (無効)
+- **状態**: 無効化
+- **理由**: WordPressを使用しないため
+
+## GitHub Pages投稿フロー
+
+```
+記事データ受け取り
+    ↓
+Jekyll形式に変換
+    ↓
+画像をassets/imagesにコピー
+    ↓
+_posts/にMarkdownファイル作成
+    ↓
+git add → commit → push
+    ↓
+GitHub Actionsが自動ビルド
+    ↓
+公開URL生成
+```
+
+## 使用方法
+
+### Python API
 ```python
-import base64
+from scripts.publish import publish_to_github_pages
 
-credentials = f"{username}:{app_password}"
-token = base64.b64encode(credentials.encode()).decode()
-headers = {
-    "Authorization": f"Basic {token}",
-    "Content-Type": "application/json"
+article = {
+    "title": "記事タイトル",
+    "content": "記事本文（Markdown）",
+    "description": "メタディスクリプション",
+    "categories": ["カテゴリ"],
+    "tags": ["タグ1", "タグ2"],
+    "images": {
+        "hero": {
+            "images": [{"file_path": "/path/to/image.png"}]
+        }
+    }
 }
+
+result = await publish_to_github_pages(article)
+# {
+#     "status": "success",
+#     "post_path": "docs/_posts/2024-12-29-title.md",
+#     "public_url": "https://takubon0202.github.io/if-blog-auto/2024/12/29/title/"
+# }
 ```
 
-### 記事投稿
-```python
-import httpx
-
-async def publish_to_wordpress(article: dict) -> dict:
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{wp_url}/wp-json/wp/v2/posts",
-            headers=headers,
-            json={
-                "title": article["title"],
-                "content": article["content"],
-                "status": "draft",
-                "categories": article.get("categories", []),
-                "tags": article.get("tags", [])
-            }
-        )
-        return response.json()
+### コマンドライン
+```bash
+cd src/scripts
+python publish.py
 ```
 
-## Notion API
+## ファイル構造
 
-### ページ作成
-```python
-from notion_client import Client
-
-notion = Client(auth=os.environ["NOTION_TOKEN"])
-
-notion.pages.create(
-    parent={"database_id": database_id},
-    properties={
-        "Title": {"title": [{"text": {"content": title}}]},
-        "Status": {"select": {"name": "Draft"}}
-    },
-    children=blocks
-)
+### 記事ファイル
 ```
+docs/_posts/YYYY-MM-DD-{slug}.md
+```
+
+### 画像ファイル
+```
+docs/assets/images/{slug}_{filename}.png
+```
+
+## Front Matter自動生成
+```yaml
+---
+layout: post
+title: "記事タイトル"
+description: "メタディスクリプション"
+date: 2024-12-29 10:00:00 +0900
+categories: [カテゴリ]
+tags: [タグ1, タグ2]
+author: "AI Blog Generator"
+featured_image: "/if-blog-auto/assets/images/slug_hero.png"
+---
+```
+
+## Git操作
+
+### 自動コミット
+```bash
+git add docs/
+git commit -m "Add blog post: {title}"
+git push origin main
+```
+
+### コミットメッセージ規則
+- 新規投稿: `Add blog post: {title}`
+- 更新: `Update blog post: {title}`
+- 画像追加: `Add images for: {title}`
+
+## GitHub Pages設定
+
+### リポジトリ設定
+1. Settings > Pages
+2. Source: Deploy from a branch
+3. Branch: main
+4. Folder: /docs
+
+### 公開URL
+```
+https://takubon0202.github.io/if-blog-auto/
+```
+
+## エラーハンドリング
+
+| エラー | 対処 |
+|--------|------|
+| Git push失敗 | 認証確認、リトライ |
+| ファイル名重複 | タイムスタンプ追加 |
+| 画像なし | featured_image省略 |
+| 長いタイトル | 60文字で切り詰め |
+| 長い説明 | 120文字で切り詰め |
+
+## デプロイ確認
+
+### GitHub Actions
+```bash
+# 最新のビルド状態確認
+gh run list --workflow=pages-build-deployment --limit=1
+```
+
+### 手動確認
+1. GitHubリポジトリのActionsタブを確認
+2. pages-build-deploymentワークフローの状態確認
+3. 公開URLにアクセスして記事を確認
+
+## 制限事項
+- リポジトリ容量: 1GB以下推奨
+- 単一ファイル: 100MB以下
+- ビルド時間: 10分以内
+- デプロイ頻度: 10回/時間
+
+## 関連スキル
+- `github-pages.md`: GitHub Pages詳細操作
+- `jekyll-content.md`: Jekyllコンテンツ生成
+
+## 関連エージェント
+- `site-builder-agent.md`: サイト構造管理
+- `blog-publisher-agent.md`: 記事投稿処理

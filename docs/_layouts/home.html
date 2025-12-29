@@ -1,0 +1,50 @@
+---
+layout: default
+---
+<div class="home">
+  {{ content }}
+
+  <h2>最新の記事</h2>
+
+  <ul class="post-list">
+    {% for post in site.posts limit:10 %}
+      <li>
+        <article class="post-preview">
+          {% if post.featured_image %}
+          <div class="post-thumbnail">
+            <a href="{{ post.url | relative_url }}">
+              <img src="{{ post.featured_image | relative_url }}" alt="{{ post.title }}">
+            </a>
+          </div>
+          {% endif %}
+          <div class="post-info">
+            <h3>
+              <a href="{{ post.url | relative_url }}">{{ post.title | escape }}</a>
+            </h3>
+            <time datetime="{{ post.date | date_to_xmlschema }}">
+              {{ post.date | date: "%Y年%m月%d日" }}
+            </time>
+            {% if post.description %}
+              <p class="post-excerpt">{{ post.description | truncate: 150 }}</p>
+            {% elsif post.excerpt %}
+              <p class="post-excerpt">{{ post.excerpt | strip_html | truncate: 150 }}</p>
+            {% endif %}
+            {% if post.categories %}
+              <span class="post-categories">
+                {% for category in post.categories %}
+                  <span class="category">{{ category }}</span>
+                {% endfor %}
+              </span>
+            {% endif %}
+          </div>
+        </article>
+      </li>
+    {% endfor %}
+  </ul>
+
+  {% if site.posts.size > 10 %}
+  <p class="view-all">
+    <a href="{{ '/archive' | relative_url }}">すべての記事を見る &rarr;</a>
+  </p>
+  {% endif %}
+</div>

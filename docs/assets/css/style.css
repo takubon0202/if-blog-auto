@@ -1,0 +1,387 @@
+/* Base styles */
+:root {
+  --primary-color: #2563eb;
+  --secondary-color: #1e40af;
+  --text-color: #1f2937;
+  --text-light: #6b7280;
+  --background: #ffffff;
+  --background-alt: #f9fafb;
+  --border-color: #e5e7eb;
+  --success-color: #10b981;
+  --max-width: 1200px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.7;
+  color: var(--text-color);
+  background-color: var(--background);
+}
+
+.wrapper {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* Header */
+.site-header {
+  background: var(--background);
+  border-bottom: 1px solid var(--border-color);
+  padding: 1rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.site-header .wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.site-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.site-nav a {
+  color: var(--text-color);
+  text-decoration: none;
+  margin-left: 1.5rem;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.site-nav a:hover {
+  color: var(--primary-color);
+}
+
+/* Main content */
+.page-content {
+  padding: 3rem 0;
+  min-height: calc(100vh - 200px);
+}
+
+/* Home page */
+.home h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.home h2 {
+  font-size: 1.75rem;
+  margin-top: 3rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--primary-color);
+}
+
+/* Post list */
+.post-list {
+  list-style: none;
+}
+
+.post-list li {
+  margin-bottom: 2rem;
+}
+
+.post-preview {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: var(--background-alt);
+  border-radius: 0.5rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.post-preview:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.post-thumbnail {
+  flex-shrink: 0;
+  width: 200px;
+}
+
+.post-thumbnail img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 0.375rem;
+}
+
+.post-info {
+  flex: 1;
+}
+
+.post-info h3 {
+  margin-bottom: 0.5rem;
+}
+
+.post-info h3 a {
+  color: var(--text-color);
+  text-decoration: none;
+}
+
+.post-info h3 a:hover {
+  color: var(--primary-color);
+}
+
+.post-info time {
+  color: var(--text-light);
+  font-size: 0.875rem;
+}
+
+.post-excerpt {
+  margin-top: 0.75rem;
+  color: var(--text-light);
+}
+
+.post-categories {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.category, .tag {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: var(--primary-color);
+  color: white;
+  font-size: 0.75rem;
+  border-radius: 1rem;
+}
+
+.tag {
+  background: var(--text-light);
+}
+
+/* Post page */
+.post-header {
+  margin-bottom: 2rem;
+}
+
+.post-title {
+  font-size: 2.5rem;
+  line-height: 1.2;
+  margin-bottom: 1rem;
+}
+
+.post-meta {
+  color: var(--text-light);
+  font-size: 0.875rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
+.post-featured-image {
+  margin-top: 1.5rem;
+}
+
+.post-featured-image img {
+  width: 100%;
+  max-height: 400px;
+  object-fit: cover;
+  border-radius: 0.5rem;
+}
+
+.post-content {
+  font-size: 1.125rem;
+}
+
+.post-content h2 {
+  font-size: 1.75rem;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.post-content h3 {
+  font-size: 1.375rem;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.post-content p {
+  margin-bottom: 1.5rem;
+}
+
+.post-content ul, .post-content ol {
+  margin-bottom: 1.5rem;
+  padding-left: 1.5rem;
+}
+
+.post-content li {
+  margin-bottom: 0.5rem;
+}
+
+.post-content blockquote {
+  border-left: 4px solid var(--primary-color);
+  padding-left: 1rem;
+  margin: 1.5rem 0;
+  color: var(--text-light);
+  font-style: italic;
+}
+
+.post-content code {
+  background: var(--background-alt);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.9em;
+}
+
+.post-content pre {
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+}
+
+.post-content pre code {
+  background: none;
+  padding: 0;
+}
+
+.post-content img {
+  max-width: 100%;
+  border-radius: 0.5rem;
+  margin: 1.5rem 0;
+}
+
+.post-content a {
+  color: var(--primary-color);
+}
+
+.post-tags {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.post-footer {
+  margin-top: 2rem;
+  padding: 1rem;
+  background: var(--background-alt);
+  border-radius: 0.5rem;
+}
+
+.post-disclaimer {
+  color: var(--text-light);
+  font-size: 0.875rem;
+}
+
+/* Post navigation */
+.post-navigation {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.post-navigation a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+/* Footer */
+.site-footer {
+  background: var(--background-alt);
+  padding: 2rem 0;
+  margin-top: 3rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.site-footer p {
+  color: var(--text-light);
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.site-footer a {
+  color: var(--primary-color);
+}
+
+/* Categories page */
+.category-list {
+  list-style: none;
+}
+
+.category-list li {
+  margin-bottom: 1rem;
+}
+
+.category-list a {
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  background: var(--background-alt);
+  border-radius: 0.5rem;
+  text-decoration: none;
+  color: var(--text-color);
+  transition: background 0.2s;
+}
+
+.category-list a:hover {
+  background: var(--border-color);
+}
+
+.category-count {
+  color: var(--text-light);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .site-header .wrapper {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .site-nav a {
+    margin-left: 0;
+    margin-right: 1rem;
+  }
+
+  .post-preview {
+    flex-direction: column;
+  }
+
+  .post-thumbnail {
+    width: 100%;
+  }
+
+  .post-thumbnail img {
+    height: 200px;
+  }
+
+  .post-title {
+    font-size: 1.75rem;
+  }
+}
+
+/* View all link */
+.view-all {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.view-all a {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 500;
+}

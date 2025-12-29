@@ -15,8 +15,8 @@ on:
         required: false
         type: boolean
         default: true
-      auto_publish:
-        description: '自動公開'
+      skip_images:
+        description: '画像生成をスキップ'
         required: false
         type: boolean
         default: false
@@ -29,6 +29,11 @@ jobs:
   generate-blog:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
 
     steps:
       - name: Checkout repository
@@ -78,72 +83,33 @@ jobs:
             " >> $GITHUB_OUTPUT
           fi
 
-      - name: Run Deep Research
-        if: ${{ github.event.inputs.use_deep_research != 'false' }}
+      - name: Generate blog post
         env:
           GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
         run: |
-          python src/scripts/research.py \
+          cd src/scripts
+          python main.py \
             --topic "${{ steps.topic.outputs.topic }}" \
-            --use-deep-research
+            ${{ github.event.inputs.use_deep_research != 'false' && '--use-deep-research' || '' }} \
+            ${{ github.event.inputs.skip_images == 'true' && '--skip-images' || '' }} \
+            --publish
 
-      - name: Run Quick Research (fallback)
-        if: ${{ github.event.inputs.use_deep_research == 'false' }}
-        env:
-          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
+      - name: Commit and push generated content
         run: |
-          python src/scripts/research.py \
-            --topic "${{ steps.topic.outputs.topic }}" \
-            --use-google-search
-
-      - name: Generate blog content
-        env:
-          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
-        run: |
-          python src/scripts/generate_content.py \
-            --topic "${{ steps.topic.outputs.topic }}"
-
-      - name: Generate images
-        env:
-          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
-        run: |
-          python src/scripts/generate_image.py
-
-      - name: SEO optimization
-        env:
-          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
-        run: |
-          python src/scripts/seo_optimize.py
-
-      - name: Review and finalize
-        env:
-          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
-        run: |
-          python src/scripts/review.py
-
-      - name: Publish to CMS
-        if: ${{ github.event.inputs.auto_publish == 'true' }}
-        env:
-          WORDPRESS_URL: ${{ secrets.WORDPRESS_URL }}
-          WORDPRESS_USER: ${{ secrets.WORDPRESS_USER }}
-          WORDPRESS_APP_PASSWORD: ${{ secrets.WORDPRESS_APP_PASSWORD }}
-        run: |
-          python src/scripts/publish.py
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add docs/ output/
+          git diff --staged --quiet || git commit -m "Auto-generated: ${{ steps.topic.outputs.topic }} - $(date +%Y-%m-%d)"
+          git push
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: generated-blog-${{ steps.topic.outputs.topic }}-${{ github.run_number }}
-          path: output/
+          path: |
+            output/
+            docs/_posts/
           retention-days: 30
-
-      - name: Commit generated content
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add output/
-          git diff --staged --quiet || git commit -m "Auto-generated: ${{ steps.topic.outputs.topic }} - $(date +%Y-%m-%d)"
-          git push
 
       - name: Create summary
         run: |
@@ -151,4 +117,42 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Topic**: ${{ steps.topic.outputs.topic }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Deep Research**: ${{ github.event.inputs.use_deep_research != 'false' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Auto Publish**: ${{ github.event.inputs.auto_publish == 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Skip Images**: ${{ github.event.inputs.skip_images == 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Published URL" >> $GITHUB_STEP_SUMMARY
+          echo "https://takubon0202.github.io/if-blog-auto/" >> $GITHUB_STEP_SUMMARY
+
+  # GitHub Pagesへのデプロイ（オプション）
+  deploy-pages:
+    needs: generate-blog
+    runs-on: ubuntu-latest
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main  # 最新のコミットを取得
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./docs
+          destination: ./_site
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

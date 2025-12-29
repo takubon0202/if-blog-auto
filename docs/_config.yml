@@ -1,0 +1,65 @@
+# Jekyll Configuration for GitHub Pages Blog
+title: if(塾) Blog
+description: AI・教育・心理学に関する最新情報をお届けするブログ
+url: ""
+baseurl: "/if-blog-auto"
+
+# Author
+author:
+  name: if(塾)
+  email: ""
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+permalink: /:year/:month/:day/:title/
+
+# Theme
+remote_theme: jekyll/minima
+
+# Minima theme settings
+minima:
+  skin: auto
+  date_format: "%Y年%m月%d日"
+  social_links:
+    - { platform: github, user_url: "https://github.com/takubon0202" }
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+  - jekyll-sitemap
+  - jekyll-remote-theme
+
+# Collections
+collections:
+  posts:
+    output: true
+    permalink: /posts/:year/:month/:day/:title/
+
+# Defaults
+defaults:
+  - scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: "post"
+      author: "AI Blog Generator"
+
+# Exclude from build
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
+
+# Japanese language settings
+lang: ja
+
+# Pagination
+paginate: 10
+paginate_path: "/page/:num/"
+
+# SEO
+twitter:
+  card: summary_large_image

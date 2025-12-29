@@ -36,12 +36,22 @@ class GenerationResult:
     grounding_sources: Optional[List[Dict]] = None
 
 
+@dataclass
+class ImageGenerationResult:
+    """画像生成結果のデータクラス"""
+    images: List[bytes]
+    model: str
+    prompt: str
+    text_response: Optional[str] = None
+
+
 class GeminiClient:
     """Gemini API統合クライアント"""
 
     # モデル定数
     MODEL_PRO = "gemini-3-pro-preview"
     MODEL_FLASH = "gemini-2.0-flash"
+    MODEL_IMAGE = "gemini-2.5-flash-image"
     AGENT_DEEP_RESEARCH = "deep-research-pro-preview-12-2025"
 
     def __init__(self, api_key: Optional[str] = None):
@@ -236,3 +246,95 @@ class GeminiClient:
             model=model,
             enable_search=True
         )
+
+    async def generate_image(
+        self,
+        prompt: str,
+        model: str = MODEL_IMAGE,
+        num_images: int = 1
+    ) -> ImageGenerationResult:
+        """
+        Gemini 2.5 Flash imageで画像を生成する
+
+        Args:
+            prompt: 画像生成プロンプト
+            model: 使用モデル（デフォルト: gemini-2.5-flash-image）
+            num_images: 生成画像数
+
+        Returns:
+            ImageGenerationResult: 生成結果（画像バイナリデータのリスト）
+        """
+        logger.info(f"Generating image with prompt: {prompt[:50]}...")
+
+        try:
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
+                model=model,
+                contents=prompt
+            )
+
+            images = []
+            text_response = None
+
+            # レスポンスからの画像データ抽出
+            if response.candidates and len(response.candidates) > 0:
+                parts = response.candidates[0].content.parts
+                for part in parts:
+                    # テキストレスポンスの場合
+                    if hasattr(part, 'text') and part.text:
+                        text_response = part.text
+                    # 画像データの場合（inlineData）
+                    elif hasattr(part, 'inline_data') and part.inline_data:
+                        import base64
+                        image_data = base64.b64decode(part.inline_data.data)
+                        images.append(image_data)
+
+            logger.info(f"Generated {len(images)} image(s)")
+
+            return ImageGenerationResult(
+                images=images,
+                model=model,
+                prompt=prompt,
+                text_response=text_response
+            )
+
+        except Exception as e:
+            logger.error(f"Image generation failed: {e}")
+            raise
+
+    async def generate_blog_image(
+        self,
+        title: str,
+        summary: str,
+        style: str = "modern, minimalist, professional",
+        image_type: str = "hero"
+    ) -> ImageGenerationResult:
+        """
+        ブログ記事用の画像を生成する
+
+        Args:
+            title: 記事タイトル
+            summary: 記事概要
+            style: 画像スタイル
+            image_type: 画像タイプ（hero, section, thumbnail）
+
+        Returns:
+            ImageGenerationResult: 生成結果
+        """
+        # ブログ用に最適化されたプロンプトを構築
+        prompt = f"""Create a {image_type} image for a blog article.
+
+Article Title: {title}
+Article Summary: {summary}
+
+Style Requirements:
+- {style}
+- Clean and professional design
+- Suitable for blog featured image
+- No text or watermarks in the image
+- High quality, visually appealing
+- Abstract or conceptual representation of the topic
+
+Generate a visually stunning image that captures the essence of this article."""
+
+        return await self.generate_image(prompt)
