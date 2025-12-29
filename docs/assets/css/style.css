@@ -385,3 +385,79 @@ body {
   text-decoration: none;
   font-weight: 500;
 }
+
+/* Archive page */
+.archive-year {
+  font-size: 1.5rem;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--primary-color);
+}
+
+.archive-list {
+  list-style: none;
+}
+
+.archive-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.archive-item time {
+  color: var(--text-light);
+  font-size: 0.875rem;
+  min-width: 80px;
+}
+
+.archive-item a {
+  color: var(--text-color);
+  text-decoration: none;
+  flex: 1;
+}
+
+.archive-item a:hover {
+  color: var(--primary-color);
+}
+
+.archive-category {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--background-alt);
+  border-radius: 0.25rem;
+  color: var(--text-light);
+}
+
+/* About page table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+}
+
+th, td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+th {
+  background: var(--background-alt);
+  font-weight: 600;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary-color: #60a5fa;
+    --secondary-color: #3b82f6;
+    --text-color: #f9fafb;
+    --text-light: #9ca3af;
+    --background: #111827;
+    --background-alt: #1f2937;
+    --border-color: #374151;
+  }
+}
