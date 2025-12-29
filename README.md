@@ -513,15 +513,15 @@ google.genai._interactions.BadRequestError: Error code: 400 - {'error': {'messag
    - 原因: `google-genai`が0.5.0等の古いバージョン
    - 解決: `pip install google-genai>=1.56.0` でアップグレード
 
-2. **`store=True`パラメータの不足**
-   - 原因: `background=True`使用時に`store=True`が必須
-   - 解決: `interactions.create()`に`store=True`を追加
+2. **無効なパラメータの指定**
+   - 原因: `interactions.create()`にサポートされていないパラメータを指定
+   - 解決: 公式ドキュメントに従ったパラメータのみを使用
    ```python
+   # 正しい使用方法（公式ドキュメント準拠）
    interaction = client.interactions.create(
        input=query,
        agent="deep-research-pro-preview-12-2025",
-       background=True,
-       store=True  # 必須パラメータ
+       background=True
    )
    ```
 

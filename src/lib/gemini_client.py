@@ -153,13 +153,12 @@ class GeminiClient:
 
         try:
             # リサーチ開始（非同期）
-            # 重要: background=True の場合、store=True が必須
+            # background=True でバックグラウンド実行（エージェントのみ対応）
             interaction = await asyncio.to_thread(
                 self.client.interactions.create,
                 input=query,
                 agent=self.AGENT_DEEP_RESEARCH,
-                background=True,
-                store=True  # background実行時は必須パラメータ
+                background=True
             )
 
             interaction_id = interaction.id

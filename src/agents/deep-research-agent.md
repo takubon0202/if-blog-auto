@@ -69,7 +69,7 @@ result = await client.deep_research(
     query=research_query,  # 日付制約付き
     timeout_seconds=300
 )
-# 内部でstore=Trueが自動設定される（background=True使用時に必須）
+# 内部でbackground=Trueが設定され、バックグラウンド実行される
 ```
 
 ### Step 4: 結果の構造化とソース整理
