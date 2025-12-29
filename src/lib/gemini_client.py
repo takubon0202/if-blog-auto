@@ -65,6 +65,8 @@ class GeminiClient:
             raise ValueError("GOOGLE_AI_API_KEY is required")
 
         self.client = genai.Client(api_key=self.api_key)
+        # 非同期クライアント（Interactions API用）
+        self.aio = self.client.aio
         logger.info("GeminiClient initialized")
 
     async def generate_content(
@@ -152,10 +154,9 @@ class GeminiClient:
         logger.info(f"Starting Deep Research: {query[:50]}...")
 
         try:
-            # リサーチ開始（非同期）
-            # background=True でバックグラウンド実行（エージェントのみ対応）
-            interaction = await asyncio.to_thread(
-                self.client.interactions.create,
+            # 非同期クライアント(client.aio)を使用してInteractions APIを呼び出し
+            # 注意: asyncio.to_thread()ではなく、ネイティブの非同期APIを使用
+            interaction = await self.aio.interactions.create(
                 input=query,
                 agent=self.AGENT_DEEP_RESEARCH,
                 background=True
@@ -167,10 +168,7 @@ class GeminiClient:
             # ポーリングで完了を待機
             elapsed = 0
             while elapsed < timeout_seconds:
-                result = await asyncio.to_thread(
-                    self.client.interactions.get,
-                    interaction_id
-                )
+                result = await self.aio.interactions.get(interaction_id)
 
                 if result.status == "completed":
                     # 最新の出力を取得
@@ -210,6 +208,11 @@ class GeminiClient:
 
         except Exception as e:
             logger.error(f"Deep Research error: {e}")
+            # 詳細なエラー情報をログ出力
+            if hasattr(e, 'response'):
+                logger.error(f"Response details: {e.response}")
+            if hasattr(e, 'status_code'):
+                logger.error(f"Status code: {e.status_code}")
             raise
 
     def _extract_sources(self, result) -> List[Dict[str, str]]:

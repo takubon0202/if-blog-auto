@@ -69,7 +69,8 @@ result = await client.deep_research(
     query=research_query,  # 日付制約付き
     timeout_seconds=300
 )
-# 内部でbackground=Trueが設定され、バックグラウンド実行される
+# 内部でclient.aio（非同期クライアント）を使用してInteractions APIを呼び出し
+# background=Trueでバックグラウンド実行される
 ```
 
 ### Step 4: 結果の構造化とソース整理

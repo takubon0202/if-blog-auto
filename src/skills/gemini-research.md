@@ -61,17 +61,17 @@ research_query = f"""
 - 最低5つ以上の信頼できるソースを使用
 """
 
-# 非同期リサーチの実行
-# background=True でバックグラウンド実行（エージェントのみ対応）
-interaction = client.interactions.create(
+# 非同期リサーチの実行（client.aioを使用）
+# 重要: asyncio.to_thread()ではなく、ネイティブの非同期クライアントを使用
+interaction = await client.aio.interactions.create(
     input=research_query,
     agent="deep-research-pro-preview-12-2025",
     background=True
 )
 
-# ポーリングで結果取得
+# ポーリングで結果取得（非同期）
 while True:
-    result = client.interactions.get(interaction.id)
+    result = await client.aio.interactions.get(interaction.id)
     if result.status == "completed":
         return result.outputs[-1].text
     elif result.status == "failed":
