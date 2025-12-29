@@ -9,7 +9,7 @@
 ## 処理フロー
 ```
 1. 記事情報を受け取る
-2. 画像生成用プロンプトを最適化
+2. デザインガイドラインに基づきプロンプトを最適化
 3. Gemini 2.5 Flash imageで画像生成
 4. 画像データをBase64から変換して保存
 5. 生成結果を返却
@@ -25,11 +25,48 @@
     "sections": ["セクション画像プロンプト1"]
   },
   "style_guide": {
-    "color_scheme": "blue_gradient",
-    "style": "modern_minimalist"
+    "color_scheme": "professional_blue",
+    "style": "clean_minimal"
   }
 }
 ```
+
+## デザインガイドライン（必須遵守）
+
+### 禁止カラー
+- **紫色系の禁止**: purple, violet, lavender, magenta は使用しない
+- **派手な色の禁止**: ネオンカラー、蛍光色は避ける
+
+### 推奨カラー
+```
+Primary: Deep Navy (#1a1a2e) - 信頼性・知性
+Accent: Professional Blue (#0f3460) - 落ち着き
+Background: White/Light Gray (#f7fafc) - クリーンさ
+Text: Dark Gray (#2d3748) - 読みやすさ
+```
+
+### カテゴリ別推奨カラー
+- 心理学: Blue (#2b6cb0)
+- 教育: Green (#2f855a)
+- 起業: Orange (#c05621)
+- 投資: Brown (#744210)
+- AI: Navy (#1a365d)
+- 不登校: Teal (#285e61)
+- 発達障害: Indigo (#2c5282)
+
+### 画像スタイル
+- **クリーンでミニマル**: 余計な装飾を避ける
+- **プロフェッショナル**: ビジネスに適した雰囲気
+- **抽象的・概念的**: 具体的な人物は避ける
+- **明るく読みやすい**: テキストが映える背景
+
+### 避けるべき要素
+1. 派手なグラデーション背景
+2. 紫系の配色
+3. 過度な装飾やアイコン
+4. 人物の顔（著作権/プライバシー）
+5. テキストを含む画像
+6. 著作物・ブランドロゴ
 
 ## 出力
 ```json
@@ -61,6 +98,27 @@
 | OGP画像 | 1200x630 | 1.91:1 | PNG |
 | 本文画像 | 800x450 | 16:9 | PNG/WebP |
 
+## プロンプトテンプレート
+
+### ヒーロー画像
+```
+A clean, professional illustration for a blog article about [TOPIC].
+Style: minimal, modern, professional
+Colors: deep navy blue (#1a1a2e), light gray background (#f7fafc), accent blue (#0f3460)
+Mood: trustworthy, intelligent, calm
+Composition: centered subject, clean background, suitable for text overlay
+Avoid: purple colors, neon colors, text, human faces, cluttered design
+```
+
+### セクション画像
+```
+A simple, abstract illustration representing [CONCEPT].
+Style: flat design, minimal, clean lines
+Colors: [CATEGORY_COLOR], white background
+Mood: educational, approachable
+Avoid: purple colors, complex patterns, text, faces
+```
+
 ## API呼び出しパターン
 ```python
 from lib.gemini_client import GeminiClient
@@ -71,30 +129,14 @@ client = GeminiClient()
 result = await client.generate_blog_image(
     title="AIツールの最新動向2025",
     summary="2025年のAIツールトレンドを詳しく解説",
-    style="modern, minimalist, professional",
+    style="clean, minimal, professional, navy blue accent",
     image_type="hero"
 )
-
-# 汎用画像生成
-result = await client.generate_image(
-    prompt="A modern tech workspace with futuristic elements",
-    model="gemini-2.5-flash-image"
-)
 ```
 
-## プロンプト最適化ルール
-```
-1. 英語で記述する
-2. 具体的で明確な描写
-3. スタイル指定を含める
-4. 避けるべき要素を明記:
-   - 人物の顔（著作権/プライバシー）
-   - テキスト（読めない可能性）
-   - 著作物・ブランドロゴ
-5. ブログに適した構図を指定
-```
-
-## エラーハンドリング
-- API エラー時はログに記録
-- 画像生成失敗時は status: "error" を返却
-- リトライロジックは上位レイヤーで実装
+## 品質チェックリスト
+- [ ] 紫色系が含まれていないか
+- [ ] 派手すぎないか
+- [ ] プロフェッショナルな雰囲気か
+- [ ] テキストが映える背景か
+- [ ] 記事内容と関連しているか

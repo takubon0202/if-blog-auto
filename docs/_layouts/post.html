@@ -3,30 +3,24 @@ layout: default
 ---
 <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
   <header class="post-header">
-    <h1 class="post-title" itemprop="name headline">{{ page.title | escape }}</h1>
     <div class="post-meta">
       <time datetime="{{ page.date | date_to_xmlschema }}" itemprop="datePublished">
-        {{ page.date | date: "%Y年%m月%d日" }}
+        {{ page.date | date: "%Y.%m.%d" }}
       </time>
-      {% if page.author %}
-        <span itemprop="author" itemscope itemtype="http://schema.org/Person">
-          <span itemprop="name">{{ page.author }}</span>
-        </span>
-      {% endif %}
       {% if page.categories %}
-        <span class="post-categories">
-          {% for category in page.categories %}
-            <a href="{{ site.baseurl }}/categories/#{{ category | slugify }}">{{ category }}</a>
-          {% endfor %}
-        </span>
+        {% for category in page.categories %}
+          <span class="post-card-category">{{ category }}</span>
+        {% endfor %}
       {% endif %}
     </div>
-    {% if page.featured_image %}
-    <div class="post-featured-image">
-      <img src="{{ page.featured_image | relative_url }}" alt="{{ page.title }}" itemprop="image">
-    </div>
-    {% endif %}
+    <h1 class="post-title" itemprop="name headline">{{ page.title | escape }}</h1>
   </header>
+
+  {% if page.featured_image %}
+  <div class="post-featured-image">
+    <img src="{{ page.featured_image | relative_url }}" alt="{{ page.title }}" itemprop="image">
+  </div>
+  {% endif %}
 
   <div class="post-content" itemprop="articleBody">
     {{ content }}
@@ -34,25 +28,30 @@ layout: default
 
   {% if page.tags %}
   <div class="post-tags">
-    <strong>タグ:</strong>
-    {% for tag in page.tags %}
-      <span class="tag">{{ tag }}</span>
-    {% endfor %}
+    <ul class="post-tags-list">
+      {% for tag in page.tags %}
+        <li class="tag">{{ tag }}</li>
+      {% endfor %}
+    </ul>
   </div>
   {% endif %}
 
   <footer class="post-footer">
     <p class="post-disclaimer">
-      <em>この記事はAIによって生成されました。内容の正確性については情報源をご確認ください。</em>
+      この記事はAIによって生成されました。内容の正確性については引用元をご確認ください。
     </p>
   </footer>
 </article>
 
 <nav class="post-navigation">
   {% if page.previous.url %}
-    <a class="prev" href="{{ page.previous.url | relative_url }}">&laquo; {{ page.previous.title }}</a>
+    <a class="prev" href="{{ page.previous.url | relative_url }}">前の記事</a>
+  {% else %}
+    <span></span>
   {% endif %}
   {% if page.next.url %}
-    <a class="next" href="{{ page.next.url | relative_url }}">{{ page.next.title }} &raquo;</a>
+    <a class="next" href="{{ page.next.url | relative_url }}">次の記事</a>
+  {% else %}
+    <span></span>
   {% endif %}
 </nav>

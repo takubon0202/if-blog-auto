@@ -1,35 +1,23 @@
-# Jekyll Configuration for GitHub Pages Blog
+# Jekyll Configuration for if(塾) Blog
 title: if(塾) Blog
-description: AI・教育・心理学に関する最新情報をお届けするブログ
-url: ""
+description: 教育・心理学・テクノロジーに関する最新情報を、科学的根拠に基づいてお届けします。
+url: "https://takubon0202.github.io"
 baseurl: "/if-blog-auto"
 
 # Author
 author:
   name: if(塾)
-  email: ""
 
 # Build settings
 markdown: kramdown
 highlighter: rouge
 permalink: /:year/:month/:day/:title/
 
-# Theme
-remote_theme: jekyll/minima
-
-# Minima theme settings
-minima:
-  skin: auto
-  date_format: "%Y年%m月%d日"
-  social_links:
-    - { platform: github, user_url: "https://github.com/takubon0202" }
-
-# Plugins
+# Plugins (GitHub Pages supported)
 plugins:
   - jekyll-feed
   - jekyll-seo-tag
   - jekyll-sitemap
-  - jekyll-remote-theme
 
 # Collections
 collections:
@@ -62,4 +50,4 @@ paginate_path: "/page/:num/"
 
 # SEO
 twitter:
-  card: summary_large_image
+  card: summary

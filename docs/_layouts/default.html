@@ -9,6 +9,11 @@
   <!-- SEO -->
   {% seo %}
 
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+
   <!-- Styles -->
   <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
 
@@ -36,8 +41,8 @@
 
   <footer class="site-footer">
     <div class="wrapper">
-      <p>&copy; {{ site.time | date: '%Y' }} {{ site.title }}. AI Generated Content.</p>
-      <p>Powered by <a href="https://jekyllrb.com/">Jekyll</a> & <a href="https://pages.github.com/">GitHub Pages</a></p>
+      <p>{{ site.time | date: '%Y' }} {{ site.title }}</p>
+      <p>Powered by <a href="https://pages.github.com/">GitHub Pages</a></p>
     </div>
   </footer>
 </body>
