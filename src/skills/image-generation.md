@@ -7,17 +7,32 @@ Gemini 2.5 Flash imageを使用した画像生成スキル
 - **モデル名**: `gemini-2.5-flash-image`
 - **API**: Google Generative AI (genai)
 
+## 重要な設定（必須）
+
+### response_modalities の指定
+画像を生成するには、必ず `response_modalities=["IMAGE"]` を設定する必要があります。
+この設定がないと、テキストのみが返され画像が生成されません。
+
 ## API設定
 ```python
 from google import genai
+from google.genai import types
 import base64
 
 client = genai.Client(api_key=api_key)
 
-# 画像生成
+# 画像生成（response_modalities が必須）
+config = types.GenerateContentConfig(
+    response_modalities=["IMAGE"],  # 必須：画像出力を有効化
+    temperature=1.0,
+    top_p=0.95,
+    top_k=40
+)
+
 response = client.models.generate_content(
     model="gemini-2.5-flash-image",
-    contents=prompt
+    contents=prompt,
+    config=config
 )
 
 # レスポンス処理
@@ -26,10 +41,20 @@ for part in response.candidates[0].content.parts:
         # テキストレスポンス
         print(part.text)
     elif hasattr(part, 'inline_data') and part.inline_data:
-        # 画像データ（Base64）
-        image_data = base64.b64decode(part.inline_data.data)
-        with open("output.png", "wb") as f:
-            f.write(image_data)
+        # 画像データ（bytesまたはBase64）
+        data = part.inline_data.data
+        if isinstance(data, str):
+            image_data = base64.b64decode(data)
+        else:
+            image_data = data
+
+        # 画像サイズを検証（最低1KB以上）
+        if len(image_data) > 1024:
+            with open("output.png", "wb") as f:
+                f.write(image_data)
+            print(f"Image saved: {len(image_data)} bytes")
+        else:
+            print(f"Warning: Image too small ({len(image_data)} bytes)")
 ```
 
 ## GeminiClientでの使用

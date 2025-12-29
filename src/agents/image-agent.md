@@ -6,13 +6,36 @@
 ## 使用API
 - **Primary**: Gemini 2.5 Flash image (`gemini-2.5-flash-image`)
 
+## 重要な設定（必須遵守）
+
+### response_modalities の指定
+画像を生成するには、必ず `response_modalities=["IMAGE"]` を設定する必要があります。
+この設定がないと、テキストのみが返され画像が生成されません。
+
+```python
+from google.genai import types
+
+config = types.GenerateContentConfig(
+    response_modalities=["IMAGE"],  # 必須
+    temperature=1.0,
+    top_p=0.95,
+    top_k=40
+)
+```
+
+### 画像検証ルール
+- 最低サイズ: 10KB以上（10KB未満は破損と判断）
+- PNGヘッダー検証: `\x89PNG\r\n\x1a\n`
+
 ## 処理フロー
 ```
 1. 記事情報を受け取る
 2. デザインガイドラインに基づきプロンプトを最適化
-3. Gemini 2.5 Flash imageで画像生成
-4. 画像データをBase64から変換して保存
-5. 生成結果を返却
+3. response_modalities=["IMAGE"] を設定
+4. Gemini 2.5 Flash imageで画像生成
+5. 画像データを検証（サイズ・ヘッダー）
+6. 有効な画像のみを保存
+7. 生成結果を返却
 ```
 
 ## 入力

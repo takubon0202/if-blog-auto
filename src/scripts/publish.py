@@ -83,12 +83,13 @@ class GitHubPagesPublisher:
         return "\n".join(lines)
 
     def copy_images(self, article: Dict, slug: str) -> Optional[str]:
-        """画像をdocs/assets/imagesにコピー"""
+        """画像をdocs/assets/imagesにコピー（検証付き）"""
         images = article.get("images", {})
         hero = images.get("hero", {})
         hero_images = hero.get("images", [])
 
         if not hero_images:
+            logger.info("No hero images available")
             return None
 
         # 最初の画像をコピー
@@ -99,12 +100,27 @@ class GitHubPagesPublisher:
             logger.warning(f"Image not found: {src_path}")
             return None
 
+        # 画像サイズを検証（最低10KB以上で正常な画像と判断）
+        MIN_IMAGE_SIZE = 10 * 1024  # 10KB
+        file_size = src_path.stat().st_size
+        if file_size < MIN_IMAGE_SIZE:
+            logger.warning(f"Image too small ({file_size} bytes), likely corrupted: {src_path}")
+            return None
+
+        # PNGヘッダーの検証
+        with open(src_path, 'rb') as f:
+            header = f.read(8)
+            png_signature = b'\x89PNG\r\n\x1a\n'
+            if header != png_signature:
+                logger.warning(f"Invalid PNG file (wrong header): {src_path}")
+                return None
+
         # コピー先
         filename = f"{slug}_{src_path.name}"
         dest_path = self.images_dir / filename
 
         shutil.copy(src_path, dest_path)
-        logger.info(f"Copied image: {dest_path}")
+        logger.info(f"Copied valid image ({file_size} bytes): {dest_path}")
 
         # Jekyll用の相対パス（relative_urlフィルタで変換されるためbaseurl不要）
         return f"/assets/images/{filename}"

@@ -275,10 +275,19 @@ class GeminiClient:
         logger.info(f"Generating image with prompt: {prompt[:50]}...")
 
         try:
+            # 画像生成用の設定（response_modalitiesが必須）
+            config = types.GenerateContentConfig(
+                response_modalities=["IMAGE"],
+                temperature=1.0,
+                top_p=0.95,
+                top_k=40
+            )
+
             response = await asyncio.to_thread(
                 self.client.models.generate_content,
                 model=model,
-                contents=prompt
+                contents=prompt,
+                config=config
             )
 
             images = []
@@ -293,11 +302,27 @@ class GeminiClient:
                         text_response = part.text
                     # 画像データの場合（inlineData）
                     elif hasattr(part, 'inline_data') and part.inline_data:
-                        import base64
-                        image_data = base64.b64decode(part.inline_data.data)
-                        images.append(image_data)
+                        # inline_data.dataはbytes型の場合とbase64文字列の場合がある
+                        data = part.inline_data.data
+                        if isinstance(data, str):
+                            import base64
+                            image_data = base64.b64decode(data)
+                        else:
+                            image_data = data
 
-            logger.info(f"Generated {len(images)} image(s)")
+                        # 画像サイズの検証（最低1KB以上）
+                        if len(image_data) > 1024:
+                            images.append(image_data)
+                            logger.info(f"Image extracted: {len(image_data)} bytes")
+                        else:
+                            logger.warning(f"Image data too small: {len(image_data)} bytes, skipping")
+
+            if not images:
+                logger.warning("No valid images generated, response may contain only text")
+                if text_response:
+                    logger.info(f"Text response: {text_response[:200]}...")
+
+            logger.info(f"Generated {len(images)} valid image(s)")
 
             return ImageGenerationResult(
                 images=images,
