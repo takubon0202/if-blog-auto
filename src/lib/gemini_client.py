@@ -159,7 +159,8 @@ class GeminiClient:
             interaction = await self.aio.interactions.create(
                 input=query,
                 agent=self.AGENT_DEEP_RESEARCH,
-                background=True
+                background=True,
+                store=True  # background=True requires store=True
             )
 
             interaction_id = interaction.id

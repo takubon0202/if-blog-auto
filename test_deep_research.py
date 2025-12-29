@@ -65,11 +65,12 @@ async def test_interactions_raw():
         "x-goog-api-key": api_key
     }
 
-    # 最小限のリクエスト
+    # 最小限のリクエスト（background=True requires store=True）
     data = {
         "input": "What is 2+2?",
         "agent": "deep-research-pro-preview-12-2025",
-        "background": True
+        "background": True,
+        "store": True
     }
 
     print(f"Request URL: {url}")
@@ -151,7 +152,8 @@ async def test_sdk():
             interaction = client.interactions.create(
                 input="What is 2+2?",
                 agent="deep-research-pro-preview-12-2025",
-                background=True
+                background=True,
+                store=True  # background=True requires store=True
             )
             print(f"SUCCESS (sync): Interaction ID = {interaction.id}")
             return True
@@ -163,7 +165,8 @@ async def test_sdk():
                 interaction = await client.aio.interactions.create(
                     input="What is 2+2?",
                     agent="deep-research-pro-preview-12-2025",
-                    background=True
+                    background=True,
+                    store=True  # background=True requires store=True
                 )
                 print(f"SUCCESS (async): Interaction ID = {interaction.id}")
                 return True
