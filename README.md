@@ -8,12 +8,19 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 
 ## 最新アップデート (2025-12-29)
 
+### 新機能
 - **7日以内最新情報限定**: Deep Researchで必ず7日以内の最新情報のみを収集
 - **引用元必須**: 記事末尾に最低5つ以上の参考文献・引用元URLを自動記載
 - **日本時間対応**: すべての日時処理をJST (UTC+9) に統一
 - **リッチデザイン**: モダンでプレミアムなブログデザインに全面改修
 - **目次自動生成**: 記事ページに目次を自動表示
 - **シェアボタン**: Twitter, Facebook, はてなブックマーク対応
+
+### 修正・改善
+- **ライブラリバージョン更新**: `google-genai>=1.56.0` (Interactions API/Deep Research対応)
+- **画像生成修正**: `response_modalities=["IMAGE"]` 設定追加で正常な画像生成を保証
+- **画像検証強化**: PNGヘッダー検証・最低サイズ検証（10KB以上）
+- **フォールバック機能**: Deep Research失敗時に自動的にGoogle Search Toolへフォールバック
 
 ## システム概要
 
@@ -457,6 +464,7 @@ uvicorn api.server:app --reload
 |---------|------|
 | **AI モデル** | Gemini 3 Pro, Gemini 3 Flash（思考オフ）, Deep Research, Gemini 2.5 Flash image |
 | **言語** | Python 3.11+, JavaScript (Node.js 20+) |
+| **ライブラリ** | `google-genai>=1.56.0` (Interactions API対応必須) |
 | **検索** | Google Search Tool (Gemini Built-in) |
 | **静的サイト** | Jekyll (GitHub Pages) |
 | **CI/CD** | GitHub Actions |
@@ -495,6 +503,14 @@ ModuleNotFoundError: No module named 'google.genai'
 ```
 → 仮想環境が有効化されているか確認し、`pip install -r requirements.txt`を再実行してください。
 
+### Deep Research 400エラー
+```
+google.genai._interactions.BadRequestError: Error code: 400 - {'error': {'message': 'Request contains an invalid argument.'}}
+```
+→ **原因**: `google-genai`ライブラリのバージョンが古い（0.5.0等）
+→ **解決**: `pip install google-genai>=1.56.0` でアップグレード
+→ **フォールバック**: エラー発生時は自動的にGoogle Search Toolにフォールバックします
+
 ### Git pushエラー
 ```
 Error: Permission denied
@@ -505,7 +521,16 @@ Error: Permission denied
 ```
 Error: Image generation failed
 ```
-→ `--skip-images`オプションで画像生成をスキップして実行できます。
+→ **原因**: `response_modalities=["IMAGE"]`設定が不足している可能性
+→ **解決**: 最新のコードでは自動的に設定されています
+→ **回避**: `--skip-images`オプションで画像生成をスキップして実行できます
+
+### 画像が小さすぎる/破損
+```
+Warning: Image too small (xxx bytes), likely corrupted
+```
+→ 画像生成APIのレスポンスが正常でない場合に発生します
+→ 再実行するか、`--skip-images`オプションで画像生成をスキップしてください
 
 ## デザインガイドライン
 
