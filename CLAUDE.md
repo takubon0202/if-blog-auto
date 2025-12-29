@@ -1,13 +1,13 @@
 # Blog Automation Project Rules - Gemini API Edition
 
 ## プロジェクト概要
-Google Search Tool（メイン）とDeep Research API（週1回）を活用し、最新トレンド情報を自動収集して画像付きブログ記事を生成・投稿するシステム。
+Multi-Search（3回検索、メイン）とDeep Research API（日曜のみ・週間総括）を活用し、最新トレンド情報を自動収集して画像付きブログ記事を生成・投稿するシステム。
 
 ## 技術スタック
 - **AI**: Gemini 3 Pro Preview, Deep Research Pro Preview（日曜のみ）
 - **言語**: Python 3.11+, JavaScript (Node.js 20+)
-- **検索（メイン）**: Google Search Tool (Gemini Built-in) - 月〜土曜日
-- **検索（深層）**: Deep Research API - 日曜日のみ
+- **検索（メイン）**: Multi-Search 3回検索 (Gemini Built-in) - 月〜土曜日
+- **検索（深層）**: Deep Research API - 日曜日のみ（週間総括）
 - **画像生成**: Gemini 2.5 Flash image (`gemini-2.5-flash-image`)
 - **CI/CD**: GitHub Actions
 - **CMS**: GitHub Pages (Jekyll)
@@ -16,20 +16,37 @@ Google Search Tool（メイン）とDeep Research API（週1回）を活用し�
 
 ## リサーチ方法の選択ルール（重要）
 
-| 曜日 | リサーチ方法 | 処理時間 | 備考 |
-|-----|-------------|---------|------|
-| **月〜土** | Google Search Tool | 数秒 | デフォルト・推奨 |
-| **日曜日** | Deep Research API | 約5分 | 週1回の深層調査 |
-| **手動指定** | 選択可能 | - | GitHub Actionsで選択 |
+| 曜日 | リサーチ方法 | 検索回数 | 処理時間 | 内容 |
+|-----|-------------|----------|---------|------|
+| **月〜土** | Multi-Search | 3回 | 約10秒 | 単一トピック調査 |
+| **日曜日** | Deep Research API | 1回 | 約5分 | **週間総括**（6分野横断） |
+| **フォールバック** | Multi-Search | 3回 | 約10秒 | Deep Research失敗時 |
 
-**設計理由**: Deep ResearchはRPM 1/分の厳しいレート制限があるため、
-週1回（日曜日）のみ使用し、通常はGoogle Search Toolを使用します。
+**設計理由**:
+- Deep ResearchはRPM 1/分の厳しいレート制限があるため、週1回（日曜日）のみ使用
+- 日曜日は6トピックを横断した「週間トレンド総括」記事を生成
+- 通常はMulti-Search（3回検索）でDeep Research簡易版として高品質な情報収集
+
+## 対象トピック（6種類 + 週間総括）
+
+| ID | トピック | 曜日 | リサーチ方法 |
+|----|----------|------|-------------|
+| `psychology` | 心理学・メンタルヘルス | 月曜 | Multi-Search |
+| `education` | 教育・学習科学 | 火曜 | Multi-Search |
+| `startup` | 起業家育成・スタートアップ | 水曜 | Multi-Search |
+| `investment` | 投資教育・金融リテラシー | 木曜 | Multi-Search |
+| `ai_tools` | AIツール・技術動向 | 金曜 | Multi-Search |
+| `inclusive_education` | インクルーシブ教育・多様な学び | 土曜 | Multi-Search |
+| `weekly_summary` | **週間トレンド総括** | **日曜** | **Deep Research** |
+
+※ 不登校支援と発達障害・ニューロダイバーシティは `inclusive_education` として統合
 
 ## システムフロー
 ```
 1. 情報収集
-   ├── 【月〜土】Google Search Tool + gemini-3-pro-preview
-   └── 【日曜日】deep-research-pro-preview-12-2025
+   ├── 【月〜土】Multi-Search 3回検索 + gemini-3-pro-preview
+   └── 【日曜日】deep-research-pro-preview-12-2025（週間総括）
+   └── 【失敗時】Multi-Searchへ自動フォールバック
 
 2. Gemini 3 Pro (ブログ生成)
    └── gemini-3-pro-preview で記事を執筆
@@ -49,8 +66,9 @@ Google Search Tool（メイン）とDeep Research API（週1回）を活用し�
 ### モデル選択
 | 用途 | モデル | 曜日/タイミング |
 |------|--------|----------------|
-| 情報収集（メイン） | `gemini-3-pro-preview` + Google Search | 月〜土（デフォルト） |
-| 情報収集（深層） | `deep-research-pro-preview-12-2025` | 日曜のみ |
+| 情報収集（メイン） | `gemini-3-pro-preview` + Multi-Search 3回 | 月〜土（デフォルト） |
+| 情報収集（週間総括） | `deep-research-pro-preview-12-2025` | 日曜のみ |
+| 情報収集（フォールバック） | `gemini-3-pro-preview` + Multi-Search 3回 | Deep Research失敗時 |
 | コンテンツ生成 | `gemini-3-pro-preview` | 全曜日 |
 | SEO最適化 | `gemini-3-flash-preview`（思考オフ） | 全曜日 |
 | 品質レビュー | `gemini-3-flash-preview`（思考オフ） | 全曜日 |
@@ -106,8 +124,8 @@ Expected Output: [期待する出力形式]
 ```
 
 ### 利用可能なサブエージェント
-- `google-search-agent.md`: Google Searchによる高速情報収集（メイン・月〜土）
-- `deep-research-agent.md`: Deep Researchによる深層調査（日曜のみ）
+- `google-search-agent.md`: Multi-Search 3回検索による情報収集（メイン・月〜土）
+- `deep-research-agent.md`: Deep Researchによる週間総括（日曜のみ）
 - `writing-agent.md`: Gemini 3 Proによる記事執筆
 - `image-agent.md`: Gemini 2.5 Flash imageによる画像生成
 - `seo-agent.md`: SEO最適化
@@ -180,9 +198,10 @@ API: [使用するGemini API]
 ### 内部動作フローの記載
 システム変更時は以下のフローを更新:
 ```
-例: Deep Research フォールバックフロー
+例: Deep Research フォールバックフロー（週間総括）
 ┌─────────────────────────────────────────────┐
-│ Deep Research API 呼び出し                  │
+│ Deep Research API 呼び出し（週間総括）        │
+│ topic=weekly_summary → 6分野横断クエリ生成   │
 └─────────────────┬───────────────────────────┘
                   │
         ┌─────────▼─────────┐
@@ -201,13 +220,13 @@ API: [使用するGemini API]
        │              └──────┬──────┘
        │                     │
        │              ┌──────▼──────────────┐
-       │              │ Google Search Tool  │
+       │              │ Multi-Search 3回検索│
        │              │ フォールバック実行   │
        │              └──────┬──────────────┘
        │                     │
    ┌───▼─────────────────────▼───┐
    │      結果を返却              │
    │  (method: deep_research     │
-   │   or google_search)         │
+   │   or multi_search)          │
    └─────────────────────────────┘
 ```

@@ -1,18 +1,38 @@
 # Deep Research Agent
 
 ## 役割
-Gemini Deep Research APIを使用して、**7日以内の最新情報のみ**を包括的に調査する
+Gemini Deep Research APIを使用して、**7日以内の最新情報のみ**を包括的に調査する。
+**日曜日は6トピックを横断した「週間トレンド総括」記事を生成**する。
 
 ## 使用タイミング（重要）
 
-| 実行タイミング | リサーチ方法 |
-|--------------|-------------|
-| **日曜日（自動）** | Deep Research API |
-| **手動指定時** | Deep Research API |
-| **それ以外の曜日** | Google Search Tool（別エージェント） |
+| 実行タイミング | リサーチ方法 | 内容 |
+|--------------|-------------|------|
+| **日曜日（自動）** | Deep Research API | **週間総括**（6トピック横断） |
+| **手動指定時** | Deep Research API | 単一トピック調査 |
+| **それ以外の曜日** | Multi-Search 3回検索（別エージェント） | 単一トピック調査 |
 
-**設計方針**: Deep Researchは週1回（日曜日）のみ使用し、通常はGoogle Search Toolを使用します。
-これはRPM 1/分の厳しいレート制限と、Deep Researchの処理時間（約5分）を考慮した設計です。
+**設計方針**: Deep Researchは週1回（日曜日）のみ使用し、6トピックを横断した週間総括を生成。
+通常はMulti-Search（3回検索）を使用します。これはRPM 1/分の厳しいレート制限と処理時間（約5分）を考慮した設計です。
+
+## 週間総括（日曜日専用）
+
+日曜日は `weekly_summary` トピックとして、6つの分野を横断した週間総括記事を生成します：
+
+| 分野 | 曜日 | キーワード |
+|------|------|-----------|
+| 心理学・メンタルヘルス | 月 | 心理学、カウンセリング、ストレス |
+| 教育・学習科学 | 火 | 教育、EdTech、学習法 |
+| 起業・スタートアップ | 水 | 起業、ビジネスモデル、資金調達 |
+| 投資・金融リテラシー | 木 | 投資、NISA、資産形成 |
+| AIツール・技術動向 | 金 | AI、ChatGPT、Gemini |
+| インクルーシブ教育・多様な学び | 土 | 不登校、発達障害、フリースクール |
+
+### 週間総括の構成
+1. 今週のハイライト（全体要約）
+2. 各分野の注目ニュース（分野ごとに1〜2件）
+3. 分野横断的なトレンド分析
+4. 来週の注目ポイント
 
 ## 重要: 課金要件
 
@@ -183,9 +203,9 @@ result = await client.deep_research(
 ```
 
 ## エラーハンドリング
-- **Deep Research失敗時**: 自動的にGoogle Search Toolにフォールバック
-- **レート制限エラー（400）**: RPM 1/1を超過 → Google Searchにフォールバック
-- タイムアウト: Google Search Toolにフォールバック
+- **Deep Research失敗時**: 自動的にMulti-Search（3回検索）にフォールバック
+- **レート制限エラー（400）**: RPM 1/1を超過 → Multi-Searchにフォールバック
+- タイムアウト: Multi-Searchにフォールバック
 - API制限: 指数バックオフで再試行（最大3回）
 - ライブラリバージョンエラー: 400 Bad Request → フォールバック実行
 
@@ -194,8 +214,8 @@ result = await client.deep_research(
 try:
     result = await client.deep_research(query)
 except Exception as e:
-    # 自動的にGoogle Search Toolにフォールバック
-    result = await client.search_and_generate(query, prompt)
+    # 自動的にMulti-Search（3回検索）にフォールバック
+    result = await client.multi_search_research(topic, topic_info, date_range)
 ```
 
 ## 関連スキル
@@ -225,11 +245,14 @@ Deep Research 失敗時のログ出力:
 ```
 ┌──────────────────────────────────────┐
 │ run_research(topic, use_deep=True)  │
+│ topic=weekly_summary → 週間総括      │
 └─────────────────┬────────────────────┘
                   │
         ┌─────────▼─────────┐
         │ Deep Research API │
         │ 呼び出し          │
+        │ (週間総括: 6分野  │
+        │  横断クエリ生成)  │
         └─────────┬─────────┘
                   │
           成功？ ─┴─ 失敗？
@@ -241,14 +264,14 @@ Deep Research 失敗時のログ出力:
           │    └──────┬──────────────┘
           │           │
           │    ┌──────▼──────────────┐
-          │    │ Google Search Tool │
-          │    │ + gemini-3-pro     │
+          │    │ Multi-Search       │
+          │    │ (3回検索)          │
           │    └──────┬──────────────┘
           │           │
     ┌─────▼───────────▼─────┐
     │ 結果返却               │
     │ method: deep_research │
-    │  or google_search     │
+    │  or multi_search      │
     │ fallback_reason: ...  │
     └───────────────────────┘
 ```

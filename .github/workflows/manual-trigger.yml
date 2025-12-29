@@ -13,16 +13,16 @@ on:
           - startup
           - investment
           - ai_tools
-          - school_refusal
-          - neurodiversity
+          - inclusive_education
+          - weekly_summary
       research_method:
-        description: 'リサーチ方法を選択'
+        description: 'リサーチ方法を選択（weekly_summaryは常にDeep Research）'
         required: true
         type: choice
         options:
-          - 'google_search'
+          - 'multi_search'
           - 'deep_research'
-        default: 'google_search'
+        default: 'multi_search'
       skip_images:
         description: '画像生成をスキップ'
         required: false
@@ -34,6 +34,6 @@ jobs:
     uses: ./.github/workflows/daily-blog-generation.yml
     with:
       topic: ${{ inputs.topic }}
-      research_method: ${{ inputs.research_method }}
+      research_method: ${{ inputs.topic == 'weekly_summary' && 'deep_research' || inputs.research_method }}
       skip_images: ${{ inputs.skip_images }}
     secrets: inherit

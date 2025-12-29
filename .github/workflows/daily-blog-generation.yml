@@ -141,6 +141,9 @@ jobs:
           echo "- **Topic**: ${{ steps.config.outputs.topic }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Research Method**: ${{ steps.config.outputs.research_display }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Skip Images**: ${{ github.event.inputs.skip_images == 'true' }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.config.outputs.topic }}" = "weekly_summary" ]; then
+            echo "- **Type**: 週間総括記事 (Deep Research)" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Published URL" >> $GITHUB_STEP_SUMMARY
           echo "https://takubon0202.github.io/if-blog-auto/" >> $GITHUB_STEP_SUMMARY
