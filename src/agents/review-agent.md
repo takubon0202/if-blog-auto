@@ -1,30 +1,137 @@
 # Review Agent
 
 ## 役割
-Gemini APIを使用して生成コンテンツの最終品質チェックを実行する
+Gemini 3 Flash Preview（思考モードオフ）を使用して生成コンテンツの品質チェックを高速に実行する
 
 ## 使用モデル
-- **Primary**: `gemini-3-pro-preview`
-- **Fact-check**: `gemini-3-pro-preview` with Google Search
+- **Primary**: `gemini-3-flash-preview`（思考モードオフ）
+- **Fact-check**: Google Search Tool有効
 
 ## 処理フロー
 
-### Step 1: ファクトチェック
-記事内の事実情報をGoogle Searchで検証
+```
+入力: 記事データ
+        ↓
+   情報の正確性チェック
+   - Google Search でファクトチェック
+   - 誤解を招く表現の検出
+        ↓
+   読みやすさ評価
+   - 論理的な流れ
+   - 段落構成
+   - 専門用語の説明
+        ↓
+   オリジナリティ評価
+   - 独自の視点
+   - 実用的な価値
+        ↓
+   品質スコアリング
+   - 4項目×25点 = 100点満点
+        ↓
+   必要に応じて修正適用
+        ↓
+出力: レビュー済み記事 + 品質スコア
+```
 
-### Step 2: 品質スコアリング
-- 情報の正確性（0-25点）
-- 読みやすさ・構成（0-25点）
-- オリジナリティ・価値（0-25点）
-- SEO最適化（0-25点）
+## API呼び出し
+```python
+from lib.gemini_client import GeminiClient
 
-### Step 3: 最終修正
-品質基準を満たさない場合は修正を実行
+client = GeminiClient()
+result = await client.generate_content(
+    prompt=review_prompt,
+    model=GeminiClient.MODEL_FLASH_3,  # gemini-3-flash-preview
+    thinking_mode=False,  # 思考モードオフ
+    enable_search=True,   # ファクトチェック用
+    temperature=0.3       # 一貫性重視
+)
+```
+
+## 入力
+```json
+{
+  "content": "記事本文",
+  "title": "記事タイトル",
+  "topic": "トピックID"
+}
+```
+
+## 出力
+```json
+{
+  "content": "レビュー・修正済み記事",
+  "quality_score": 85,
+  "scores": {
+    "accuracy": 22,
+    "readability": 21,
+    "originality": 20,
+    "seo_quality": 22
+  },
+  "issues": [
+    {
+      "type": "warning",
+      "location": "第2段落",
+      "description": "問題の説明",
+      "suggestion": "修正提案"
+    }
+  ],
+  "strengths": ["強み1", "強み2"],
+  "status": "approved",
+  "reviewed": true,
+  "model_used": "gemini-3-flash-preview"
+}
+```
 
 ## 品質基準
+
 | スコア | 判定 | アクション |
 |--------|------|-----------|
 | 90-100 | 優秀 | 即時公開可 |
 | 75-89 | 良好 | 公開可（軽微な修正推奨） |
 | 60-74 | 要改善 | 修正後再レビュー |
 | 0-59 | 不合格 | 大幅な書き直し必要 |
+
+## ステータス
+- `approved`: 公開可能
+- `needs_revision`: 要修正
+- `rejected`: 却下
+
+## 評価項目詳細
+
+### 1. 情報の正確性 (25点)
+- 事実に基づいているか
+- 誤解を招く表現がないか
+- 出典が明確か
+
+### 2. 読みやすさ・構成 (25点)
+- 論理的な流れ
+- 適切な段落分け
+- 専門用語の説明
+
+### 3. オリジナリティ・価値 (25点)
+- 独自の視点や洞察
+- 読者にとっての実用性
+- 具体的な事例やデータ
+
+### 4. SEO・技術品質 (25点)
+- タイトルの魅力
+- 見出し構造
+- メタデータの適切さ
+
+## 設定
+```json
+{
+  "model": "gemini-3-flash-preview",
+  "thinking_mode": false,
+  "enable_search": true,
+  "temperature": 0.3,
+  "max_tokens": 8192
+}
+```
+
+## 関連スキル
+- `gemini-3-flash.md`: Gemini 3 Flash Preview操作
+
+## パフォーマンス
+- 応答時間: 約5-8秒（検索込み、思考モードオフ）
+- 精度: 品質スコア判定の一貫性95%以上

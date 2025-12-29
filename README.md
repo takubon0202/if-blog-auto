@@ -33,15 +33,15 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 
 ## 主要機能
 
-| 機能 | 説明 | 使用モデル |
-|------|------|-----------|
-| **Deep Research** | 最新トレンド情報の包括的収集 | `deep-research-pro-preview-12-2025` |
-| **記事生成** | SEO最適化されたブログ記事の執筆 | `gemini-3-pro-preview` |
-| **画像生成** | 記事用アイキャッチ画像の生成 | `gemini-2.5-flash-image` |
-| **SEO最適化** | メタデータ・キーワード最適化 | `gemini-2.0-flash` |
-| **品質レビュー** | ファクトチェック・品質スコアリング | `gemini-2.0-flash` |
-| **自動投稿** | GitHub Pages (Jekyll) への投稿 | Git Push |
-| **スケジュール実行** | GitHub Actionsによる日次自動実行 | - |
+| 機能 | 説明 | 使用モデル | 思考モード |
+|------|------|-----------|-----------|
+| **Deep Research** | 最新トレンド情報の包括的収集 | `deep-research-pro-preview-12-2025` | - |
+| **記事生成** | SEO最適化されたブログ記事の執筆 | `gemini-3-pro-preview` | オン |
+| **画像生成** | 記事用アイキャッチ画像の生成 | `gemini-2.5-flash-image` | - |
+| **SEO最適化** | メタデータ・キーワード最適化 | `gemini-3-flash-preview` | **オフ** |
+| **品質レビュー** | ファクトチェック・品質スコアリング | `gemini-3-flash-preview` | **オフ** |
+| **自動投稿** | GitHub Pages (Jekyll) への投稿 | Git Push | - |
+| **スケジュール実行** | GitHub Actionsによる日次自動実行 | - | - |
 
 ## 対象トピック
 
@@ -134,26 +134,27 @@ if-blog-auto/
 
 ## サブエージェント
 
-| エージェント | 役割 | 使用モデル |
-|-------------|------|-----------|
-| `deep-research-agent` | Deep Researchによる情報収集 | Deep Research API |
-| `writing-agent` | ブログ記事の執筆 | Gemini 3 Pro |
-| `image-agent` | アイキャッチ画像生成 | Gemini 2.5 Flash image |
-| `seo-agent` | SEOメタデータ最適化 | Gemini 2.0 Flash |
-| `review-agent` | 品質チェック・ファクトチェック | Gemini 2.0 Flash |
-| `site-builder-agent` | Jekyllサイト構造管理 | - |
-| `blog-publisher-agent` | GitHub Pages投稿処理 | - |
+| エージェント | 役割 | 使用モデル | 思考モード |
+|-------------|------|-----------|-----------|
+| `deep-research-agent` | Deep Researchによる情報収集 | Deep Research API | - |
+| `writing-agent` | ブログ記事の執筆 | Gemini 3 Pro | オン |
+| `image-agent` | アイキャッチ画像生成 | Gemini 2.5 Flash image | - |
+| `seo-agent` | SEOメタデータ最適化 | Gemini 3 Flash Preview | **オフ** |
+| `review-agent` | 品質チェック・ファクトチェック | Gemini 3 Flash Preview | **オフ** |
+| `site-builder-agent` | Jekyllサイト構造管理 | - | - |
+| `blog-publisher-agent` | GitHub Pages投稿処理 | - | - |
 
 ## スキル
 
-| スキル | 目的 |
-|--------|------|
-| `gemini-research` | Deep Research API実行 |
-| `gemini-content` | Gemini 3 Proコンテンツ生成 |
-| `image-generation` | Gemini 2.5 Flash画像生成 |
-| `github-pages` | GitHub Pages操作 |
-| `jekyll-content` | Jekyll形式コンテンツ生成 |
-| `cms-integration` | CMS連携（GitHub Pages） |
+| スキル | 目的 | モデル |
+|--------|------|--------|
+| `gemini-research` | Deep Research API実行 | Deep Research |
+| `gemini-content` | Gemini 3 Proコンテンツ生成 | Gemini 3 Pro |
+| `gemini-3-flash` | SEO/レビュー高速処理 | Gemini 3 Flash（思考オフ） |
+| `image-generation` | Gemini 2.5 Flash画像生成 | Gemini 2.5 Flash image |
+| `github-pages` | GitHub Pages操作 | - |
+| `jekyll-content` | Jekyll形式コンテンツ生成 | - |
+| `cms-integration` | CMS連携（GitHub Pages） | - |
 
 ## セットアップ
 
@@ -255,7 +256,7 @@ uvicorn api.server:app --reload
 
 | カテゴリ | 技術 |
 |---------|------|
-| **AI モデル** | Gemini 3 Pro, Deep Research, Gemini 2.5 Flash image |
+| **AI モデル** | Gemini 3 Pro, Gemini 3 Flash (思考オフ), Deep Research, Gemini 2.5 Flash image |
 | **言語** | Python 3.11+, JavaScript (Node.js 20+) |
 | **検索** | Google Search Tool (Gemini Built-in) |
 | **静的サイト** | Jekyll (GitHub Pages) |

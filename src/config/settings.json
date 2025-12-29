@@ -2,6 +2,8 @@
   "gemini": {
     "models": {
       "content_generation": "gemini-3-pro-preview",
+      "seo_optimization": "gemini-3-flash-preview",
+      "quality_review": "gemini-3-flash-preview",
       "quick_tasks": "gemini-2.0-flash",
       "deep_research": "deep-research-pro-preview-12-2025",
       "image_generation": "gemini-2.5-flash-image"
@@ -11,7 +13,8 @@
       "max_output_tokens": 8192,
       "enable_search_by_default": true,
       "research_timeout_seconds": 300,
-      "research_poll_interval": 10
+      "research_poll_interval": 10,
+      "thinking_mode": false
     }
   },
   "blog": {

@@ -51,6 +51,7 @@ class GeminiClient:
     # モデル定数
     MODEL_PRO = "gemini-3-pro-preview"
     MODEL_FLASH = "gemini-2.0-flash"
+    MODEL_FLASH_3 = "gemini-3-flash-preview"  # SEO/Review用
     MODEL_IMAGE = "gemini-2.5-flash-image"
     AGENT_DEEP_RESEARCH = "deep-research-pro-preview-12-2025"
 
@@ -73,7 +74,8 @@ class GeminiClient:
         enable_search: bool = False,
         system_instruction: Optional[str] = None,
         temperature: float = 0.7,
-        max_tokens: int = 8192
+        max_tokens: int = 8192,
+        thinking_mode: bool = False
     ) -> GenerationResult:
         """
         コンテンツを生成する
@@ -85,6 +87,7 @@ class GeminiClient:
             system_instruction: システム指示
             temperature: 生成温度
             max_tokens: 最大トークン数
+            thinking_mode: 思考モード（False=オフ、高速応答）
 
         Returns:
             GenerationResult: 生成結果
@@ -93,6 +96,11 @@ class GeminiClient:
             "temperature": temperature,
             "max_output_tokens": max_tokens,
         }
+
+        # 思考モードの設定（Gemini 3 Flash Preview用）
+        if not thinking_mode and "flash" in model.lower():
+            # 思考モードをオフにして高速応答
+            config["thinking_config"] = {"thinking_budget": 0}
 
         # Google Search Tool有効化
         tools = []
