@@ -42,6 +42,7 @@ response = client.models.generate_content(
 【ターゲット読者】{target_audience}
 【文字数】{word_count}文字程度
 【トーン】{tone}
+【参考文献・引用元】{sources}
 
 執筆ガイドライン:
 - 導入で読者の興味を引く
@@ -50,7 +51,13 @@ response = client.models.generate_content(
 - 段落は3-4文で区切る
 - 結論で読者に行動を促す
 
-出力形式: Markdown
+引用元記載ルール（必須）:
+- 記事末尾に必ず「参考文献・引用元」セクションを設ける
+- 調査で使用したソースをリンク形式で列挙
+- <div class="sources-section">タグで囲む
+- 最後に「この記事はAIによって生成されました。」の免責事項を追加
+
+出力形式: Markdown（参考文献セクション含む）
 ```
 
 ## 品質向上テクニック

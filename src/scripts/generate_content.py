@@ -72,6 +72,23 @@ async def generate_article(topic_id: str, research_data: dict) -> dict:
     topic_info = research_data.get('topic_info', {})
     today = datetime.now().strftime('%Y-%m-%d')
 
+    # ソース情報を抽出
+    sources = research_data.get('sources', [])
+    sources_text = ""
+    if sources:
+        sources_list = []
+        for source in sources:
+            if isinstance(source, dict):
+                title = source.get('title', '')
+                url = source.get('url', source.get('uri', ''))
+                if url:
+                    sources_list.append(f"- [{title or url}]({url})")
+            elif isinstance(source, str):
+                sources_list.append(f"- {source}")
+        sources_text = "\n".join(sources_list) if sources_list else "（利用可能なソースがありません）"
+    else:
+        sources_text = "（調査結果から適切な参考文献を記載してください）"
+
     prompt = f"""
 あなたはプロのブログライターです。以下の調査結果を基に、読者にとって価値のあるブログ記事を執筆してください。
 
@@ -80,6 +97,9 @@ async def generate_article(topic_id: str, research_data: dict) -> dict:
 
 【調査結果】
 {research_data.get('content', '')}
+
+【参考文献・引用元（記事末尾に必ず記載すること）】
+{sources_text}
 
 {DESIGN_GUIDELINES}
 
@@ -122,6 +142,18 @@ author: "AI Blog Generator"
 ## まとめ
 
 結論と具体的な行動指針
+
+---
+
+## 参考文献・引用元
+
+<div class="sources-section">
+
+この記事は以下の情報源を参考に作成されました：
+
+（ここに調査で使用した参考文献・引用元のURLをリスト形式で記載してください）
+
+</div>
 
 ---
 

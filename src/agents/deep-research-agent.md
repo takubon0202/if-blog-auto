@@ -47,9 +47,35 @@ result = await client.deep_research(
   "statistics": [],
   "expert_opinions": [],
   "trends": [],
-  "sources_used": []
+  "sources": [
+    {
+      "title": "ソースタイトル",
+      "url": "https://example.com/article",
+      "type": "academic|news|official|blog",
+      "reliability": "high|medium|low"
+    }
+  ]
 }
 ```
+
+## ソース収集のガイドライン
+
+### 必須要件
+- **最低5つ以上**の信頼できるソースを収集
+- 各ソースにはURL、タイトル、信頼性評価を含める
+- 可能な限り直接リンクを取得
+
+### 優先順位
+1. 公的機関（政府、国際機関）
+2. 学術論文・研究機関
+3. 専門メディア・業界誌
+4. 大手ニュースメディア
+5. 専門家ブログ・個人サイト
+
+### 除外対象
+- リンク切れのURL
+- 信頼性の低いソース
+- 日付が古すぎる情報（特にトレンド記事の場合）
 
 ## エラーハンドリング
 - タイムアウト: Google Search Toolにフォールバック

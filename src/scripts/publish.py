@@ -103,8 +103,8 @@ class GitHubPagesPublisher:
         shutil.copy(src_path, dest_path)
         logger.info(f"Copied image: {dest_path}")
 
-        # Jekyll用の相対パス
-        return f"/if-blog-auto/assets/images/{filename}"
+        # Jekyll用の相対パス（relative_urlフィルタで変換されるためbaseurl不要）
+        return f"/assets/images/{filename}"
 
     def create_post_file(
         self,
