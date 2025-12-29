@@ -125,15 +125,30 @@ async def run_research(topic_id: str, use_deep_research: bool = True) -> dict:
             # Deep Researchが失敗した場合、Google Searchにフォールバック
             import logging
             logger = logging.getLogger(__name__)
-            logger.warning(f"Deep Research failed, falling back to Google Search: {e}")
+
+            # 重要: フォールバック発生を明確に通知
+            logger.error("=" * 60)
+            logger.error("【重要】Deep Research APIが失敗しました")
+            logger.error(f"エラー内容: {e}")
+            logger.error("フォールバック: Google Search Tool (gemini-3-pro-preview) を使用します")
+            logger.error("=" * 60)
+
             use_deep_research = False  # フォールバック
+            fallback_error = str(e)
 
     if not use_deep_research:
         # Google Search Toolを使用（フォールバック）
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("【フォールバック実行中】Google Search Tool + Gemini 3 Pro Preview")
+
         result = await client.search_and_generate(
             query=f"{topic_info['name']} 最新 {today_jst}",
             generation_prompt=research_query
         )
+
+        logger.info("【フォールバック完了】Google Searchでの情報収集が完了しました")
+
         return {
             "topic": topic_id,
             "topic_info": topic_info,
@@ -145,7 +160,8 @@ async def run_research(topic_id: str, use_deep_research: bool = True) -> dict:
                 "end": end_date,
                 "max_age_days": MAX_AGE_DAYS
             },
-            "method": "google_search"
+            "method": "google_search",
+            "fallback_reason": fallback_error if 'fallback_error' in dir() else "Deep Research not used"
         }
 
 
