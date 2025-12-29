@@ -72,24 +72,24 @@ research_query = f"""
 - 最低5つ以上の信頼できるソースを使用
 """
 
-# 非同期リサーチの実行（client.aioを使用）
-# 重要: asyncio.to_thread()ではなく、ネイティブの非同期クライアントを使用
-# 重要: background=True のみ指定（storeはデフォルトTrue）
-interaction = await client.aio.interactions.create(
+# 公式ドキュメント準拠: 同期クライアントを使用
+# https://ai.google.dev/gemini-api/docs/deep-research
+interaction = client.interactions.create(
     input=research_query,
     agent="deep-research-pro-preview-12-2025",
     background=True
-    # store パラメータは指定しない（デフォルト値Trueを使用）
 )
 
-# ポーリングで結果取得（非同期）
+# ポーリングで完了を待機
 while True:
-    result = await client.aio.interactions.get(interaction.id)
-    if result.status == "completed":
-        return result.outputs[-1].text
-    elif result.status == "failed":
-        raise Exception(result.error)
-    await asyncio.sleep(10)
+    interaction = client.interactions.get(interaction.id)
+    if interaction.status == "completed":
+        print(interaction.outputs[-1].text)
+        break
+    elif interaction.status == "failed":
+        print(f"Research failed: {interaction.error}")
+        break
+    time.sleep(10)
 ```
 
 ### Google Search Tool（フォールバック）

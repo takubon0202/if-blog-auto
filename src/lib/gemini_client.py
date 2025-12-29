@@ -134,14 +134,82 @@ class GeminiClient:
             logger.error(f"Content generation failed: {e}")
             raise
 
+    def _sync_deep_research(
+        self,
+        query: str,
+        timeout_seconds: int,
+        poll_interval: int
+    ) -> ResearchResult:
+        """
+        Deep Research APIを同期的に実行（公式ドキュメント準拠）
+
+        公式コード: https://ai.google.dev/gemini-api/docs/deep-research
+        """
+        import time
+
+        logger.info(f"Starting Deep Research (sync): {query[:50]}...")
+
+        # 公式ドキュメント通りの同期呼び出し
+        interaction = self.client.interactions.create(
+            input=query,
+            agent=self.AGENT_DEEP_RESEARCH,
+            background=True
+        )
+
+        interaction_id = interaction.id
+        logger.info(f"Research started: {interaction_id}")
+
+        # ポーリングで完了を待機（公式コード準拠）
+        elapsed = 0
+        while elapsed < timeout_seconds:
+            interaction = self.client.interactions.get(interaction_id)
+
+            if interaction.status == "completed":
+                content = interaction.outputs[-1].text if interaction.outputs else ""
+                sources = self._extract_sources(interaction)
+
+                logger.info(f"Research completed: {interaction_id}")
+                return ResearchResult(
+                    interaction_id=interaction_id,
+                    status="completed",
+                    content=content,
+                    sources=sources
+                )
+
+            elif interaction.status == "failed":
+                logger.error(f"Research failed: {interaction.error}")
+                return ResearchResult(
+                    interaction_id=interaction_id,
+                    status="failed",
+                    content="",
+                    sources=[],
+                    error=str(interaction.error)
+                )
+
+            time.sleep(poll_interval)
+            elapsed += poll_interval
+            logger.debug(f"Research in progress... ({elapsed}s)")
+
+        # タイムアウト
+        return ResearchResult(
+            interaction_id=interaction_id,
+            status="timeout",
+            content="",
+            sources=[],
+            error=f"Research timed out after {timeout_seconds} seconds"
+        )
+
     async def deep_research(
         self,
         query: str,
-        timeout_seconds: int = 1800,  # 30分に延長（Deep Researchは時間がかかる）
+        timeout_seconds: int = 1800,  # 30分（Deep Researchは時間がかかる）
         poll_interval: int = 10
     ) -> ResearchResult:
         """
         Deep Research APIで深層調査を実行
+
+        公式ドキュメント準拠: 同期クライアントをasyncio.to_thread()でラップ
+        https://ai.google.dev/gemini-api/docs/deep-research
 
         Args:
             query: 調査クエリ
@@ -151,62 +219,14 @@ class GeminiClient:
         Returns:
             ResearchResult: 調査結果
         """
-        logger.info(f"Starting Deep Research: {query[:50]}...")
-
         try:
-            # 非同期クライアント(client.aio)を使用してInteractions APIを呼び出し
-            # 注意: background=True のみ指定（storeはデフォルトTrue）
-            interaction = await self.aio.interactions.create(
-                input=query,
-                agent=self.AGENT_DEEP_RESEARCH,
-                background=True
-                # store パラメータは指定しない（デフォルト値Trueを使用）
+            # 同期メソッドをasyncio.to_thread()で非同期実行
+            return await asyncio.to_thread(
+                self._sync_deep_research,
+                query,
+                timeout_seconds,
+                poll_interval
             )
-
-            interaction_id = interaction.id
-            logger.info(f"Research started: {interaction_id}")
-
-            # ポーリングで完了を待機
-            elapsed = 0
-            while elapsed < timeout_seconds:
-                result = await self.aio.interactions.get(interaction_id)
-
-                if result.status == "completed":
-                    # 最新の出力を取得
-                    content = result.outputs[-1].text if result.outputs else ""
-                    sources = self._extract_sources(result)
-
-                    logger.info(f"Research completed: {interaction_id}")
-                    return ResearchResult(
-                        interaction_id=interaction_id,
-                        status="completed",
-                        content=content,
-                        sources=sources
-                    )
-
-                elif result.status == "failed":
-                    logger.error(f"Research failed: {result.error}")
-                    return ResearchResult(
-                        interaction_id=interaction_id,
-                        status="failed",
-                        content="",
-                        sources=[],
-                        error=str(result.error)
-                    )
-
-                await asyncio.sleep(poll_interval)
-                elapsed += poll_interval
-                logger.debug(f"Research in progress... ({elapsed}s)")
-
-            # タイムアウト
-            return ResearchResult(
-                interaction_id=interaction_id,
-                status="timeout",
-                content="",
-                sources=[],
-                error=f"Research timed out after {timeout_seconds} seconds"
-            )
-
         except Exception as e:
             logger.error(f"Deep Research error: {e}")
             # 詳細なエラー情報をログ出力

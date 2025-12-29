@@ -544,20 +544,20 @@ google.genai._interactions.BadRequestError: Error code: 400 - {'error': {'messag
    - 原因: `google-genai`が0.5.0等の古いバージョン
    - 解決: `pip install google-genai>=1.56.0` でアップグレード
 
-4. **asyncio.to_thread()の使用問題**
-   - 原因: 同期クライアントを`asyncio.to_thread()`でラップすると引数渡しに問題が発生
-   - 解決: ネイティブの非同期クライアント`client.aio`を使用
+4. **非同期クライアント(client.aio)の問題**
+   - 原因: `client.aio.interactions.create()`は実験的で不安定
+   - 解決: **公式ドキュメント通り同期クライアントを使用**
    ```python
-   # 正しい使用方法（非同期クライアントを使用）
-   client = genai.Client(api_key=api_key)
-   interaction = await client.aio.interactions.create(
+   # 正しい使用方法（公式ドキュメント準拠）
+   # https://ai.google.dev/gemini-api/docs/deep-research
+   client = genai.Client()
+   interaction = client.interactions.create(
        input=query,
        agent="deep-research-pro-preview-12-2025",
        background=True
-       # store は指定しない（デフォルトTrue）
    )
-   # ポーリングも非同期クライアントを使用
-   result = await client.aio.interactions.get(interaction.id)
+   # ポーリングも同期クライアントを使用
+   interaction = client.interactions.get(interaction.id)
    ```
 
 → **フォールバック**: エラー発生時は自動的にGoogle Search Toolにフォールバックします
