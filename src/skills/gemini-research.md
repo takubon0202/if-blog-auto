@@ -4,6 +4,17 @@
 Gemini Deep ResearchとGoogle Search Toolを使用した情報収集スキル。
 **必ず7日以内の最新情報のみを収集**します。
 
+## 重要: 課金要件
+
+**Deep Research APIは有料プラン専用です。**
+
+| 項目 | 要件 |
+|------|------|
+| 課金設定 | [Google AI Studio](https://aistudio.google.com/) で Billing 有効化が必須 |
+| 料金体系 | Gemini 3 Pro レート |
+| 無料枠 | 使用不可 → 自動的にGoogle Search Toolにフォールバック |
+| 必須パラメータ | `background=True` + `store=True` |
+
 ## 必須ライブラリバージョン
 
 **重要**: Interactions API (Deep Research) を使用するには以下が必要です：
@@ -63,10 +74,12 @@ research_query = f"""
 
 # 非同期リサーチの実行（client.aioを使用）
 # 重要: asyncio.to_thread()ではなく、ネイティブの非同期クライアントを使用
+# 重要: background=True には store=True が必須
 interaction = await client.aio.interactions.create(
     input=research_query,
     agent="deep-research-pro-preview-12-2025",
-    background=True
+    background=True,
+    store=True  # background=True requires store=True
 )
 
 # ポーリングで結果取得（非同期）

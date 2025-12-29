@@ -8,6 +8,19 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 
 ## 最新アップデート (2025-12-29)
 
+### 重要: Deep Research APIの課金要件
+
+**Deep Research APIは有料プラン専用です。**
+
+| 項目 | 要件 |
+|------|------|
+| 課金設定 | Google AI Studio で Billing 有効化が必須 |
+| 料金体系 | Gemini 3 Pro レート（入力$1.25/100万トークン、出力$5.00/100万トークン） |
+| 無料枠 | 使用不可（自動的にGoogle Search Toolにフォールバック） |
+| 必須パラメータ | `background=True` + `store=True` |
+
+課金設定がない場合でも、自動的にGoogle Search Tool（無料枠内）にフォールバックして動作します。
+
 ### 新機能
 - **7日以内最新情報限定**: Deep Researchで必ず7日以内の最新情報のみを収集
 - **引用元必須**: 記事末尾に最低5つ以上の参考文献・引用元URLを自動記載
@@ -509,11 +522,29 @@ google.genai._interactions.BadRequestError: Error code: 400 - {'error': {'messag
 ```
 **考えられる原因と解決策**:
 
-1. **ライブラリバージョンが古い**
+1. **課金設定がない（最も多い原因）**
+   - 原因: Deep Research APIは**有料プラン専用**。無料枠では使用不可
+   - 解決: [Google AI Studio](https://aistudio.google.com/) で Billing を有効化
+   - 料金: Gemini 3 Pro レート（入力$1.25/100万トークン、出力$5.00/100万トークン）
+   - 注意: 課金設定がなくても自動的にGoogle Search Toolにフォールバックして動作
+
+2. **store=Trueパラメータの不足**
+   - 原因: `background=True`を使用する場合、`store=True`も必須
+   - 解決: 両方のパラメータを指定
+   ```python
+   interaction = await client.aio.interactions.create(
+       input=query,
+       agent="deep-research-pro-preview-12-2025",
+       background=True,
+       store=True  # 必須
+   )
+   ```
+
+3. **ライブラリバージョンが古い**
    - 原因: `google-genai`が0.5.0等の古いバージョン
    - 解決: `pip install google-genai>=1.56.0` でアップグレード
 
-2. **asyncio.to_thread()の使用問題**
+4. **asyncio.to_thread()の使用問題**
    - 原因: 同期クライアントを`asyncio.to_thread()`でラップすると引数渡しに問題が発生
    - 解決: ネイティブの非同期クライアント`client.aio`を使用
    ```python
@@ -522,7 +553,8 @@ google.genai._interactions.BadRequestError: Error code: 400 - {'error': {'messag
    interaction = await client.aio.interactions.create(
        input=query,
        agent="deep-research-pro-preview-12-2025",
-       background=True
+       background=True,
+       store=True
    )
    # ポーリングも非同期クライアントを使用
    result = await client.aio.interactions.get(interaction.id)
