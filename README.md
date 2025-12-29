@@ -182,7 +182,7 @@ python main.py --topic startup --skip-images --publish
 | `google-search-agent` | Multi-Search情報収集（メイン） | Gemini 3 Pro + 3回検索 | 月〜土・フォールバック |
 | `deep-research-agent` | 深層調査 | Deep Research API | 日曜のみ |
 | `writing-agent` | ブログ記事の執筆 | Gemini 3 Pro | 全曜日 |
-| `image-agent` | アイキャッチ画像生成 | Gemini 2.5 Flash image | 全曜日 |
+| `image-agent` | アイキャッチ画像生成（スマートプロンプト） | Gemini 2.5 Flash image + 記事分析 | 全曜日 |
 | `seo-agent` | SEOメタデータ最適化 | Gemini 3 Flash（思考オフ） | 全曜日 |
 | `review-agent` | 品質チェック・ファクトチェック | Gemini 3 Flash（思考オフ） | 全曜日 |
 | `site-builder-agent` | Jekyllサイト構造管理 | - | 必要時 |
@@ -197,7 +197,7 @@ python main.py --topic startup --skip-images --publish
 | `gemini-research` | 7日以内情報収集（Multi-Search 3回/Deep Research） | Gemini API |
 | `gemini-content` | 引用元付きコンテンツ生成 | Gemini 3 Pro |
 | `gemini-3-flash` | SEO/レビュー高速処理（思考オフ） | Gemini 3 Flash |
-| `image-generation` | ブログ用画像生成 | Gemini 2.5 Flash image |
+| `image-generation` | ブログ用画像生成（スマートプロンプト対応） | Gemini 2.5 Flash image |
 | `timezone` | JST日時処理 | Python datetime |
 | `github-pages` | GitHub Pages操作 | Git API |
 | `jekyll-content` | Jekyll形式コンテンツ生成 | - |
@@ -272,6 +272,27 @@ python main.py --topic startup --skip-images --publish
 | 絵文字の使用 | クリーンでミニマルなデザイン |
 | 紫色系の使用 | Deep Navy (#1a1a2e) 基調 |
 | AIっぽい表現（「革新的」「画期的」等） | 専門的だが親しみやすいトーン |
+
+### 画像生成（スマートプロンプト機能）
+
+記事タイトルを分析して、内容に合った具体的で多様な画像を自動生成します。
+
+| 分析項目 | 説明 |
+|---------|------|
+| main_subject | メインの視覚的対象（例: "glowing neural network"） |
+| visual_metaphor | 記事の核心を表すメタファー |
+| mood | 感情的トーン（明るい、落ち着いた等） |
+| key_elements | 含めるべき具体的な視覚要素 |
+| composition | ランダム選択される構図スタイル |
+
+**トピック別カラースキーム（自動適用）**:
+- `psychology`: calming blue (#2b6cb0)
+- `education`: growth green (#2f855a)
+- `startup`: energetic orange (#c05621)
+- `investment`: trustworthy gold-brown (#744210)
+- `ai_tools`: tech navy blue (#1a365d)
+- `inclusive_education`: supportive teal (#285e61)
+- `weekly_summary`: insightful indigo (#553c9a)
 
 ---
 
@@ -383,11 +404,12 @@ result = await client.deep_research(
     timeout_seconds=1800
 )
 
-# 画像生成
+# 画像生成（スマートプロンプト対応）
 result = await client.generate_blog_image(
     title="記事タイトル",
     summary="記事概要",
-    style="modern, minimal"
+    topic_id="ai_tools",  # トピック別カラースキーム自動適用
+    use_smart_prompt=True  # 記事分析を有効化（デフォルト）
 )
 ```
 

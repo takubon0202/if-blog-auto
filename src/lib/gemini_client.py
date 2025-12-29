@@ -555,27 +555,173 @@ class GeminiClient:
             logger.error(f"Image generation failed: {e}")
             raise
 
+    # トピック別カラースキーム
+    TOPIC_COLORS = {
+        "psychology": {"primary": "#2b6cb0", "accent": "#4299e1", "name": "calming blue"},
+        "education": {"primary": "#2f855a", "accent": "#48bb78", "name": "growth green"},
+        "startup": {"primary": "#c05621", "accent": "#ed8936", "name": "energetic orange"},
+        "investment": {"primary": "#744210", "accent": "#d69e2e", "name": "trustworthy gold-brown"},
+        "ai_tools": {"primary": "#1a365d", "accent": "#3182ce", "name": "tech navy blue"},
+        "inclusive_education": {"primary": "#285e61", "accent": "#38b2ac", "name": "supportive teal"},
+        "weekly_summary": {"primary": "#553c9a", "accent": "#805ad5", "name": "insightful indigo"},
+        "default": {"primary": "#1a1a2e", "accent": "#0f3460", "name": "professional navy"}
+    }
+
+    # 視覚的構図バリエーション
+    COMPOSITION_STYLES = [
+        "centered focal point with clean negative space",
+        "dynamic diagonal composition with flowing elements",
+        "layered depth with foreground and background elements",
+        "radial arrangement emanating from center",
+        "asymmetric balance with visual tension",
+        "grid-based structured layout",
+        "organic flowing shapes and curves",
+        "geometric abstract pattern"
+    ]
+
+    async def analyze_for_image_prompt(
+        self,
+        title: str,
+        summary: str,
+        topic_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        記事タイトルと概要を分析して、最適な画像プロンプト要素を生成
+
+        Args:
+            title: 記事タイトル
+            summary: 記事概要
+            topic_id: トピックID（カラースキーム決定用）
+
+        Returns:
+            画像生成用の要素を含む辞書
+        """
+        analysis_prompt = f"""Analyze this blog article title and summary, then suggest specific visual elements for an illustration.
+
+Title: {title}
+Summary: {summary}
+
+Provide a JSON response with:
+1. "main_subject": The primary visual subject/object to depict (be specific, e.g., "a glowing neural network", "hands exchanging a lightbulb")
+2. "visual_metaphor": A creative visual metaphor that represents the article's core message
+3. "mood": The emotional tone (e.g., "hopeful and bright", "calm and reflective", "dynamic and energetic")
+4. "key_elements": List of 3-4 specific visual elements to include (be concrete, not abstract)
+5. "background_style": Describe the background (e.g., "soft gradient from light blue to white", "abstract geometric shapes")
+6. "lighting": Describe the lighting style (e.g., "warm sunrise glow", "cool ambient light", "dramatic spotlight")
+
+Important:
+- Be specific and visual, not abstract
+- Suggest concrete objects, not vague concepts
+- Each image should be unique based on the article content
+- Avoid generic descriptions like "professional" or "modern"
+
+Respond ONLY with valid JSON, no other text."""
+
+        try:
+            result = await self.generate_content(
+                prompt=analysis_prompt,
+                model=self.MODEL_FLASH,
+                temperature=0.8  # 多様性を高めるため
+            )
+
+            # JSONをパース
+            import json
+            import re
+
+            # JSONブロックを抽出
+            text = result.text.strip()
+            json_match = re.search(r'\{[\s\S]*\}', text)
+            if json_match:
+                analysis = json.loads(json_match.group())
+            else:
+                raise ValueError("No valid JSON found in response")
+
+            # トピック別カラーを追加
+            colors = self.TOPIC_COLORS.get(topic_id, self.TOPIC_COLORS["default"])
+            analysis["color_scheme"] = colors
+
+            # ランダムな構図スタイルを追加
+            import random
+            analysis["composition"] = random.choice(self.COMPOSITION_STYLES)
+
+            return analysis
+
+        except Exception as e:
+            logger.warning(f"Image analysis failed, using fallback: {e}")
+            # フォールバック: 基本的な分析結果を返す
+            colors = self.TOPIC_COLORS.get(topic_id, self.TOPIC_COLORS["default"])
+            return {
+                "main_subject": f"abstract representation of {title[:50]}",
+                "visual_metaphor": "interconnected nodes and pathways",
+                "mood": "professional and thoughtful",
+                "key_elements": ["geometric shapes", "flowing lines", "soft gradients"],
+                "background_style": "clean gradient from light to white",
+                "lighting": "soft ambient light",
+                "color_scheme": colors,
+                "composition": "centered focal point with clean negative space"
+            }
+
     async def generate_blog_image(
         self,
         title: str,
         summary: str,
         style: str = "modern, minimalist, professional",
-        image_type: str = "hero"
+        image_type: str = "hero",
+        topic_id: Optional[str] = None,
+        use_smart_prompt: bool = True
     ) -> ImageGenerationResult:
         """
-        ブログ記事用の画像を生成する
+        ブログ記事用の画像を生成する（スマートプロンプト対応）
 
         Args:
             title: 記事タイトル
             summary: 記事概要
             style: 画像スタイル
             image_type: 画像タイプ（hero, section, thumbnail）
+            topic_id: トピックID（カラースキーム決定用）
+            use_smart_prompt: スマートプロンプト生成を使用するか
 
         Returns:
             ImageGenerationResult: 生成結果
         """
-        # ブログ用に最適化されたプロンプトを構築
-        prompt = f"""Create a {image_type} image for a blog article.
+        if use_smart_prompt:
+            # 記事を分析してスマートプロンプトを生成
+            analysis = await self.analyze_for_image_prompt(title, summary, topic_id)
+
+            colors = analysis.get("color_scheme", self.TOPIC_COLORS["default"])
+
+            prompt = f"""Create a {image_type} illustration for a blog article.
+
+VISUAL CONCEPT:
+Main Subject: {analysis.get('main_subject', 'abstract concept')}
+Visual Metaphor: {analysis.get('visual_metaphor', 'flowing connections')}
+
+SPECIFIC ELEMENTS TO INCLUDE:
+{chr(10).join([f"- {elem}" for elem in analysis.get('key_elements', ['geometric shapes'])])}
+
+STYLE & MOOD:
+- Mood: {analysis.get('mood', 'professional')}
+- Composition: {analysis.get('composition', 'centered layout')}
+- Background: {analysis.get('background_style', 'clean gradient')}
+- Lighting: {analysis.get('lighting', 'soft ambient')}
+
+COLOR PALETTE:
+- Primary color: {colors['primary']} ({colors['name']})
+- Accent color: {colors['accent']}
+- Use white and light gray for balance
+
+TECHNICAL REQUIREMENTS:
+- High resolution, crisp details
+- No text, words, or letters in the image
+- No human faces
+- Clean, uncluttered composition
+- Suitable as blog featured image with text overlay space
+
+Create a unique, visually striking illustration that specifically represents: "{title[:100]}" """
+
+        else:
+            # 従来のシンプルなプロンプト
+            prompt = f"""Create a {image_type} image for a blog article.
 
 Article Title: {title}
 Article Summary: {summary}
@@ -589,5 +735,7 @@ Style Requirements:
 - Abstract or conceptual representation of the topic
 
 Generate a visually stunning image that captures the essence of this article."""
+
+        logger.info(f"Generating image with {'smart' if use_smart_prompt else 'simple'} prompt for: {title[:50]}...")
 
         return await self.generate_image(prompt)

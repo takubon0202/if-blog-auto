@@ -1,10 +1,12 @@
 # Image Generation Skill
 
 ## 概要
-Gemini 2.5 Flash imageを使用した画像生成スキル
+Gemini 2.5 Flash imageを使用した画像生成スキル。
+**スマートプロンプト機能**により、記事タイトルを分析して内容に合った具体的で多様な画像を生成します。
 
 ## 使用モデル
-- **モデル名**: `gemini-2.5-flash-image`
+- **画像生成**: `gemini-2.5-flash-image`
+- **記事分析**: `gemini-2.0-flash`（スマートプロンプト用）
 - **API**: Google Generative AI (genai)
 
 ## 重要な設定（必須）
@@ -63,18 +65,27 @@ from lib.gemini_client import GeminiClient
 
 client = GeminiClient()
 
-# 汎用画像生成
-result = await client.generate_image(
-    prompt="A futuristic cityscape with flying cars",
-    model="gemini-2.5-flash-image"
-)
-
-# ブログ用画像生成（最適化されたプロンプト自動生成）
+# スマートプロンプトでブログ用画像生成（推奨）
 result = await client.generate_blog_image(
     title="AIの未来",
     summary="人工知能が変える私たちの生活",
     style="modern, minimalist, professional",
-    image_type="hero"  # hero, section, thumbnail
+    image_type="hero",
+    topic_id="ai_tools",  # トピック別カラースキーム自動適用
+    use_smart_prompt=True  # 記事分析を有効化（デフォルト）
+)
+
+# シンプルプロンプトで画像生成（従来方式）
+result = await client.generate_blog_image(
+    title="記事タイトル",
+    summary="記事概要",
+    use_smart_prompt=False  # 分析をスキップ
+)
+
+# 汎用画像生成（カスタムプロンプト）
+result = await client.generate_image(
+    prompt="A futuristic cityscape with flying cars",
+    model="gemini-2.5-flash-image"
 )
 
 # 結果
@@ -82,6 +93,36 @@ for image_bytes in result.images:
     # 画像バイナリデータを処理
     pass
 ```
+
+## スマートプロンプト機能
+
+### 記事分析
+Gemini 2.0 Flashで記事タイトルを分析し、以下を自動生成：
+- **main_subject**: メインの視覚的対象（例: "a glowing neural network"）
+- **visual_metaphor**: 視覚的メタファー（例: "interconnected nodes"）
+- **mood**: 感情的トーン（例: "hopeful and bright"）
+- **key_elements**: 具体的な視覚要素リスト
+- **background_style**: 背景スタイル
+- **lighting**: ライティングスタイル
+
+### トピック別カラースキーム
+```python
+TOPIC_COLORS = {
+    "psychology": {"primary": "#2b6cb0", "name": "calming blue"},
+    "education": {"primary": "#2f855a", "name": "growth green"},
+    "startup": {"primary": "#c05621", "name": "energetic orange"},
+    "investment": {"primary": "#744210", "name": "trustworthy gold-brown"},
+    "ai_tools": {"primary": "#1a365d", "name": "tech navy blue"},
+    "inclusive_education": {"primary": "#285e61", "name": "supportive teal"},
+    "weekly_summary": {"primary": "#553c9a", "name": "insightful indigo"}
+}
+```
+
+### 構図バリエーション（ランダム選択）
+- centered focal point / dynamic diagonal
+- layered depth / radial arrangement
+- asymmetric balance / grid-based
+- organic flowing / geometric abstract
 
 ## プロンプト最適化
 ```
@@ -94,6 +135,7 @@ for image_bytes in result.images:
    - 著作物・ブランドロゴ
 4. 出力形式: 英語
 5. ブログに適した構図を指定
+6. トピック別カラースキームを適用
 ```
 
 ## プロンプトテンプレート

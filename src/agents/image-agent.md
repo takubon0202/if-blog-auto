@@ -1,10 +1,12 @@
 # Image Agent
 
 ## 役割
-ブログ記事に適した画像をGemini 2.5 Flash imageモデルで生成する
+ブログ記事に適した画像をGemini 2.5 Flash imageモデルで生成する。
+**スマートプロンプト機能**により、記事タイトルを分析して内容に合った具体的で多様な画像を生成します。
 
 ## 使用API
 - **Primary**: Gemini 2.5 Flash image (`gemini-2.5-flash-image`)
+- **Analysis**: Gemini 2.0 Flash（記事分析・プロンプト最適化用）
 
 ## 重要な設定（必須遵守）
 
@@ -27,15 +29,43 @@ config = types.GenerateContentConfig(
 - 最低サイズ: 10KB以上（10KB未満は破損と判断）
 - PNGヘッダー検証: `\x89PNG\r\n\x1a\n`
 
+## スマートプロンプト機能（重要）
+
+記事タイトルを分析して、内容に合った具体的で多様な画像を生成します。
+
+### 分析内容
+Gemini 2.0 Flashで記事タイトルを分析し、以下を自動生成：
+- **main_subject**: 描写するメインの視覚的対象
+- **visual_metaphor**: 記事の核心を表す視覚的メタファー
+- **mood**: 感情的トーン（明るい、落ち着いた、ダイナミックなど）
+- **key_elements**: 含めるべき具体的な視覚要素（3-4個）
+- **background_style**: 背景スタイル
+- **lighting**: ライティングスタイル
+
+### 構図バリエーション
+毎回ランダムに異なる構図を選択：
+- centered focal point（中央配置）
+- dynamic diagonal composition（対角線構図）
+- layered depth（奥行きのある構図）
+- radial arrangement（放射状配置）
+- asymmetric balance（非対称バランス）
+- grid-based structured layout（グリッド構造）
+- organic flowing shapes（有機的な流れ）
+- geometric abstract pattern（幾何学抽象）
+
 ## 処理フロー
 ```
 1. 記事情報を受け取る
-2. デザインガイドラインに基づきプロンプトを最適化
-3. response_modalities=["IMAGE"] を設定
-4. Gemini 2.5 Flash imageで画像生成
-5. 画像データを検証（サイズ・ヘッダー）
-6. 有効な画像のみを保存
-7. 生成結果を返却
+2. 【スマートプロンプト】Gemini Flashで記事タイトルを分析
+3. 分析結果から具体的な視覚要素を抽出
+4. トピック別カラースキームを適用
+5. ランダムな構図スタイルを選択
+6. 最適化されたプロンプトを構築
+7. response_modalities=["IMAGE"] を設定
+8. Gemini 2.5 Flash imageで画像生成
+9. 画像データを検証（サイズ・ヘッダー）
+10. 有効な画像のみを保存
+11. 生成結果を返却
 ```
 
 ## 入力
@@ -68,14 +98,17 @@ Background: White/Light Gray (#f7fafc) - クリーンさ
 Text: Dark Gray (#2d3748) - 読みやすさ
 ```
 
-### カテゴリ別推奨カラー
-- 心理学: Blue (#2b6cb0)
-- 教育: Green (#2f855a)
-- 起業: Orange (#c05621)
-- 投資: Brown (#744210)
-- AI: Navy (#1a365d)
-- 不登校: Teal (#285e61)
-- 発達障害: Indigo (#2c5282)
+### トピック別カラースキーム（自動適用）
+
+| トピックID | カラー | 名前 |
+|-----------|--------|------|
+| `psychology` | #2b6cb0 / #4299e1 | calming blue |
+| `education` | #2f855a / #48bb78 | growth green |
+| `startup` | #c05621 / #ed8936 | energetic orange |
+| `investment` | #744210 / #d69e2e | trustworthy gold-brown |
+| `ai_tools` | #1a365d / #3182ce | tech navy blue |
+| `inclusive_education` | #285e61 / #38b2ac | supportive teal |
+| `weekly_summary` | #553c9a / #805ad5 | insightful indigo |
 
 ### 画像スタイル
 - **クリーンでミニマル**: 余計な装飾を避ける
@@ -148,12 +181,35 @@ from lib.gemini_client import GeminiClient
 
 client = GeminiClient()
 
-# ブログ用画像生成
+# スマートプロンプトでブログ用画像生成（推奨）
 result = await client.generate_blog_image(
     title="AIツールの最新動向2025",
     summary="2025年のAIツールトレンドを詳しく解説",
-    style="clean, minimal, professional, navy blue accent",
-    image_type="hero"
+    style="clean, minimal, professional",
+    image_type="hero",
+    topic_id="ai_tools",  # カラースキーム自動適用
+    use_smart_prompt=True  # 記事分析を有効化（デフォルト）
+)
+
+# シンプルプロンプトで画像生成（従来方式）
+result = await client.generate_blog_image(
+    title="記事タイトル",
+    summary="記事概要",
+    use_smart_prompt=False  # 分析をスキップ
+)
+```
+
+### スクリプトからの使用
+```python
+from scripts.generate_image import generate_images
+
+result = await generate_images(
+    article={
+        "title": "記事タイトル",
+        "summary": "記事概要",
+        "topic_id": "ai_tools"
+    },
+    use_smart_prompt=True
 )
 ```
 
