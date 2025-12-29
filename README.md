@@ -69,6 +69,68 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 - **オン**: 深い推論が必要なタスク（記事生成）
 - **オフ**: 高速応答が必要なタスク（SEO/レビュー）→ `thinking_budget: 0`
 
+## クイックスタート
+
+### 前提条件
+- Python 3.11以上
+- Git
+- Google AI API Key（[Google AI Studio](https://aistudio.google.com/)から取得）
+
+### 1. セットアップ（初回のみ）
+
+```bash
+# リポジトリをクローン
+git clone https://github.com/takubon0202/if-blog-auto.git
+cd if-blog-auto
+
+# Python仮想環境を作成・有効化
+python -m venv venv
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # Mac/Linux
+
+# 依存関係をインストール
+pip install -r requirements.txt
+
+# 環境変数を設定
+copy .env.example .env         # Windows
+# cp .env.example .env         # Mac/Linux
+```
+
+`.env`ファイルを編集してAPIキーを設定：
+```
+GOOGLE_AI_API_KEY=your_actual_api_key_here
+```
+
+### 2. 記事を生成
+
+```bash
+cd src/scripts
+
+# AIツールの記事を生成して投稿
+python main.py --topic ai_tools
+
+# ドライラン（投稿せずにテスト）
+python main.py --topic psychology --dry-run
+
+# 画像生成をスキップ
+python main.py --topic education --skip-images
+```
+
+### 3. 実行結果
+
+実行すると以下の処理が自動で行われます：
+
+```
+Step 1: Deep Research    → 最新情報を収集（約5分）
+Step 2: 記事生成         → ブログ記事を作成（約30秒）
+Step 3: 画像生成         → アイキャッチ画像を生成（約5秒）
+Step 4: SEO最適化        → メタデータを最適化（約3-5秒）
+Step 5: 品質レビュー     → ファクトチェック（約5-8秒）
+Step 6: GitHub投稿       → サイトに自動公開
+```
+
+生成された記事は自動的に https://takubon0202.github.io/if-blog-auto/ に公開されます。
+
 ## 主要機能
 
 | 機能 | 説明 |
@@ -316,6 +378,32 @@ uvicorn api.server:app --reload
 |--------|--------------|--------------|------|
 | SEO最適化 | 10-15秒 | 3-5秒 | **70%高速化** |
 | 品質レビュー | 15-25秒 | 5-8秒 | **65%高速化** |
+
+## トラブルシューティング
+
+### APIキーエラー
+```
+Error: Invalid API key
+```
+→ `.env`ファイルの`GOOGLE_AI_API_KEY`が正しく設定されているか確認してください。
+
+### モジュールが見つからない
+```
+ModuleNotFoundError: No module named 'google.genai'
+```
+→ 仮想環境が有効化されているか確認し、`pip install -r requirements.txt`を再実行してください。
+
+### Git pushエラー
+```
+Error: Permission denied
+```
+→ GitHubの認証情報を確認してください。Personal Access Tokenの設定が必要な場合があります。
+
+### 画像生成エラー
+```
+Error: Image generation failed
+```
+→ `--skip-images`オプションで画像生成をスキップして実行できます。
 
 ## ライセンス
 
