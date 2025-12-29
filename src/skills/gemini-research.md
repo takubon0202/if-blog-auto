@@ -13,7 +13,7 @@ Gemini Deep ResearchとGoogle Search Toolを使用した情報収集スキル。
 | 課金設定 | [Google AI Studio](https://aistudio.google.com/) で Billing 有効化が必須 |
 | 料金体系 | Gemini 3 Pro レート |
 | 無料枠 | 使用不可 → 自動的にGoogle Search Toolにフォールバック |
-| 必須パラメータ | `background=True` + `store=True` |
+| 必須パラメータ | `background=True`（storeはデフォルトTrue） |
 
 ## 必須ライブラリバージョン
 
@@ -74,12 +74,12 @@ research_query = f"""
 
 # 非同期リサーチの実行（client.aioを使用）
 # 重要: asyncio.to_thread()ではなく、ネイティブの非同期クライアントを使用
-# 重要: background=True には store=True が必須
+# 重要: background=True のみ指定（storeはデフォルトTrue）
 interaction = await client.aio.interactions.create(
     input=research_query,
     agent="deep-research-pro-preview-12-2025",
-    background=True,
-    store=True  # background=True requires store=True
+    background=True
+    # store パラメータは指定しない（デフォルト値Trueを使用）
 )
 
 # ポーリングで結果取得（非同期）

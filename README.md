@@ -17,7 +17,7 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 | 課金設定 | Google AI Studio で Billing 有効化が必須 |
 | 料金体系 | Gemini 3 Pro レート（入力$1.25/100万トークン、出力$5.00/100万トークン） |
 | 無料枠 | 使用不可（自動的にGoogle Search Toolにフォールバック） |
-| 必須パラメータ | `background=True` + `store=True` |
+| 必須パラメータ | `background=True`（storeはデフォルトTrue） |
 
 課金設定がない場合でも、自動的にGoogle Search Tool（無料枠内）にフォールバックして動作します。
 
@@ -528,15 +528,15 @@ google.genai._interactions.BadRequestError: Error code: 400 - {'error': {'messag
    - 料金: Gemini 3 Pro レート（入力$1.25/100万トークン、出力$5.00/100万トークン）
    - 注意: 課金設定がなくても自動的にGoogle Search Toolにフォールバックして動作
 
-2. **store=Trueパラメータの不足**
-   - 原因: `background=True`を使用する場合、`store=True`も必須
-   - 解決: 両方のパラメータを指定
+2. **storeパラメータを明示的に指定している**
+   - 原因: `store=True`を明示的に指定するとエラーになる場合がある
+   - 解決: storeパラメータは指定せず、デフォルト値（True）に任せる
    ```python
    interaction = await client.aio.interactions.create(
        input=query,
        agent="deep-research-pro-preview-12-2025",
-       background=True,
-       store=True  # 必須
+       background=True
+       # store は指定しない（デフォルトTrue）
    )
    ```
 
@@ -553,8 +553,8 @@ google.genai._interactions.BadRequestError: Error code: 400 - {'error': {'messag
    interaction = await client.aio.interactions.create(
        input=query,
        agent="deep-research-pro-preview-12-2025",
-       background=True,
-       store=True
+       background=True
+       # store は指定しない（デフォルトTrue）
    )
    # ポーリングも非同期クライアントを使用
    result = await client.aio.interactions.get(interaction.id)

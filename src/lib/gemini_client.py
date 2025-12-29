@@ -137,7 +137,7 @@ class GeminiClient:
     async def deep_research(
         self,
         query: str,
-        timeout_seconds: int = 300,
+        timeout_seconds: int = 1800,  # 30分に延長（Deep Researchは時間がかかる）
         poll_interval: int = 10
     ) -> ResearchResult:
         """
@@ -145,7 +145,7 @@ class GeminiClient:
 
         Args:
             query: 調査クエリ
-            timeout_seconds: タイムアウト秒数
+            timeout_seconds: タイムアウト秒数（デフォルト30分）
             poll_interval: ポーリング間隔秒数
 
         Returns:
@@ -155,12 +155,12 @@ class GeminiClient:
 
         try:
             # 非同期クライアント(client.aio)を使用してInteractions APIを呼び出し
-            # 注意: asyncio.to_thread()ではなく、ネイティブの非同期APIを使用
+            # 注意: background=True のみ指定（storeはデフォルトTrue）
             interaction = await self.aio.interactions.create(
                 input=query,
                 agent=self.AGENT_DEEP_RESEARCH,
-                background=True,
-                store=True  # background=True requires store=True
+                background=True
+                # store パラメータは指定しない（デフォルト値Trueを使用）
             )
 
             interaction_id = interaction.id

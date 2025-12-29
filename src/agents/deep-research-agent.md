@@ -12,6 +12,7 @@ Gemini Deep Research APIを使用して、**7日以内の最新情報のみ**を
 | 課金設定 | [Google AI Studio](https://aistudio.google.com/) で Billing 有効化が必須 |
 | 料金体系 | Gemini 3 Pro レート（入力$1.25/100万トークン、出力$5.00/100万トークン） |
 | 無料枠 | 使用不可 → 自動的にGoogle Search Toolにフォールバック |
+| 必須パラメータ | `background=True`（storeはデフォルトTrue） |
 
 ## 必須ライブラリバージョン
 
