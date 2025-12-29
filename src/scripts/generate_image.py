@@ -13,12 +13,12 @@ import sys
 import argparse
 import logging
 from pathlib import Path
-from datetime import datetime
 from typing import Optional, Dict, List
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from lib.gemini_client import GeminiClient, ImageGenerationResult
+from lib.timezone import get_timestamp_jst
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -102,8 +102,8 @@ class BlogImageGenerator:
         prefix: str,
         title: str
     ) -> Dict:
-        """画像をファイルに保存"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        """画像をファイルに保存（日本時間）"""
+        timestamp = get_timestamp_jst()  # JST timestamp
         saved_files = []
 
         for i, image_data in enumerate(result.images):

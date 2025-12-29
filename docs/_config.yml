@@ -4,6 +4,9 @@ description: 教育・心理学・テクノロジーに関する最新情報を�
 url: "https://takubon0202.github.io"
 baseurl: "/if-blog-auto"
 
+# Timezone - 日本標準時 (JST)
+timezone: Asia/Tokyo
+
 # Author
 author:
   name: if(塾)

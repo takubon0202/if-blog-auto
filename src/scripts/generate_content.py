@@ -12,10 +12,10 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from lib.gemini_client import GeminiClient
+from lib.timezone import format_date
 
 
 # デザインガイドラインを定数として定義
@@ -70,7 +70,7 @@ async def generate_article(topic_id: str, research_data: dict) -> dict:
     client = GeminiClient()
 
     topic_info = research_data.get('topic_info', {})
-    today = datetime.now().strftime('%Y-%m-%d')
+    today = format_date()  # JST date
 
     # ソース情報を抽出
     sources = research_data.get('sources', [])

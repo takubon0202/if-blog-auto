@@ -23,6 +23,7 @@ on:
 
 env:
   PYTHON_VERSION: '3.11'
+  TZ: 'Asia/Tokyo'  # 日本標準時 (JST)
 
 jobs:
   generate-blog:
@@ -56,14 +57,16 @@ jobs:
             echo "topic=${{ github.event.inputs.topic }}" >> $GITHUB_OUTPUT
           else
             python -c "
+          import sys
+          sys.path.insert(0, 'src')
+          from lib.timezone import get_weekday_name_jst
           import json
-          from datetime import datetime
 
           with open('src/config/topics.json') as f:
               config = json.load(f)
 
-          days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-          today = days[datetime.now().weekday()]
+          # JST基準で曜日を取得
+          today = get_weekday_name_jst()
           topics = config['rotation_schedule'].get(today, [])
 
           if topics:
@@ -89,6 +92,7 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add docs/ output/
+          # TZ環境変数によりJSTで日付が出力される
           git diff --staged --quiet || git commit -m "Auto-generated: ${{ steps.topic.outputs.topic }} - $(date +%Y-%m-%d)"
           git push
 

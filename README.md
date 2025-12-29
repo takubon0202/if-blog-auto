@@ -6,6 +6,14 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 
 **https://takubon0202.github.io/if-blog-auto/**
 
+## 最新アップデート (2025-12-29)
+
+- **リッチデザイン**: モダンでプレミアムなブログデザインに全面改修
+- **日本時間対応**: すべての日時処理をJST (UTC+9) に統一
+- **引用元表示**: 記事末尾に参考文献・引用元を自動表示
+- **目次自動生成**: 記事ページに目次を自動表示
+- **シェアボタン**: Twitter, Facebook, はてなブックマーク対応
+
 ## システム概要
 
 ```
@@ -140,8 +148,35 @@ Step 6: GitHub投稿       → サイトに自動公開
 | **画像生成** | Gemini 2.5 Flash imageで記事用アイキャッチ画像を生成 |
 | **SEO最適化** | Gemini 3 Flash（思考オフ）でメタデータ・キーワード最適化 |
 | **品質レビュー** | Gemini 3 Flash（思考オフ）でファクトチェック・品質スコアリング |
+| **引用元自動記載** | Deep Researchで収集したソースを記事末尾に自動表示 |
 | **自動投稿** | GitHub Pages (Jekyll) へ自動投稿 |
 | **スケジュール実行** | GitHub Actionsで毎日JST 5:00に自動実行 |
+
+## タイムゾーン設定
+
+本システムはすべての日時処理で **日本標準時 (JST = UTC+9)** を使用します。
+
+| 設定箇所 | 設定値 |
+|---------|--------|
+| Python スクリプト | `src/lib/timezone.py` モジュール使用 |
+| Jekyll | `timezone: Asia/Tokyo` |
+| GitHub Actions | `TZ: 'Asia/Tokyo'` 環境変数 |
+| スケジュール実行 | 毎日 JST 5:00 (UTC 20:00) |
+
+### タイムゾーンユーティリティ
+
+```python
+from lib.timezone import now_jst, format_date, format_datetime_jst
+
+# 現在の日本時間
+current_time = now_jst()
+
+# 日付フォーマット
+date_str = format_date()  # "2025-12-29"
+
+# Jekyll用日時
+jekyll_date = format_datetime_jst()  # "2025-12-29 16:50:44 +0900"
+```
 
 ## 対象トピック
 
@@ -199,7 +234,8 @@ if-blog-auto/
 │   │   └── settings.json    # システム設定（モデル・思考モード）
 │   │
 │   ├── lib/
-│   │   └── gemini_client.py # Gemini APIクライアント
+│   │   ├── gemini_client.py # Gemini APIクライアント
+│   │   └── timezone.py      # タイムゾーンユーティリティ (JST)
 │   │
 │   ├── scripts/
 │   │   ├── main.py          # メインスクリプト
@@ -238,9 +274,10 @@ if-blog-auto/
 | スキル | 目的 | モデル |
 |--------|------|--------|
 | `gemini-research` | Deep Research API実行 | Deep Research |
-| `gemini-content` | 記事生成 | Gemini 3 Pro |
+| `gemini-content` | 記事生成（引用元付き） | Gemini 3 Pro |
 | `gemini-3-flash` | SEO/レビュー高速処理 | Gemini 3 Flash（思考オフ） |
 | `image-generation` | 画像生成 | Gemini 2.5 Flash image |
+| `timezone` | 日本時間 (JST) 処理 | - |
 | `github-pages` | GitHub Pages操作 | - |
 | `jekyll-content` | Jekyll形式コンテンツ生成 | - |
 | `cms-integration` | CMS連携 | - |
@@ -408,6 +445,27 @@ Error: Permission denied
 Error: Image generation failed
 ```
 → `--skip-images`オプションで画像生成をスキップして実行できます。
+
+## デザインガイドライン
+
+本システムでは以下のデザインガイドラインを遵守しています。
+
+### 禁止事項
+- 絵文字の使用禁止
+- 紫色系の使用禁止
+- AIっぽい表現（「革新的」「画期的」など）の禁止
+
+### 推奨スタイル
+- クリーンでミニマルなデザイン
+- Deep Navy (#0a192f) を基調とした配色
+- 専門的だが親しみやすいトーン
+
+### 記事構成
+- 参考文献・引用元を記事末尾に必ず記載
+- 目次を自動生成
+- シェアボタン（Twitter, Facebook, はてなブックマーク）
+
+詳細は `src/config/design-guidelines.md` を参照してください。
 
 ## ライセンス
 

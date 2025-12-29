@@ -13,8 +13,11 @@ import asyncio
 import argparse
 import json
 import logging
+import sys
 from pathlib import Path
-from datetime import datetime
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from lib.timezone import format_date
 
 # ロギング設定
 logging.basicConfig(
@@ -110,10 +113,10 @@ async def main():
         }
         logger.info(f"Review completed. Quality score: {final.get('quality_score', 0)}")
 
-        # ローカル保存
+        # ローカル保存（日本時間）
         output_dir = Path(__file__).parent.parent.parent / "output" / "posts"
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_file = output_dir / f"{datetime.now().strftime('%Y%m%d')}_{args.topic}.md"
+        output_file = output_dir / f"{format_date(fmt='%Y%m%d')}_{args.topic}.md"  # JST date
 
         if not args.dry_run:
             output_file.write_text(final['content'], encoding='utf-8')

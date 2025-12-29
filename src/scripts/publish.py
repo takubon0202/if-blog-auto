@@ -10,10 +10,14 @@ import asyncio
 import subprocess
 import shutil
 import logging
+import sys
 from pathlib import Path
-from datetime import datetime
 from typing import Optional, Dict, List
 import unicodedata
+
+# タイムゾーンユーティリティをインポート
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from lib.timezone import now_jst, format_datetime_jst, format_date, get_timestamp_jst
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -53,9 +57,8 @@ class GitHubPagesPublisher:
         featured_image: Optional[str] = None,
         author: str = "AI Blog Generator"
     ) -> str:
-        """Jekyll用Front Matterを生成"""
-        now = datetime.now()
-        date_str = now.strftime("%Y-%m-%d %H:%M:%S +0900")
+        """Jekyll用Front Matterを生成（日本時間）"""
+        date_str = format_datetime_jst()  # JST timezone-aware
 
         lines = [
             "---",
@@ -115,10 +118,9 @@ class GitHubPagesPublisher:
         tags: Optional[List[str]] = None,
         featured_image: Optional[str] = None
     ) -> Path:
-        """記事ファイルを作成"""
-        now = datetime.now()
+        """記事ファイルを作成（日本時間）"""
         slug = self.slugify(title)
-        filename = f"{now.strftime('%Y-%m-%d')}-{slug}.md"
+        filename = f"{format_date()}-{slug}.md"  # JST date
         filepath = self.posts_dir / filename
 
         # Front Matter生成
@@ -173,10 +175,10 @@ class GitHubPagesPublisher:
             return False
 
     def get_public_url(self, title: str) -> str:
-        """公開URLを生成"""
-        now = datetime.now()
+        """公開URLを生成（日本時間）"""
         slug = self.slugify(title)
-        return f"{self.base_url}/{now.strftime('%Y/%m/%d')}/{slug}/"
+        date_path = format_date(fmt="%Y/%m/%d")  # JST date
+        return f"{self.base_url}/{date_path}/{slug}/"
 
 
 async def publish_to_github_pages(article: Dict) -> Dict:
