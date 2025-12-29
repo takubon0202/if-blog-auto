@@ -14,6 +14,18 @@ Gemini Deep Research APIを使用して、**7日以内の最新情報のみ**を
 | 無料枠 | 使用不可 → 自動的にGoogle Search Toolにフォールバック |
 | 必須パラメータ | `background=True`（storeはデフォルトTrue） |
 
+## レート制限（重要）
+
+| Tier | RPM (Requests Per Minute) | TPM (Tokens Per Minute) |
+|------|---------------------------|-------------------------|
+| Free | 使用不可 | - |
+| Tier 1 | **1** | 32,000 |
+| Tier 2 | 1 | 32,000 |
+
+**注意**: Deep ResearchのRPMは**1リクエスト/分**と非常に厳しい制限があります。
+レート制限に達すると400エラー「Request contains an invalid argument」が返されます。
+この場合は自動的にGoogle Search Toolにフォールバックします。
+
 ## 必須ライブラリバージョン
 
 **重要**: Interactions APIを使用するには以下のバージョンが必要です：
@@ -78,10 +90,11 @@ from src.lib.gemini_client import GeminiClient
 client = GeminiClient()
 result = await client.deep_research(
     query=research_query,  # 日付制約付き
-    timeout_seconds=300
+    timeout_seconds=1800   # 30分（Deep Researchは時間がかかる）
 )
-# 内部でclient.aio（非同期クライアント）を使用してInteractions APIを呼び出し
-# background=True + store=True（両方必須）でバックグラウンド実行される
+# 内部で同期クライアントをasyncio.to_thread()でラップして実行
+# 公式ドキュメント準拠: client.interactions.create() を使用
+# background=True でバックグラウンド実行、ポーリングで完了を待機
 ```
 
 ### Step 4: 結果の構造化とソース整理
@@ -160,6 +173,7 @@ result = await client.deep_research(
 
 ## エラーハンドリング
 - **Deep Research失敗時**: 自動的にGoogle Search Toolにフォールバック
+- **レート制限エラー（400）**: RPM 1/1を超過 → Google Searchにフォールバック
 - タイムアウト: Google Search Toolにフォールバック
 - API制限: 指数バックオフで再試行（最大3回）
 - ライブラリバージョンエラー: 400 Bad Request → フォールバック実行

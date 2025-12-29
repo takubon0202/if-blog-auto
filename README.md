@@ -21,6 +21,19 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 
 課金設定がない場合でも、自動的にGoogle Search Tool（無料枠内）にフォールバックして動作します。
 
+### レート制限（重要）
+
+**Deep ResearchのRPM（Requests Per Minute）は非常に厳しい制限があります。**
+
+| Tier | RPM | TPM | 備考 |
+|------|-----|-----|------|
+| Free | 0 | - | 使用不可 |
+| Tier 1 | **1** | 32,000 | 1リクエスト/分の制限 |
+| Tier 2 | 1 | 32,000 | 同上 |
+
+レート制限を超過すると400エラー「Request contains an invalid argument」が返されます。
+この場合は自動的にGoogle Search Toolにフォールバックします。
+
 ### 新機能
 - **7日以内最新情報限定**: Deep Researchで必ず7日以内の最新情報のみを収集
 - **引用元必須**: 記事末尾に最低5つ以上の参考文献・引用元URLを自動記載
@@ -301,11 +314,12 @@ if-blog-auto/
 │   │   ├── site-builder-agent.md
 │   │   └── blog-publisher-agent.md
 │   │
-│   ├── skills/              # スキル定義（7種類）
+│   ├── skills/              # スキル定義（8種類）
 │   │   ├── gemini-research.md
 │   │   ├── gemini-content.md
 │   │   ├── gemini-3-flash.md    # 思考オフ高速処理
 │   │   ├── image-generation.md
+│   │   ├── timezone.md          # JST日時処理
 │   │   ├── github-pages.md
 │   │   ├── jekyll-content.md
 │   │   └── cms-integration.md
@@ -544,9 +558,14 @@ google.genai._interactions.BadRequestError: Error code: 400 - {'error': {'messag
    - 原因: `google-genai`が0.5.0等の古いバージョン
    - 解決: `pip install google-genai>=1.56.0` でアップグレード
 
-4. **非同期クライアント(client.aio)の問題**
-   - 原因: `client.aio.interactions.create()`は実験的で不安定
-   - 解決: **公式ドキュメント通り同期クライアントを使用**
+4. **レート制限超過（最も多い原因の一つ）**
+   - 原因: Deep ResearchのRPMは**1リクエスト/分**と非常に厳しい
+   - 症状: 連続実行や短時間での再実行で400エラー
+   - 解決: 1分以上間隔を空けて再実行、または翌日に再試行
+   - 注意: レート制限はTier 1でもTier 2でも同じ（RPM 1）
+
+5. **同期クライアントの使用（公式推奨）**
+   - 注意: 本システムは公式ドキュメント通り**同期クライアント**を使用
    ```python
    # 正しい使用方法（公式ドキュメント準拠）
    # https://ai.google.dev/gemini-api/docs/deep-research
@@ -558,9 +577,10 @@ google.genai._interactions.BadRequestError: Error code: 400 - {'error': {'messag
    )
    # ポーリングも同期クライアントを使用
    interaction = client.interactions.get(interaction.id)
+   # 非同期環境では asyncio.to_thread() でラップ
    ```
 
-→ **フォールバック**: エラー発生時は自動的にGoogle Search Toolにフォールバックします
+**フォールバック**: エラー発生時は自動的にGoogle Search Toolにフォールバックします
 
 ### Git pushエラー
 ```

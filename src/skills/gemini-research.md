@@ -15,6 +15,16 @@ Gemini Deep ResearchとGoogle Search Toolを使用した情報収集スキル。
 | 無料枠 | 使用不可 → 自動的にGoogle Search Toolにフォールバック |
 | 必須パラメータ | `background=True`（storeはデフォルトTrue） |
 
+## レート制限（重要）
+
+| Tier | RPM | 備考 |
+|------|-----|------|
+| Free | 0 | 使用不可 |
+| Tier 1 | **1** | 1リクエスト/分の厳しい制限 |
+| Tier 2 | 1 | 同上 |
+
+**注意**: レート制限超過時は400エラーが返されます。自動的にGoogle Searchにフォールバックします。
+
 ## 必須ライブラリバージョン
 
 **重要**: Interactions API (Deep Research) を使用するには以下が必要です：
