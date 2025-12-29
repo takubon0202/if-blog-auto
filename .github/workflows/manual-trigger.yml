@@ -1,0 +1,35 @@
+name: Manual Blog Generation
+
+on:
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: 'トピックを選択'
+        required: true
+        type: choice
+        options:
+          - psychology
+          - education
+          - entrepreneurship
+          - investment_education
+          - ai_tools
+          - futoko
+          - neurodiversity
+      custom_prompt:
+        description: 'カスタム指示（オプション）'
+        required: false
+        type: string
+      word_count:
+        description: '目標文字数'
+        required: false
+        type: number
+        default: 2000
+
+jobs:
+  generate:
+    uses: ./.github/workflows/daily-blog-generation.yml
+    with:
+      topic: ${{ inputs.topic }}
+      use_deep_research: true
+      auto_publish: false
+    secrets: inherit

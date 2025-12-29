@@ -1,0 +1,154 @@
+name: Daily Blog Generation with Gemini
+
+on:
+  schedule:
+    # 毎日日本時間午前5時に実行（UTC 20:00）
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: '生成するトピック（空白で自動選択）'
+        required: false
+        type: string
+      use_deep_research:
+        description: 'Deep Researchを使用'
+        required: false
+        type: boolean
+        default: true
+      auto_publish:
+        description: '自動公開'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+
+jobs:
+  generate-blog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Determine today's topic
+        id: topic
+        run: |
+          if [ -n "${{ github.event.inputs.topic }}" ]; then
+            echo "topic=${{ github.event.inputs.topic }}" >> $GITHUB_OUTPUT
+          else
+            python -c "
+          import json
+          from datetime import datetime
+
+          with open('src/config/topics.json') as f:
+              config = json.load(f)
+
+          days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+          today = days[datetime.now().weekday()]
+          topics = config['rotation_schedule'].get(today, [])
+
+          if topics:
+              print(f'topic={topics[0]}')
+          else:
+              print('topic=ai_tools')
+            " >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Deep Research
+        if: ${{ github.event.inputs.use_deep_research != 'false' }}
+        env:
+          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
+        run: |
+          python src/scripts/research.py \
+            --topic "${{ steps.topic.outputs.topic }}" \
+            --use-deep-research
+
+      - name: Run Quick Research (fallback)
+        if: ${{ github.event.inputs.use_deep_research == 'false' }}
+        env:
+          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
+        run: |
+          python src/scripts/research.py \
+            --topic "${{ steps.topic.outputs.topic }}" \
+            --use-google-search
+
+      - name: Generate blog content
+        env:
+          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
+        run: |
+          python src/scripts/generate_content.py \
+            --topic "${{ steps.topic.outputs.topic }}"
+
+      - name: Generate images
+        env:
+          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
+        run: |
+          python src/scripts/generate_image.py
+
+      - name: SEO optimization
+        env:
+          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
+        run: |
+          python src/scripts/seo_optimize.py
+
+      - name: Review and finalize
+        env:
+          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
+        run: |
+          python src/scripts/review.py
+
+      - name: Publish to CMS
+        if: ${{ github.event.inputs.auto_publish == 'true' }}
+        env:
+          WORDPRESS_URL: ${{ secrets.WORDPRESS_URL }}
+          WORDPRESS_USER: ${{ secrets.WORDPRESS_USER }}
+          WORDPRESS_APP_PASSWORD: ${{ secrets.WORDPRESS_APP_PASSWORD }}
+        run: |
+          python src/scripts/publish.py
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-blog-${{ steps.topic.outputs.topic }}-${{ github.run_number }}
+          path: output/
+          retention-days: 30
+
+      - name: Commit generated content
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add output/
+          git diff --staged --quiet || git commit -m "Auto-generated: ${{ steps.topic.outputs.topic }} - $(date +%Y-%m-%d)"
+          git push
+
+      - name: Create summary
+        run: |
+          echo "## Blog Generation Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Topic**: ${{ steps.topic.outputs.topic }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deep Research**: ${{ github.event.inputs.use_deep_research != 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Auto Publish**: ${{ github.event.inputs.auto_publish == 'true' }}" >> $GITHUB_STEP_SUMMARY
