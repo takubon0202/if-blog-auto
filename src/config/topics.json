@@ -19,26 +19,26 @@
       "frequency": "weekly"
     },
     {
-      "id": "entrepreneurship",
-      "name": "起業家育成",
+      "id": "startup",
+      "name": "起業家育成・スタートアップ",
       "keywords": ["起業", "スタートアップ", "起業家精神", "ビジネスモデル", "資金調達", "アントレプレナーシップ"],
       "research_focus": ["成功事例", "失敗からの学び", "最新トレンド"],
       "target_audience": "起業を考えている人、経営者、ビジネスパーソン",
       "priority": 2,
-      "frequency": "biweekly"
+      "frequency": "weekly"
     },
     {
-      "id": "investment_education",
-      "name": "投資教育",
+      "id": "investment",
+      "name": "投資教育・金融リテラシー",
       "keywords": ["投資教育", "金融リテラシー", "資産形成", "NISA", "投資信託", "株式投資"],
       "research_focus": ["制度変更", "投資戦略", "リスク管理"],
       "target_audience": "投資初心者、資産形成に関心のある社会人",
       "priority": 2,
-      "frequency": "biweekly"
+      "frequency": "weekly"
     },
     {
       "id": "ai_tools",
-      "name": "AIツール動向",
+      "name": "AIツール・技術動向",
       "keywords": ["AI", "ChatGPT", "生成AI", "AIツール", "機械学習", "Claude", "Gemini"],
       "research_focus": ["新サービス", "活用事例", "技術動向"],
       "target_audience": "AIに関心のあるビジネスパーソン、クリエイター",
@@ -46,7 +46,7 @@
       "frequency": "weekly"
     },
     {
-      "id": "futoko",
+      "id": "school_refusal",
       "name": "不登校支援",
       "keywords": ["不登校", "フリースクール", "オルタナティブ教育", "学校外教育", "子どもの居場所", "ホームスクーリング"],
       "research_focus": ["支援制度", "成功事例", "専門家の見解"],
@@ -65,12 +65,12 @@
     }
   ],
   "rotation_schedule": {
-    "monday": ["ai_tools"],
-    "tuesday": ["education", "futoko"],
-    "wednesday": ["psychology"],
-    "thursday": ["neurodiversity"],
-    "friday": ["entrepreneurship", "investment_education"],
-    "saturday": [],
-    "sunday": []
+    "monday": ["psychology"],
+    "tuesday": ["education"],
+    "wednesday": ["startup"],
+    "thursday": ["investment"],
+    "friday": ["ai_tools"],
+    "saturday": ["school_refusal"],
+    "sunday": ["neurodiversity"]
   }
 }

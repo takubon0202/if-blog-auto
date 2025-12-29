@@ -10,20 +10,16 @@ on:
         options:
           - psychology
           - education
-          - entrepreneurship
-          - investment_education
+          - startup
+          - investment
           - ai_tools
-          - futoko
+          - school_refusal
           - neurodiversity
-      custom_prompt:
-        description: 'カスタム指示（オプション）'
+      skip_images:
+        description: '画像生成をスキップ'
         required: false
-        type: string
-      word_count:
-        description: '目標文字数'
-        required: false
-        type: number
-        default: 2000
+        type: boolean
+        default: false
 
 jobs:
   generate:
@@ -31,5 +27,5 @@ jobs:
     with:
       topic: ${{ inputs.topic }}
       use_deep_research: true
-      auto_publish: false
+      skip_images: ${{ inputs.skip_images }}
     secrets: inherit
