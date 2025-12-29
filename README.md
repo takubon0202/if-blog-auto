@@ -8,31 +8,31 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 
 ## 最新アップデート (2025-12-29)
 
-### 重要: Deep Research APIの課金要件
+### 設計変更: Google Search メイン + Deep Research 週1回
 
-**Deep Research APIは有料プラン専用です。**
+**リサーチ方法を以下のように変更しました：**
+
+| 曜日 | リサーチ方法 | 処理時間 | 備考 |
+|------|-------------|---------|------|
+| **月〜土** | Google Search Tool | 数秒 | デフォルト・推奨 |
+| **日曜日** | Deep Research API | 約5分 | 週1回の深層調査 |
+| **手動実行** | 選択可能 | - | GitHub Actionsで選択 |
+
+**変更理由**: Deep ResearchはRPM 1/分の厳しいレート制限があるため、
+週1回（日曜日）のみ使用し、通常はGoogle Search Toolを使用します。
+
+### Deep Research APIの課金要件
+
+**Deep Research APIは有料プラン専用です。**（日曜日のみ使用）
 
 | 項目 | 要件 |
 |------|------|
 | 課金設定 | Google AI Studio で Billing 有効化が必須 |
 | 料金体系 | Gemini 3 Pro レート（入力$1.25/100万トークン、出力$5.00/100万トークン） |
 | 無料枠 | 使用不可（自動的にGoogle Search Toolにフォールバック） |
-| 必須パラメータ | `background=True`（storeはデフォルトTrue） |
+| レート制限 | **RPM 1/分**（非常に厳しい） |
 
-課金設定がない場合でも、自動的にGoogle Search Tool（無料枠内）にフォールバックして動作します。
-
-### レート制限（重要）
-
-**Deep ResearchのRPM（Requests Per Minute）は非常に厳しい制限があります。**
-
-| Tier | RPM | TPM | 備考 |
-|------|-----|-----|------|
-| Free | 0 | - | 使用不可 |
-| Tier 1 | **1** | 32,000 | 1リクエスト/分の制限 |
-| Tier 2 | 1 | 32,000 | 同上 |
-
-レート制限を超過すると400エラー「Request contains an invalid argument」が返されます。
-この場合は自動的にGoogle Search Toolにフォールバックします。
+課金設定がない場合や日曜日以外は、Google Search Tool（無料枠内）を使用します。
 
 ### 新機能
 - **7日以内最新情報限定**: Deep Researchで必ず7日以内の最新情報のみを収集
@@ -57,8 +57,9 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 │  ┌─────────────────────────────────────────────────────────────────────┐ │
 │  │                        Step 1: 情報収集                              │ │
 │  │  ┌─────────────────────────────────────────────────────────────┐   │ │
-│  │  │  Deep Research API (deep-research-pro-preview-12-2025)      │   │ │
-│  │  │  → 7日以内の最新トレンド情報を包括的に調査                   │   │ │
+│  │  │  【月〜土】Google Search Tool (gemini-3-pro-preview)        │   │ │
+│  │  │  【日曜日】Deep Research API (週1回の深層調査)               │   │ │
+│  │  │  → 7日以内の最新トレンド情報を収集                          │   │ │
 │  │  └─────────────────────────────────────────────────────────────┘   │ │
 │  └─────────────────────────────────────────────────────────────────────┘ │
 │                                    ↓                                      │
@@ -99,13 +100,14 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 
 ## 使用AIモデル
 
-| ステップ | モデル | 思考モード | 応答時間 |
-|----------|--------|-----------|----------|
-| 情報収集 | `deep-research-pro-preview-12-2025` | - | 約5分 |
-| 記事生成 | `gemini-3-pro-preview` | オン | 約30秒 |
-| 画像生成 | `gemini-2.5-flash-image` | - | 約5秒 |
-| SEO最適化 | `gemini-3-flash-preview` | **オフ** | 約3-5秒 |
-| 品質レビュー | `gemini-3-flash-preview` | **オフ** | 約5-8秒 |
+| ステップ | モデル | 曜日 | 応答時間 |
+|----------|--------|-----|----------|
+| 情報収集（メイン） | `gemini-3-pro-preview` + Google Search | 月〜土 | 数秒 |
+| 情報収集（深層） | `deep-research-pro-preview-12-2025` | 日曜のみ | 約5分 |
+| 記事生成 | `gemini-3-pro-preview` | 全曜日 | 約30秒 |
+| 画像生成 | `gemini-2.5-flash-image` | 全曜日 | 約5秒 |
+| SEO最適化 | `gemini-3-flash-preview`（思考オフ） | 全曜日 | 約3-5秒 |
+| 品質レビュー | `gemini-3-flash-preview`（思考オフ） | 全曜日 | 約5-8秒 |
 
 ### 思考モードについて
 - **オン**: 深い推論が必要なタスク（記事生成）
@@ -305,8 +307,9 @@ if-blog-auto/
 │   └── categories.md
 │
 ├── src/
-│   ├── agents/              # サブエージェント定義（7種類）
-│   │   ├── deep-research-agent.md
+│   ├── agents/              # サブエージェント定義（8種類）
+│   │   ├── google-search-agent.md   # メイン（月〜土）
+│   │   ├── deep-research-agent.md   # 日曜のみ
 │   │   ├── writing-agent.md
 │   │   ├── image-agent.md
 │   │   ├── seo-agent.md         # Gemini 3 Flash（思考オフ）
@@ -354,15 +357,16 @@ if-blog-auto/
 
 ## サブエージェント
 
-| エージェント | 役割 | モデル | 思考モード |
-|-------------|------|--------|-----------|
-| `deep-research-agent` | 最新情報の包括的収集 | Deep Research API | - |
-| `writing-agent` | ブログ記事の執筆 | Gemini 3 Pro | オン |
-| `image-agent` | アイキャッチ画像生成 | Gemini 2.5 Flash image | - |
-| `seo-agent` | SEOメタデータ最適化 | Gemini 3 Flash | **オフ** |
-| `review-agent` | 品質チェック・ファクトチェック | Gemini 3 Flash | **オフ** |
-| `site-builder-agent` | Jekyllサイト構造管理 | - | - |
-| `blog-publisher-agent` | GitHub Pages投稿処理 | - | - |
+| エージェント | 役割 | モデル | 使用タイミング |
+|-------------|------|--------|--------------|
+| `google-search-agent` | 高速情報収集（メイン） | Gemini 3 Pro + Search | **月〜土（デフォルト）** |
+| `deep-research-agent` | 深層調査 | Deep Research API | **日曜のみ** |
+| `writing-agent` | ブログ記事の執筆 | Gemini 3 Pro | 全曜日 |
+| `image-agent` | アイキャッチ画像生成 | Gemini 2.5 Flash image | 全曜日 |
+| `seo-agent` | SEOメタデータ最適化 | Gemini 3 Flash（思考オフ） | 全曜日 |
+| `review-agent` | 品質チェック | Gemini 3 Flash（思考オフ） | 全曜日 |
+| `site-builder-agent` | Jekyllサイト構造管理 | - | 全曜日 |
+| `blog-publisher-agent` | GitHub Pages投稿処理 | - | 全曜日 |
 
 ## スキル
 

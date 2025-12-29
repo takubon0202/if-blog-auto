@@ -15,6 +15,14 @@ on:
           - ai_tools
           - school_refusal
           - neurodiversity
+      research_method:
+        description: 'リサーチ方法を選択'
+        required: true
+        type: choice
+        options:
+          - 'google_search'
+          - 'deep_research'
+        default: 'google_search'
       skip_images:
         description: '画像生成をスキップ'
         required: false
@@ -26,6 +34,6 @@ jobs:
     uses: ./.github/workflows/daily-blog-generation.yml
     with:
       topic: ${{ inputs.topic }}
-      use_deep_research: true
+      research_method: ${{ inputs.research_method }}
       skip_images: ${{ inputs.skip_images }}
     secrets: inherit

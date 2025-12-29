@@ -3,11 +3,15 @@
 ブログ自動生成メインスクリプト - GitHub Pages Edition
 
 システムフロー:
-1. Deep Research (情報収集)
+1. 情報収集（Google Search: 通常、Deep Research: 日曜のみ）
 2. Gemini 3 Pro (ブログ生成)
 3. Gemini 2.5 Flash (画像生成)
 4. SEO最適化 & レビュー
 5. GitHub Pages投稿
+
+設計方針:
+- Google Search Tool: 日常的な情報収集（メイン・デフォルト）
+- Deep Research: 週1回（日曜日）の深層調査
 """
 import asyncio
 import argparse
@@ -31,8 +35,8 @@ async def main():
     parser = argparse.ArgumentParser(description='Blog Auto Generator - GitHub Pages Edition')
     parser.add_argument('--topic', required=True, help='Topic ID')
     parser.add_argument('--dry-run', action='store_true', help='Dry run mode (no publish)')
-    parser.add_argument('--use-deep-research', action='store_true', default=True,
-                        help='Use Deep Research API (default: True)')
+    parser.add_argument('--use-deep-research', action='store_true', default=False,
+                        help='Use Deep Research API (default: False, use Google Search)')
     parser.add_argument('--skip-images', action='store_true', help='Skip image generation')
     parser.add_argument('--publish', action='store_true', default=True,
                         help='Publish to GitHub Pages (default: True)')
@@ -56,9 +60,10 @@ async def main():
     }
 
     try:
-        # Step 1: Deep Research (情報収集)
+        # Step 1: 情報収集（Google Search or Deep Research）
         logger.info("=" * 50)
-        logger.info("Step 1: Running Deep Research...")
+        research_method = "Deep Research" if args.use_deep_research else "Google Search"
+        logger.info(f"Step 1: Running {research_method}...")
         logger.info("=" * 50)
         research_data = await run_research(args.topic, args.use_deep_research)
         result["steps"]["research"] = {

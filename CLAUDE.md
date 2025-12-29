@@ -1,22 +1,35 @@
 # Blog Automation Project Rules - Gemini API Edition
 
 ## プロジェクト概要
-Gemini 3 Pro PreviewとDeep Research APIを活用し、最新トレンド情報を自動収集して画像付きブログ記事を生成・投稿するシステム。
+Google Search Tool（メイン）とDeep Research API（週1回）を活用し、最新トレンド情報を自動収集して画像付きブログ記事を生成・投稿するシステム。
 
 ## 技術スタック
-- **AI**: Gemini 3 Pro Preview, Deep Research Pro Preview
+- **AI**: Gemini 3 Pro Preview, Deep Research Pro Preview（日曜のみ）
 - **言語**: Python 3.11+, JavaScript (Node.js 20+)
-- **検索**: Google Search Tool (Gemini Built-in)
+- **検索（メイン）**: Google Search Tool (Gemini Built-in) - 月〜土曜日
+- **検索（深層）**: Deep Research API - 日曜日のみ
 - **画像生成**: Gemini 2.5 Flash image (`gemini-2.5-flash-image`)
 - **CI/CD**: GitHub Actions
 - **CMS**: GitHub Pages (Jekyll)
 - **公開URL**: https://takubon0202.github.io/if-blog-auto/
 - **必須ライブラリ**: `google-genai>=1.56.0` (Interactions API/Deep Research対応)
 
+## リサーチ方法の選択ルール（重要）
+
+| 曜日 | リサーチ方法 | 処理時間 | 備考 |
+|-----|-------------|---------|------|
+| **月〜土** | Google Search Tool | 数秒 | デフォルト・推奨 |
+| **日曜日** | Deep Research API | 約5分 | 週1回の深層調査 |
+| **手動指定** | 選択可能 | - | GitHub Actionsで選択 |
+
+**設計理由**: Deep ResearchはRPM 1/分の厳しいレート制限があるため、
+週1回（日曜日）のみ使用し、通常はGoogle Search Toolを使用します。
+
 ## システムフロー
 ```
-1. Deep Research (情報収集)
-   └── deep-research-pro-preview-12-2025 で最新情報を調査
+1. 情報収集
+   ├── 【月〜土】Google Search Tool + gemini-3-pro-preview
+   └── 【日曜日】deep-research-pro-preview-12-2025
 
 2. Gemini 3 Pro (ブログ生成)
    └── gemini-3-pro-preview で記事を執筆
@@ -34,14 +47,15 @@ Gemini 3 Pro PreviewとDeep Research APIを活用し、最新トレンド情報�
 ## Gemini API使用ルール
 
 ### モデル選択
-| 用途 | モデル | 思考モード |
-|------|--------|-----------|
-| 情報収集 | `deep-research-pro-preview-12-2025`（非同期） | - |
-| コンテンツ生成 | `gemini-3-pro-preview` | オン |
-| SEO最適化 | `gemini-3-flash-preview` | オフ |
-| 品質レビュー | `gemini-3-flash-preview` | オフ |
-| 画像生成 | `gemini-2.5-flash-image` | - |
-| 軽量タスク | `gemini-2.0-flash` | - |
+| 用途 | モデル | 曜日/タイミング |
+|------|--------|----------------|
+| 情報収集（メイン） | `gemini-3-pro-preview` + Google Search | 月〜土（デフォルト） |
+| 情報収集（深層） | `deep-research-pro-preview-12-2025` | 日曜のみ |
+| コンテンツ生成 | `gemini-3-pro-preview` | 全曜日 |
+| SEO最適化 | `gemini-3-flash-preview`（思考オフ） | 全曜日 |
+| 品質レビュー | `gemini-3-flash-preview`（思考オフ） | 全曜日 |
+| 画像生成 | `gemini-2.5-flash-image` | 全曜日 |
+| 軽量タスク | `gemini-2.0-flash` | 全曜日 |
 
 ### API呼び出しパターン
 ```python
@@ -92,7 +106,8 @@ Expected Output: [期待する出力形式]
 ```
 
 ### 利用可能なサブエージェント
-- `deep-research-agent.md`: Deep Researchによる情報収集
+- `google-search-agent.md`: Google Searchによる高速情報収集（メイン・月〜土）
+- `deep-research-agent.md`: Deep Researchによる深層調査（日曜のみ）
 - `writing-agent.md`: Gemini 3 Proによる記事執筆
 - `image-agent.md`: Gemini 2.5 Flash imageによる画像生成
 - `seo-agent.md`: SEO最適化

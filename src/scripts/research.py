@@ -2,8 +2,13 @@
 """
 リサーチ実行スクリプト - 7日以内最新情報限定版
 
-Deep Research APIを使用して、必ず7日以内の最新情報のみを収集します。
+Google Search Tool（デフォルト）またはDeep Research APIを使用して、
+必ず7日以内の最新情報のみを収集します。
 すべての日時処理は日本標準時(JST)を使用します。
+
+設計方針:
+- Google Search Tool: 日常的な情報収集（メイン）
+- Deep Research: 週1回（日曜日）の深層調査
 """
 import asyncio
 import argparse
@@ -35,16 +40,21 @@ def get_date_range_jst() -> tuple[str, str]:
     )
 
 
-async def run_research(topic_id: str, use_deep_research: bool = True) -> dict:
+async def run_research(topic_id: str, use_deep_research: bool = False) -> dict:
     """
     リサーチを実行（7日以内の最新情報限定）
 
     Args:
         topic_id: トピックID
-        use_deep_research: Deep Research APIを使用するか
+        use_deep_research: Deep Research APIを使用するか（デフォルト: False = Google Search）
 
     Returns:
         dict: リサーチ結果（sources含む）
+
+    Note:
+        - デフォルトはGoogle Search Tool（高速・安定）
+        - Deep Researchは週1回（日曜日）または手動指定時のみ推奨
+        - Deep ResearchはRPM 1/分の制限があるため注意
     """
     # トピック設定を読み込み
     config_path = Path(__file__).parent.parent / "config" / "topics.json"
@@ -167,16 +177,17 @@ async def run_research(topic_id: str, use_deep_research: bool = True) -> dict:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="7日以内の最新情報をDeep Researchで収集"
+        description="7日以内の最新情報を収集（デフォルト: Google Search）"
     )
     parser.add_argument('--topic', required=True, help='トピックID')
-    parser.add_argument('--use-deep-research', action='store_true', default=True,
-                        help='Deep Research APIを使用（デフォルト: True）')
-    parser.add_argument('--use-google-search', action='store_true',
-                        help='Google Search Toolを使用（フォールバック）')
+    parser.add_argument('--use-deep-research', action='store_true', default=False,
+                        help='Deep Research APIを使用（週1回の深層調査向け）')
+    parser.add_argument('--use-google-search', action='store_true', default=True,
+                        help='Google Search Toolを使用（デフォルト・推奨）')
     args = parser.parse_args()
 
-    use_deep = not args.use_google_search
+    # --use-deep-research が指定された場合のみDeep Researchを使用
+    use_deep = args.use_deep_research
     result = asyncio.run(run_research(args.topic, use_deep))
 
     # 結果を出力

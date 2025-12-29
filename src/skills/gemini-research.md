@@ -1,8 +1,19 @@
 # Gemini Research Skill - 7日以内最新情報限定版
 
 ## 概要
-Gemini Deep ResearchとGoogle Search Toolを使用した情報収集スキル。
+Google Search Tool（メイン）とDeep Research（週1回）を使用した情報収集スキル。
 **必ず7日以内の最新情報のみを収集**します。
+
+## 設計方針
+
+| 曜日 | リサーチ方法 | 処理時間 |
+|-----|-------------|---------|
+| **月〜土** | Google Search Tool | 数秒 |
+| **日曜日** | Deep Research API | 約5分 |
+| **手動指定** | 選択可能 | - |
+
+**理由**: Deep ResearchはRPM 1/分の厳しいレート制限があるため、
+週1回（日曜日）のみ使用し、通常はGoogle Search Toolを使用します。
 
 ## 重要: 課金要件
 
@@ -102,12 +113,27 @@ while True:
     time.sleep(10)
 ```
 
-### Google Search Tool（フォールバック）
+### Google Search Tool（メイン・月〜土曜日）
 ```python
 from lib.timezone import format_date
+from lib.gemini_client import GeminiClient
 
 today_jst = format_date(fmt="%Y年%m月%d日")
+client = GeminiClient()
 
+# Google Search + Gemini 3 Pro で検索＆生成
+result = await client.search_and_generate(
+    query=f"{topic} 最新 {today_jst} 過去7日間",
+    generation_prompt=research_query
+)
+
+# 結果
+content = result.text
+sources = result.grounding_sources  # ソースURL一覧
+```
+
+### 直接API呼び出し（参考）
+```python
 # 検索ツール有効化（日付付きクエリ）
 response = client.models.generate_content(
     model="gemini-3-pro-preview",

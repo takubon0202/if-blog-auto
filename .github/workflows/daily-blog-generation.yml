@@ -10,11 +10,15 @@ on:
         description: '生成するトピック（空白で自動選択）'
         required: false
         type: string
-      use_deep_research:
-        description: 'Deep Researchを使用'
+      research_method:
+        description: 'リサーチ方法を選択'
         required: false
-        type: boolean
-        default: true
+        type: choice
+        options:
+          - 'auto'
+          - 'google_search'
+          - 'deep_research'
+        default: 'auto'
       skip_images:
         description: '画像生成をスキップ'
         required: false
@@ -50,9 +54,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Determine today's topic
-        id: topic
+      - name: Determine today's topic and research method
+        id: config
         run: |
+          # トピックの決定
           if [ -n "${{ github.event.inputs.topic }}" ]; then
             echo "topic=${{ github.event.inputs.topic }}" >> $GITHUB_OUTPUT
           else
@@ -76,14 +81,38 @@ jobs:
             " >> $GITHUB_OUTPUT
           fi
 
+          # リサーチ方法の決定
+          # auto: 日曜日のみDeep Research、それ以外はGoogle Search
+          # google_search: 常にGoogle Search
+          # deep_research: 常にDeep Research
+          RESEARCH_METHOD="${{ github.event.inputs.research_method }}"
+          if [ "$RESEARCH_METHOD" = "deep_research" ]; then
+            echo "use_deep_research=true" >> $GITHUB_OUTPUT
+            echo "research_display=Deep Research (手動指定)" >> $GITHUB_OUTPUT
+          elif [ "$RESEARCH_METHOD" = "google_search" ]; then
+            echo "use_deep_research=false" >> $GITHUB_OUTPUT
+            echo "research_display=Google Search (手動指定)" >> $GITHUB_OUTPUT
+          else
+            # auto: 日曜日のみDeep Research
+            DAY_OF_WEEK=$(date +%u)  # 1=Mon, 7=Sun
+            if [ "$DAY_OF_WEEK" = "7" ]; then
+              echo "use_deep_research=true" >> $GITHUB_OUTPUT
+              echo "research_display=Deep Research (日曜日自動)" >> $GITHUB_OUTPUT
+            else
+              echo "use_deep_research=false" >> $GITHUB_OUTPUT
+              echo "research_display=Google Search (デフォルト)" >> $GITHUB_OUTPUT
+            fi
+          fi
+
       - name: Generate blog post
         env:
           GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
         run: |
+          echo "Research Method: ${{ steps.config.outputs.research_display }}"
           cd src/scripts
           python main.py \
-            --topic "${{ steps.topic.outputs.topic }}" \
-            ${{ github.event.inputs.use_deep_research != 'false' && '--use-deep-research' || '' }} \
+            --topic "${{ steps.config.outputs.topic }}" \
+            ${{ steps.config.outputs.use_deep_research == 'true' && '--use-deep-research' || '' }} \
             ${{ github.event.inputs.skip_images == 'true' && '--skip-images' || '' }} \
             --publish
 
@@ -93,13 +122,13 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add docs/ output/
           # TZ環境変数によりJSTで日付が出力される
-          git diff --staged --quiet || git commit -m "Auto-generated: ${{ steps.topic.outputs.topic }} - $(date +%Y-%m-%d)"
+          git diff --staged --quiet || git commit -m "Auto-generated: ${{ steps.config.outputs.topic }} - $(date +%Y-%m-%d)"
           git push
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: generated-blog-${{ steps.topic.outputs.topic }}-${{ github.run_number }}
+          name: generated-blog-${{ steps.config.outputs.topic }}-${{ github.run_number }}
           path: |
             output/
             docs/_posts/
@@ -109,8 +138,8 @@ jobs:
         run: |
           echo "## Blog Generation Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Topic**: ${{ steps.topic.outputs.topic }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Deep Research**: ${{ github.event.inputs.use_deep_research != 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Topic**: ${{ steps.config.outputs.topic }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Research Method**: ${{ steps.config.outputs.research_display }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Skip Images**: ${{ github.event.inputs.skip_images == 'true' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Published URL" >> $GITHUB_STEP_SUMMARY

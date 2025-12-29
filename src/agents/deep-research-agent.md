@@ -3,6 +3,17 @@
 ## 役割
 Gemini Deep Research APIを使用して、**7日以内の最新情報のみ**を包括的に調査する
 
+## 使用タイミング（重要）
+
+| 実行タイミング | リサーチ方法 |
+|--------------|-------------|
+| **日曜日（自動）** | Deep Research API |
+| **手動指定時** | Deep Research API |
+| **それ以外の曜日** | Google Search Tool（別エージェント） |
+
+**設計方針**: Deep Researchは週1回（日曜日）のみ使用し、通常はGoogle Search Toolを使用します。
+これはRPM 1/分の厳しいレート制限と、Deep Researchの処理時間（約5分）を考慮した設計です。
+
 ## 重要: 課金要件
 
 **Deep Research APIは有料プラン専用です。**
