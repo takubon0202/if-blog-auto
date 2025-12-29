@@ -1,19 +1,30 @@
 # Gemini Research Skill - 7日以内最新情報限定版
 
 ## 概要
-Google Search Tool（メイン）とDeep Research（週1回）を使用した情報収集スキル。
+Multi-Search（3回検索、メイン）とDeep Research（週1回）を使用した情報収集スキル。
 **必ず7日以内の最新情報のみを収集**します。
 
 ## 設計方針
 
-| 曜日 | リサーチ方法 | 処理時間 |
-|-----|-------------|---------|
-| **月〜土** | Google Search Tool | 数秒 |
-| **日曜日** | Deep Research API | 約5分 |
-| **手動指定** | 選択可能 | - |
+| 曜日 | リサーチ方法 | 検索回数 | 処理時間 |
+|-----|-------------|----------|---------|
+| **月〜土** | Multi-Search (3回検索) | 3回 | 約10秒 |
+| **日曜日** | Deep Research API | 1回 | 約5分 |
+| **手動指定** | 選択可能 | - | - |
+| **フォールバック** | Multi-Search | 3回 | 約10秒 |
 
 **理由**: Deep ResearchはRPM 1/分の厳しいレート制限があるため、
-週1回（日曜日）のみ使用し、通常はGoogle Search Toolを使用します。
+週1回（日曜日）のみ使用し、通常はMulti-Search（3回検索）でDeep Research簡易版として動作します。
+
+## Multi-Search（3回検索）パターン
+
+3つの異なる視点から検索を行い、情報を統合します：
+
+| 検索 | 視点 | 目的 |
+|------|------|------|
+| 1回目 | 最新ニュース・動向 | 直近の発表・ニュースを収集 |
+| 2回目 | 専門家の見解・研究 | 専門家意見・研究成果を収集 |
+| 3回目 | 事例・統計・トレンド | 具体的データ・事例を収集 |
 
 ## 重要: 課金要件
 
@@ -113,40 +124,36 @@ while True:
     time.sleep(10)
 ```
 
-### Google Search Tool（メイン・月〜土曜日）
+### Multi-Search（メイン・月〜土曜日）
 ```python
 from lib.timezone import format_date
 from lib.gemini_client import GeminiClient
 
-today_jst = format_date(fmt="%Y年%m月%d日")
 client = GeminiClient()
 
-# Google Search + Gemini 3 Pro で検索＆生成
+# Multi-Search（3回検索）でDeep Research簡易版
+result = await client.multi_search_research(
+    topic=topic_info['name'],
+    topic_info=topic_info,
+    date_range={"start": start_date, "end": end_date},
+    search_count=3  # デフォルト: 3回
+)
+
+# 結果
+content = result.content  # 統合されたリサーチ結果
+sources = result.sources  # 全ソースURL一覧
+search_count = result.search_count  # 実行した検索回数
+```
+
+### 単発Google Search（参考）
+```python
+# 1回のみの検索＆生成
 result = await client.search_and_generate(
     query=f"{topic} 最新 {today_jst} 過去7日間",
     generation_prompt=research_query
 )
-
-# 結果
 content = result.text
-sources = result.grounding_sources  # ソースURL一覧
-```
-
-### 直接API呼び出し（参考）
-```python
-# 検索ツール有効化（日付付きクエリ）
-response = client.models.generate_content(
-    model="gemini-3-pro-preview",
-    contents=f"{topic} 最新 {today_jst} 過去7日間",
-    config={
-        "tools": [{"google_search": {}}]
-    }
-)
-
-# Grounding情報の取得
-if response.grounding_metadata:
-    for source in response.grounding_metadata.sources:
-        print(f"Source: {source.uri}")
+sources = result.grounding_sources
 ```
 
 ## リサーチクエリテンプレート
@@ -190,23 +197,30 @@ if response.grounding_metadata:
 - [ ] 最低5つ以上のソースがあるか
 - [ ] 信頼できるソースを優先しているか
 
-## エラーハンドリング
+## エラーハンドリング・フォールバック
 ```python
-async def safe_research(query: str, timeout: int = 300) -> dict:
-    try:
-        result = await client.deep_research(query, timeout)
-        return result
-    except TimeoutError:
-        # フォールバック: Google Search（日付付きクエリ）
-        from lib.timezone import format_date
-        today = format_date(fmt="%Y年%m月%d日")
-        return await client.search_and_generate(
-            query=f"{query} 最新 {today}",
-            generation_prompt="検索結果を構造化してJSON形式で出力（7日以内のみ）"
-        )
-    except RateLimitError:
-        await asyncio.sleep(60)
-        return await safe_research(query, timeout)
+async def run_research(topic_id: str, use_deep_research: bool = False) -> dict:
+    """
+    Deep Research失敗時は自動的にMulti-Searchにフォールバック
+    """
+    if use_deep_research:
+        try:
+            result = await client.deep_research(query)
+            return result
+        except Exception as e:
+            # フォールバック: Multi-Search（3回検索）
+            logger.error(f"Deep Research failed: {e}")
+            logger.info("Falling back to Multi-Search...")
+            use_deep_research = False
+
+    # Multi-Search（デフォルト）
+    result = await client.multi_search_research(
+        topic=topic_info['name'],
+        topic_info=topic_info,
+        date_range=date_range,
+        search_count=3
+    )
+    return result
 ```
 
 ## 関連スキル

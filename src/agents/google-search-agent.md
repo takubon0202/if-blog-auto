@@ -1,31 +1,41 @@
 # Google Search Agent
 
 ## 役割
-Google Search Toolを使用して、**7日以内の最新情報のみ**を高速に収集する
+Multi-Search（3回検索）を使用して、**7日以内の最新情報のみ**を高品質に収集する
 
 ## 使用タイミング（メイン）
 
-| 実行タイミング | リサーチ方法 |
-|--------------|-------------|
-| **月〜土曜日（デフォルト）** | Google Search Tool |
-| **手動指定時** | Google Search Tool |
-| **Deep Research失敗時** | フォールバックとしてGoogle Search |
+| 実行タイミング | リサーチ方法 | 検索回数 |
+|--------------|-------------|----------|
+| **月〜土曜日（デフォルト）** | Multi-Search | 3回 |
+| **手動指定時** | Multi-Search | 選択可 |
+| **Deep Research失敗時** | Multi-Search（フォールバック） | 3回 |
 
-**設計方針**: Google Search Toolを日常的なリサーチのメインとして使用します。
-高速（数秒）で安定しており、レート制限も緩やかです。
+**設計方針**: Multi-Search（3回検索）をDeep Research簡易版として日常的なリサーチのメインとして使用します。
+3つの異なる視点から検索を行い、情報を統合することで高品質な情報収集を実現します。
+
+## Multi-Search（3回検索）パターン
+
+3つの異なる視点から検索を実行し、情報を統合します：
+
+| 検索 | 視点 | クエリ例 |
+|------|------|---------|
+| 1回目 | 最新ニュース・動向 | `{topic} 最新ニュース 発表 動向` |
+| 2回目 | 専門家の見解・研究 | `{topic} 専門家 研究 調査結果` |
+| 3回目 | 事例・統計・トレンド | `{topic} 事例 統計 トレンド 2025` |
 
 ## 特徴
 
-| 項目 | Google Search Tool | Deep Research |
+| 項目 | Multi-Search (3回) | Deep Research |
 |------|-------------------|---------------|
-| 処理時間 | **数秒** | 約5分 |
+| 処理時間 | **約10秒** | 約5分 |
 | レート制限 | 緩やか | RPM 1/分（厳しい） |
 | 課金 | 無料枠あり | 有料のみ |
-| 情報深度 | 表面的〜中程度 | 包括的・深層 |
-| 推奨用途 | 日常リサーチ | 週1回の深層調査 |
+| 情報深度 | **高品質（複合視点）** | 包括的・深層 |
+| 推奨用途 | 日常リサーチ（メイン） | 週1回の深層調査 |
 
 ## 使用モデル
-- **Primary**: `gemini-3-pro-preview` + Google Search Tool
+- **Primary**: `gemini-3-pro-preview` + Google Search Tool (3回検索)
 
 ## 重要な制約条件
 
@@ -67,20 +77,22 @@ start_date = (today - timedelta(days=7)).strftime("%Y年%m月%d日")
 end_date = today.strftime("%Y年%m月%d日")
 ```
 
-### Step 2: Google Search実行
+### Step 2: Multi-Search実行（3回検索）
 ```python
 from src.lib.gemini_client import GeminiClient
 
 client = GeminiClient()
-result = await client.search_and_generate(
-    query=f"{topic} 最新 {today_jst}",
-    generation_prompt=research_query
+result = await client.multi_search_research(
+    topic=topic_info['name'],
+    topic_info=topic_info,
+    date_range={"start": start_date, "end": end_date},
+    search_count=3  # デフォルト: 3回
 )
-# Google Search Toolを有効にしてGemini 3 Proで検索＆生成
+# 3つの視点から検索してDeep Research簡易版として高品質情報収集
 ```
 
-### Step 3: 結果の構造化
-検索結果をJSON形式で構造化し、ソース情報を整理する
+### Step 3: 結果の統合
+3回の検索結果を統合し、重複を除去して構造化されたレポートを生成
 
 ## 出力形式
 ```json
@@ -92,21 +104,17 @@ result = await client.search_and_generate(
     "end": "2025年12月29日",
     "max_age_days": 7
   },
-  "summary": "調査結果の要約",
-  "key_findings": [
-    {
-      "finding": "発見内容",
-      "date": "2025年12月28日",
-      "source_url": "https://example.com/article"
-    }
-  ],
+  "content": "統合されたリサーチ結果（マークダウン形式）",
   "sources": [
     {
       "title": "ソースタイトル",
-      "url": "https://example.com/article"
+      "url": "https://example.com/article",
+      "research_date_range": "2025年12月22日〜2025年12月29日"
     }
   ],
-  "method": "google_search"
+  "method": "multi_search",
+  "search_count": 3,
+  "fallback_reason": null
 }
 ```
 

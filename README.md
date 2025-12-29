@@ -8,15 +8,19 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 
 ---
 
-## 設計方針: Google Search メイン + Deep Research 週1回
+## 設計方針: Multi-Search（3回検索）メイン + Deep Research 週1回
 
-| 曜日 | リサーチ方法 | 処理時間 | 備考 |
-|------|-------------|---------|------|
-| **月〜土** | Google Search Tool | 数秒 | デフォルト・推奨 |
-| **日曜日** | Deep Research API | 約5分 | 週1回の深層調査 |
-| **手動実行** | 選択可能 | - | GitHub Actionsで選択 |
+| 曜日 | リサーチ方法 | 検索回数 | 処理時間 | 備考 |
+|------|-------------|----------|---------|------|
+| **月〜土** | Multi-Search | 3回 | 約10秒 | デフォルト・推奨 |
+| **日曜日** | Deep Research API | 1回 | 約5分 | 週1回の深層調査 |
+| **フォールバック** | Multi-Search | 3回 | 約10秒 | Deep Research失敗時 |
+| **手動実行** | 選択可能 | - | - | GitHub Actionsで選択 |
 
-**設計理由**: Deep ResearchはRPM 1/分の厳しいレート制限があるため、週1回（日曜日）のみ使用し、通常はGoogle Search Toolを使用します。
+**設計理由**:
+- Deep ResearchはRPM 1/分の厳しいレート制限があるため、週1回（日曜日）のみ使用
+- Multi-Search（3回検索）はDeep Research簡易版として、3つの視点から情報を収集し高品質なリサーチを実現
+- Deep Research失敗時は自動的にMulti-Searchにフォールバック
 
 ---
 
@@ -29,8 +33,9 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 │  ┌─────────────────────────────────────────────────────────────────────┐ │
 │  │                        Step 1: 情報収集                              │ │
 │  │  ┌─────────────────────────────────────────────────────────────┐   │ │
-│  │  │  【月〜土】Google Search Tool (gemini-3-pro-preview)        │   │ │
+│  │  │  【月〜土】Multi-Search 3回検索 (gemini-3-pro-preview)       │   │ │
 │  │  │  【日曜日】Deep Research API (週1回の深層調査)               │   │ │
+│  │  │  【失敗時】Multi-Search自動フォールバック                    │   │ │
 │  │  │  → 7日以内の最新トレンド情報を収集                          │   │ │
 │  │  └─────────────────────────────────────────────────────────────┘   │ │
 │  └─────────────────────────────────────────────────────────────────────┘ │
@@ -74,14 +79,15 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 
 ## 使用AIモデル
 
-| ステップ | モデル | 曜日/タイミング | 応答時間 |
-|----------|--------|----------------|----------|
-| 情報収集（メイン） | `gemini-3-pro-preview` + Google Search | 月〜土 | 数秒 |
-| 情報収集（深層） | `deep-research-pro-preview-12-2025` | 日曜のみ | 約5分 |
-| 記事生成 | `gemini-3-pro-preview` | 全曜日 | 約30秒 |
-| 画像生成 | `gemini-2.5-flash-image` | 全曜日 | 約5秒 |
-| SEO最適化 | `gemini-3-flash-preview`（思考オフ） | 全曜日 | 約3-5秒 |
-| 品質レビュー | `gemini-3-flash-preview`（思考オフ） | 全曜日 | 約5-8秒 |
+| ステップ | モデル | 曜日/タイミング | 検索回数 | 応答時間 |
+|----------|--------|----------------|----------|----------|
+| 情報収集（メイン） | `gemini-3-pro-preview` + Multi-Search | 月〜土 | 3回 | 約10秒 |
+| 情報収集（深層） | `deep-research-pro-preview-12-2025` | 日曜のみ | 1回 | 約5分 |
+| 情報収集（フォールバック） | `gemini-3-pro-preview` + Multi-Search | Deep Research失敗時 | 3回 | 約10秒 |
+| 記事生成 | `gemini-3-pro-preview` | 全曜日 | - | 約30秒 |
+| 画像生成 | `gemini-2.5-flash-image` | 全曜日 | - | 約5秒 |
+| SEO最適化 | `gemini-3-flash-preview`（思考オフ） | 全曜日 | - | 約3-5秒 |
+| 品質レビュー | `gemini-3-flash-preview`（思考オフ） | 全曜日 | - | 約5-8秒 |
 
 ---
 
@@ -173,7 +179,7 @@ python main.py --topic startup --skip-images --publish
 
 | エージェント | 役割 | モデル | 使用タイミング |
 |-------------|------|--------|--------------|
-| `google-search-agent` | 高速情報収集（メイン） | Gemini 3 Pro + Search | 月〜土（デフォルト） |
+| `google-search-agent` | Multi-Search情報収集（メイン） | Gemini 3 Pro + 3回検索 | 月〜土・フォールバック |
 | `deep-research-agent` | 深層調査 | Deep Research API | 日曜のみ |
 | `writing-agent` | ブログ記事の執筆 | Gemini 3 Pro | 全曜日 |
 | `image-agent` | アイキャッチ画像生成 | Gemini 2.5 Flash image | 全曜日 |
@@ -188,7 +194,7 @@ python main.py --topic startup --skip-images --publish
 
 | スキル | 目的 | 使用API |
 |--------|------|---------|
-| `gemini-research` | 7日以内情報収集（Google Search/Deep Research） | Gemini API |
+| `gemini-research` | 7日以内情報収集（Multi-Search 3回/Deep Research） | Gemini API |
 | `gemini-content` | 引用元付きコンテンツ生成 | Gemini 3 Pro |
 | `gemini-3-flash` | SEO/レビュー高速処理（思考オフ） | Gemini 3 Flash |
 | `image-generation` | ブログ用画像生成 | Gemini 2.5 Flash image |
@@ -354,6 +360,14 @@ result = await client.search_and_generate(
     generation_prompt="生成プロンプト"
 )
 
+# Multi-Search（3回検索、メイン）
+result = await client.multi_search_research(
+    topic="トピック名",
+    topic_info=topic_info,
+    date_range={"start": "2025年12月22日", "end": "2025年12月29日"},
+    search_count=3  # デフォルト: 3回
+)
+
 # Deep Research（日曜日用）
 result = await client.deep_research(
     query="調査クエリ",
@@ -435,7 +449,7 @@ Error: Image generation failed
 
 ### フォールバック動作
 
-Deep Research失敗時は自動的にGoogle Search Toolにフォールバックします：
+Deep Research失敗時は自動的にMulti-Search（3回検索）にフォールバックします：
 
 ```
 ┌─────────────────────────┐
@@ -444,16 +458,31 @@ Deep Research失敗時は自動的にGoogle Search Toolにフォールバック�
              │
       失敗？ ─┴─ 成功？
       │           │
-   ┌──▼──────────┐
-   │ エラーログ   │
+   ┌──▼──────────┐  │
+   │ エラーログ   │  └→ 深層調査結果を使用
    │ 出力        │
    └──┬──────────┘
       │
-   ┌──▼──────────────────┐
-   │ Google Search Tool   │
-   │ にフォールバック    │
-   └──────────────────────┘
+   ┌──▼──────────────────────┐
+   │ Multi-Search（3回検索）  │
+   │ にフォールバック        │
+   │ ・最新ニュース検索      │
+   │ ・専門家見解検索        │
+   │ ・事例・統計検索        │
+   └──────────────────────────┘
 ```
+
+### Multi-Search（3回検索）の仕組み
+
+3つの異なる視点から検索を行い、情報を統合します：
+
+| 検索 | 視点 | 目的 |
+|------|------|------|
+| 1回目 | 最新ニュース・動向 | 直近の発表・ニュースを収集 |
+| 2回目 | 専門家の見解・研究 | 専門家意見・研究成果を収集 |
+| 3回目 | 事例・統計・トレンド | 具体的データ・事例を収集 |
+
+これにより、Deep Research簡易版として高品質な情報収集を実現します。
 
 ---
 

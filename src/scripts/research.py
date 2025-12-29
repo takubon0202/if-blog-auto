@@ -2,17 +2,20 @@
 """
 リサーチ実行スクリプト - 7日以内最新情報限定版
 
-Google Search Tool（デフォルト）またはDeep Research APIを使用して、
+Google Search Tool 3回検索（デフォルト）またはDeep Research APIを使用して、
 必ず7日以内の最新情報のみを収集します。
 すべての日時処理は日本標準時(JST)を使用します。
 
 設計方針:
-- Google Search Tool: 日常的な情報収集（メイン）
+- Multi-Search (3回検索): 日常的な情報収集（メイン・デフォルト）
+  → 3つの視点から検索してDeep Research簡易版として高品質な情報収集
 - Deep Research: 週1回（日曜日）の深層調査
+  → 失敗時は自動的にMulti-Searchにフォールバック
 """
 import asyncio
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 from datetime import timedelta
@@ -21,8 +24,18 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from lib.gemini_client import GeminiClient
 from lib.timezone import now_jst, format_date
 
+# ロギング設定
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # 最新情報の期間制限（日数）
 MAX_AGE_DAYS = 7
+
+# デフォルトの検索回数
+DEFAULT_SEARCH_COUNT = 3
 
 
 def get_date_range_jst() -> tuple[str, str]:
@@ -40,21 +53,26 @@ def get_date_range_jst() -> tuple[str, str]:
     )
 
 
-async def run_research(topic_id: str, use_deep_research: bool = False) -> dict:
+async def run_research(
+    topic_id: str,
+    use_deep_research: bool = False,
+    search_count: int = DEFAULT_SEARCH_COUNT
+) -> dict:
     """
     リサーチを実行（7日以内の最新情報限定）
 
     Args:
         topic_id: トピックID
-        use_deep_research: Deep Research APIを使用するか（デフォルト: False = Google Search）
+        use_deep_research: Deep Research APIを使用するか（デフォルト: False）
+        search_count: Google Searchの検索回数（デフォルト: 3）
 
     Returns:
         dict: リサーチ結果（sources含む）
 
     Note:
-        - デフォルトはGoogle Search Tool（高速・安定）
+        - デフォルトはMulti-Search（3回検索）でDeep Research簡易版として動作
         - Deep Researchは週1回（日曜日）または手動指定時のみ推奨
-        - Deep ResearchはRPM 1/分の制限があるため注意
+        - Deep Research失敗時は自動的にMulti-Searchにフォールバック
     """
     # トピック設定を読み込み
     config_path = Path(__file__).parent.parent / "config" / "topics.json"
@@ -74,8 +92,21 @@ async def run_research(topic_id: str, use_deep_research: bool = False) -> dict:
     # 日付範囲を取得（JST基準）
     start_date, end_date = get_date_range_jst()
     today_jst = format_date(fmt="%Y年%m月%d日")
+    date_range = {
+        "start": start_date,
+        "end": end_date,
+        "max_age_days": MAX_AGE_DAYS
+    }
 
-    research_query = f"""
+    fallback_error = None
+
+    # Deep Research使用時
+    if use_deep_research:
+        logger.info("=" * 60)
+        logger.info("【Deep Research】深層調査を開始します...")
+        logger.info("=" * 60)
+
+        research_query = f"""
 【重要】本日は{today_jst}です。必ず過去7日以内（{start_date}〜{end_date}）の最新情報のみを調査してください。
 
 【調査トピック】{topic_info['name']}
@@ -106,17 +137,69 @@ async def run_research(topic_id: str, use_deep_research: bool = False) -> dict:
 - ソースURLは[タイトル](URL)のMarkdown形式で記載
 """
 
-    if use_deep_research:
         try:
             result = await client.deep_research(research_query)
 
-            # ソース情報を強化（日付範囲を追加）
-            sources = result.sources or []
+            if result.status == "completed":
+                # ソース情報を強化（日付範囲を追加）
+                sources = result.sources or []
+                enhanced_sources = []
+                for source in sources:
+                    enhanced_source = dict(source)
+                    enhanced_source["research_date_range"] = f"{start_date}〜{end_date}"
+                    enhanced_sources.append(enhanced_source)
+
+                logger.info("【Deep Research】深層調査が完了しました")
+                logger.info(f"ソース数: {len(enhanced_sources)}")
+
+                return {
+                    "topic": topic_id,
+                    "topic_info": topic_info,
+                    "content": result.content,
+                    "sources": enhanced_sources,
+                    "research_date": today_jst,
+                    "date_range": date_range,
+                    "method": "deep_research",
+                    "search_count": 1
+                }
+            else:
+                raise Exception(f"Deep Research failed: {result.error}")
+
+        except Exception as e:
+            # Deep Researchが失敗した場合、Multi-Searchにフォールバック
+            logger.error("=" * 60)
+            logger.error("【重要】Deep Research APIが失敗しました")
+            logger.error(f"エラー内容: {e}")
+            logger.error(f"フォールバック: Multi-Search（{search_count}回検索）を実行します")
+            logger.error("=" * 60)
+
+            fallback_error = str(e)
+            use_deep_research = False  # フォールバック
+
+    # Multi-Search（3回検索）を使用
+    if not use_deep_research:
+        logger.info("=" * 60)
+        logger.info(f"【Multi-Search】{search_count}回検索でDeep Research簡易版を実行します...")
+        logger.info("=" * 60)
+
+        result = await client.multi_search_research(
+            topic=topic_info['name'],
+            topic_info=topic_info,
+            date_range={"start": start_date, "end": end_date},
+            search_count=search_count
+        )
+
+        if result.status == "completed":
+            # ソース情報を整形
             enhanced_sources = []
-            for source in sources:
+            for source in result.sources:
                 enhanced_source = dict(source)
                 enhanced_source["research_date_range"] = f"{start_date}〜{end_date}"
                 enhanced_sources.append(enhanced_source)
+
+            logger.info("【Multi-Search】情報収集が完了しました")
+            logger.info(f"検索回数: {result.search_count}")
+            logger.info(f"ソース数: {len(enhanced_sources)}")
 
             return {
                 "topic": topic_id,
@@ -124,74 +207,39 @@ async def run_research(topic_id: str, use_deep_research: bool = False) -> dict:
                 "content": result.content,
                 "sources": enhanced_sources,
                 "research_date": today_jst,
-                "date_range": {
-                    "start": start_date,
-                    "end": end_date,
-                    "max_age_days": MAX_AGE_DAYS
-                },
-                "method": "deep_research"
+                "date_range": date_range,
+                "method": "multi_search",
+                "search_count": result.search_count,
+                "fallback_reason": fallback_error if fallback_error else None
             }
-        except Exception as e:
-            # Deep Researchが失敗した場合、Google Searchにフォールバック
-            import logging
-            logger = logging.getLogger(__name__)
-
-            # 重要: フォールバック発生を明確に通知
-            logger.error("=" * 60)
-            logger.error("【重要】Deep Research APIが失敗しました")
-            logger.error(f"エラー内容: {e}")
-            logger.error("フォールバック: Google Search Tool (gemini-3-pro-preview) を使用します")
-            logger.error("=" * 60)
-
-            use_deep_research = False  # フォールバック
-            fallback_error = str(e)
-
-    if not use_deep_research:
-        # Google Search Toolを使用（フォールバック）
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info("【フォールバック実行中】Google Search Tool + Gemini 3 Pro Preview")
-
-        result = await client.search_and_generate(
-            query=f"{topic_info['name']} 最新 {today_jst}",
-            generation_prompt=research_query
-        )
-
-        logger.info("【フォールバック完了】Google Searchでの情報収集が完了しました")
-
-        return {
-            "topic": topic_id,
-            "topic_info": topic_info,
-            "content": result.text,
-            "sources": result.grounding_sources or [],
-            "research_date": today_jst,
-            "date_range": {
-                "start": start_date,
-                "end": end_date,
-                "max_age_days": MAX_AGE_DAYS
-            },
-            "method": "google_search",
-            "fallback_reason": fallback_error if 'fallback_error' in dir() else "Deep Research not used"
-        }
+        else:
+            logger.error(f"Multi-Search failed: {result.error}")
+            raise Exception(f"Research failed: {result.error}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="7日以内の最新情報を収集（デフォルト: Google Search）"
+        description="7日以内の最新情報を収集（デフォルト: 3回検索）"
     )
     parser.add_argument('--topic', required=True, help='トピックID')
     parser.add_argument('--use-deep-research', action='store_true', default=False,
                         help='Deep Research APIを使用（週1回の深層調査向け）')
-    parser.add_argument('--use-google-search', action='store_true', default=True,
-                        help='Google Search Toolを使用（デフォルト・推奨）')
+    parser.add_argument('--search-count', type=int, default=DEFAULT_SEARCH_COUNT,
+                        help=f'Google Searchの検索回数（デフォルト: {DEFAULT_SEARCH_COUNT}）')
     args = parser.parse_args()
 
-    # --use-deep-research が指定された場合のみDeep Researchを使用
-    use_deep = args.use_deep_research
-    result = asyncio.run(run_research(args.topic, use_deep))
+    result = asyncio.run(run_research(
+        args.topic,
+        use_deep_research=args.use_deep_research,
+        search_count=args.search_count
+    ))
 
     # 結果を出力
     print(f"\n=== リサーチ結果 ({result['research_date']}) ===")
+    print(f"方法: {result['method']}")
+    print(f"検索回数: {result.get('search_count', 1)}")
     print(f"期間: {result['date_range']['start']} 〜 {result['date_range']['end']}")
     print(f"ソース数: {len(result['sources'])}")
+    if result.get('fallback_reason'):
+        print(f"フォールバック理由: {result['fallback_reason']}")
     print(json.dumps(result, ensure_ascii=False, indent=2))

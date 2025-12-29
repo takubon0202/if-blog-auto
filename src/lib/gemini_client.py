@@ -25,6 +25,18 @@ class ResearchResult:
     content: str
     sources: List[Dict[str, str]]
     error: Optional[str] = None
+    method: str = "deep_research"  # deep_research, multi_search, single_search
+
+
+@dataclass
+class MultiSearchResult:
+    """複数回検索結果のデータクラス"""
+    status: str
+    content: str
+    sources: List[Dict[str, str]]
+    search_count: int
+    combined_findings: List[str]
+    error: Optional[str] = None
 
 
 @dataclass
@@ -278,6 +290,189 @@ class GeminiClient:
             prompt=combined_prompt,
             model=model,
             enable_search=True
+        )
+
+    async def multi_search_research(
+        self,
+        topic: str,
+        topic_info: Dict[str, Any],
+        date_range: Dict[str, str],
+        search_count: int = 3,
+        model: str = MODEL_PRO
+    ) -> MultiSearchResult:
+        """
+        Google Searchを複数回実行してDeep Research簡易版として情報収集
+
+        3つの異なる視点から検索を行い、情報を統合します：
+        1. 最新ニュース・動向
+        2. 専門家の見解・研究
+        3. 具体的な事例・統計データ
+
+        Args:
+            topic: トピック名
+            topic_info: トピック設定情報
+            date_range: 日付範囲 {"start": "...", "end": "..."}
+            search_count: 検索回数（デフォルト: 3）
+            model: 使用モデル
+
+        Returns:
+            MultiSearchResult: 複数回検索の統合結果
+        """
+        logger.info(f"Starting Multi-Search Research ({search_count} searches): {topic}")
+
+        # 検索クエリのバリエーションを生成
+        keywords = topic_info.get('keywords', [topic])
+        focus_areas = topic_info.get('research_focus', [])
+
+        search_queries = [
+            # 1回目: 最新ニュース・発表
+            f"{topic} 最新ニュース {date_range['end']} 発表 動向",
+            # 2回目: 専門家・研究
+            f"{topic} 専門家 研究 調査結果 {' '.join(keywords[:2]) if keywords else ''}",
+            # 3回目: 事例・統計・トレンド
+            f"{topic} 事例 統計 トレンド {' '.join(focus_areas[:2]) if focus_areas else ''} 2025"
+        ]
+
+        all_sources = []
+        all_findings = []
+        errors = []
+
+        for i, query in enumerate(search_queries[:search_count], 1):
+            logger.info(f"Search {i}/{search_count}: {query[:50]}...")
+
+            search_prompt = f"""
+【重要】本日は{date_range['end']}です。
+必ず過去7日以内（{date_range['start']}〜{date_range['end']}）の最新情報のみを検索してください。
+
+【検索クエリ】{query}
+
+【出力形式】
+以下の形式で情報を整理してください：
+
+## 発見した情報
+- [日付] 情報の要約（ソースURL）
+
+## ソース一覧
+各ソースについて以下を記載：
+- タイトル: [タイトル]
+- URL: [完全なURL]
+- 要約: [1-2文の要約]
+
+7日より古い情報は絶対に含めないでください。
+"""
+
+            try:
+                result = await self.generate_content(
+                    prompt=search_prompt,
+                    model=model,
+                    enable_search=True,
+                    temperature=0.5
+                )
+
+                if result.text:
+                    all_findings.append(f"【検索{i}の結果】\n{result.text}")
+
+                # Grounding sourcesを収集
+                if result.grounding_sources:
+                    if hasattr(result.grounding_sources, 'grounding_chunks'):
+                        for chunk in result.grounding_sources.grounding_chunks:
+                            if hasattr(chunk, 'web') and chunk.web:
+                                source = {
+                                    "title": getattr(chunk.web, 'title', ''),
+                                    "url": getattr(chunk.web, 'uri', ''),
+                                    "snippet": ""
+                                }
+                                # 重複チェック
+                                if not any(s['url'] == source['url'] for s in all_sources):
+                                    all_sources.append(source)
+
+                logger.info(f"Search {i} completed, found {len(all_findings)} findings so far")
+
+                # API制限を避けるため少し待機
+                if i < search_count:
+                    await asyncio.sleep(1)
+
+            except Exception as e:
+                logger.error(f"Search {i} failed: {e}")
+                errors.append(str(e))
+                continue
+
+        if not all_findings:
+            return MultiSearchResult(
+                status="failed",
+                content="",
+                sources=[],
+                search_count=0,
+                combined_findings=[],
+                error="; ".join(errors) if errors else "No search results"
+            )
+
+        # 収集した情報を統合
+        combined_content = "\n\n".join(all_findings)
+
+        # 統合プロンプトで情報を整理
+        synthesis_prompt = f"""
+以下は「{topic}」に関する複数回の検索結果です。
+これらを統合して、構造化されたリサーチレポートを作成してください。
+
+【期間】{date_range['start']}〜{date_range['end']}（7日以内の情報のみ）
+
+【収集した情報】
+{combined_content}
+
+【出力形式】
+以下の構造で出力してください：
+
+## 調査結果サマリー
+[2-3文で要約]
+
+## 主要な発見事項
+1. [発見1]（日付）
+2. [発見2]（日付）
+3. [発見3]（日付）
+...
+
+## 最新動向
+[トレンドや動向の説明]
+
+## 専門家の見解
+[専門家の意見や研究結果]
+
+## 統計・データ
+[数値データや統計情報]
+
+## 今後の展望
+[予測や今後の見通し]
+
+注意事項：
+- 7日より古い情報は含めない
+- 各情報に日付を明記
+- 根拠のない推測は避ける
+"""
+
+        try:
+            synthesis_result = await self.generate_content(
+                prompt=synthesis_prompt,
+                model=model,
+                enable_search=False,  # 既に収集した情報を使用
+                temperature=0.3
+            )
+
+            final_content = synthesis_result.text
+
+        except Exception as e:
+            logger.error(f"Synthesis failed: {e}")
+            final_content = combined_content  # フォールバック: 生の結果を使用
+
+        logger.info(f"Multi-Search Research completed: {len(all_sources)} sources, {search_count} searches")
+
+        return MultiSearchResult(
+            status="completed",
+            content=final_content,
+            sources=all_sources,
+            search_count=search_count,
+            combined_findings=all_findings,
+            error=None
         )
 
     async def generate_image(
