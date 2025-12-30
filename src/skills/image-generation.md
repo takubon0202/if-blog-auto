@@ -1,8 +1,14 @@
 # Image Generation Skill
 
 ## 概要
-Gemini 2.5 Flash imageを使用した画像生成スキル。
-**スマートプロンプト機能**により、記事タイトルを分析して内容に合った具体的で多様な画像を生成します。
+Gemini 2.5 Flash imageを使用した**アニメ風画像生成**スキル。
+**スマートプロンプト機能**により、記事タイトルを分析して内容に合った**人物キャラクター入り**のアニメ風イラストを生成します。
+
+## アニメスタイル仕様
+- **必須**: 各画像にアニメ風の人物キャラクターを含める
+- **スタイル**: モダンな日本のアニメスタイル（クリーンな線、表情豊か）
+- **キャラクター**: 若いプロフェッショナル/学生、親しみやすい外見
+- **禁止**: ちびキャラ、過度にカートゥーン風なスタイル
 
 ## 使用モデル
 - **画像生成**: `gemini-2.5-flash-image`
@@ -96,12 +102,13 @@ for image_bytes in result.images:
 
 ## スマートプロンプト機能
 
-### 記事分析
+### 記事分析（アニメキャラクター対応）
 Gemini 2.0 Flashで記事タイトルを分析し、以下を自動生成：
-- **main_subject**: メインの視覚的対象（例: "a glowing neural network"）
-- **visual_metaphor**: 視覚的メタファー（例: "interconnected nodes"）
-- **mood**: 感情的トーン（例: "hopeful and bright"）
-- **key_elements**: 具体的な視覚要素リスト
+- **main_character**: アニメ風キャラクターの外見・服装（例: "young professional woman with short black hair"）
+- **character_action**: キャラクターの動作・ポーズ（例: "typing on laptop with determination"）
+- **visual_metaphor**: 視覚的メタファー（例: "floating data visualizations"）
+- **mood**: 感情的トーン（例: "optimistic and engaging"）
+- **key_elements**: キャラクター周辺の視覚要素リスト
 - **background_style**: 背景スタイル
 - **lighting**: ライティングスタイル
 
@@ -127,33 +134,39 @@ TOPIC_COLORS = {
 ## プロンプト最適化
 ```
 最適化の条件:
-1. 明確で具体的な描写（英語推奨）
-2. スタイル指定を含める
-3. 避けるべき要素を明記:
-   - 人物の顔（著作権/プライバシー問題）
+1. アニメ風人物キャラクターを必ず含める
+2. 明確で具体的な描写（英語推奨）
+3. スタイル指定を含める（Modern Japanese anime style）
+4. 避けるべき要素を明記:
+   - ちびキャラ/デフォルメが強すぎるスタイル
    - テキスト（生成されたテキストは読めない可能性）
    - 著作物・ブランドロゴ
-4. 出力形式: 英語
-5. ブログに適した構図を指定
-6. トピック別カラースキームを適用
+5. 出力形式: 英語
+6. ブログに適した構図を指定
+7. トピック別カラースキームを適用
 ```
 
 ## プロンプトテンプレート
 ```
-Create a {image_type} image for a blog article.
+Create a {image_type} illustration in MODERN JAPANESE ANIME STYLE for a blog article.
+
+CHARACTER (REQUIRED):
+Main Character: {main_character}
+Action/Pose: {character_action}
 
 Article Title: {title}
 Article Summary: {summary}
 
 Style Requirements:
+- Modern Japanese anime art style (clean lines, expressive eyes)
 - {style}
-- Clean and professional design
-- Suitable for blog featured image
-- No text or watermarks in the image
+- Professional and polished appearance
+- Character should be the focal point
+- Suitable for blog featured image with text overlay space
+- No text, words, or letters in the image
 - High quality, visually appealing
-- Abstract or conceptual representation of the topic
 
-Generate a visually stunning image that captures the essence of this article.
+Generate a visually engaging anime-style illustration that captures the essence of this article.
 ```
 
 ## 画像仕様

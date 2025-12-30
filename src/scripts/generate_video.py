@@ -137,10 +137,11 @@ class BlogVideoGenerator:
         summary: str,
         points: List[str],
         topic: str,
-        duration_seconds: int = 30
+        duration_seconds: int = 30,
+        full_content: str = ""
     ) -> Dict:
         """
-        Gemini TTSでナレーション音声を生成
+        Gemini TTSでナレーション音声を生成（記事全体を分析）
 
         Args:
             title: 記事タイトル
@@ -148,11 +149,14 @@ class BlogVideoGenerator:
             points: 主要ポイントのリスト
             topic: トピックID（音声選択用）
             duration_seconds: 動画の長さ
+            full_content: 記事全文（より良いナレーション生成用）
 
         Returns:
-            ナレーション結果（audio_data, script）
+            ナレーション結果（audio_data, script, article_analysis）
         """
         logger.info(f"Generating TTS narration for: {title[:50]}...")
+        if full_content:
+            logger.info(f"Using full article content ({len(full_content)} chars) for enhanced narration")
 
         try:
             client = self._get_gemini_client()
@@ -163,11 +167,15 @@ class BlogVideoGenerator:
                 summary=summary,
                 points=points,
                 duration_seconds=duration_seconds,
-                voice=voice
+                voice=voice,
+                full_content=full_content,
+                analyze_content=bool(full_content)  # コンテンツがある場合は分析を有効化
             )
 
             if narration.get("status") == "success" and narration.get("audio_data"):
                 logger.info(f"Narration generated: {narration.get('audio_size_bytes', 0)} bytes, voice: {voice}")
+                if narration.get("article_analysis"):
+                    logger.info(f"Article analysis: {len(narration.get('article_analysis', {}).get('video_points', []))} video points extracted")
                 return narration
             else:
                 logger.warning(f"TTS generation failed: {narration.get('error', 'Unknown error')}")
@@ -237,10 +245,11 @@ class BlogVideoGenerator:
         author_name: str = "if(塾) Blog",
         generate_short: bool = False,  # デフォルトでスキップ
         generate_audio: bool = True,
-        hero_image_path: Optional[str] = None
+        hero_image_path: Optional[str] = None,
+        full_content: str = ""
     ) -> Dict:
         """
-        ブログ動画を生成（TTS音声付き）
+        ブログ動画を生成（TTS音声付き・記事全体分析対応）
 
         Args:
             title: 記事タイトル
@@ -252,6 +261,7 @@ class BlogVideoGenerator:
             generate_short: ショート動画も生成するか（デフォルト: False）
             generate_audio: TTS音声を生成するか（デフォルト: True）
             hero_image_path: ヒーロー画像のパス
+            full_content: 記事全文（より良い動画生成用）
 
         Returns:
             生成結果の辞書
@@ -260,6 +270,7 @@ class BlogVideoGenerator:
         logger.info(f"  - Generate audio: {generate_audio}")
         logger.info(f"  - Generate short: {generate_short}")
         logger.info(f"  - Hero image: {hero_image_path or 'None'}")
+        logger.info(f"  - Full content: {len(full_content)} chars")
 
         # 依存関係チェック
         if not self._check_dependencies():
@@ -278,24 +289,33 @@ class BlogVideoGenerator:
             "generated_at": timestamp
         }
 
-        # TTS音声生成
+        # TTS音声生成（記事全体を分析）
         audio_data = None
         narration_script = None
+        article_analysis = None
         if generate_audio:
             narration = await self._generate_narration(
                 title=title,
                 summary=summary,
                 points=points,
                 topic=topic,
-                duration_seconds=30
+                duration_seconds=30,
+                full_content=full_content  # 記事全文を渡して分析
             )
+            article_analysis = narration.get("article_analysis")
             if narration.get("status") == "success":
                 audio_data = narration.get("audio_data")
                 narration_script = narration.get("script")
+                # 記事分析から拡張されたポイントを使用
+                enhanced_points = narration.get("enhanced_points", points)
+                if enhanced_points and len(enhanced_points) > len(points):
+                    logger.info(f"Using enhanced points from analysis: {len(enhanced_points)} points")
+                    points = enhanced_points
                 result["narration"] = {
                     "script": narration_script,
                     "audio_size_bytes": len(audio_data) if audio_data else 0,
-                    "voice": TOPIC_VOICES.get(topic, "default")
+                    "voice": TOPIC_VOICES.get(topic, "default"),
+                    "article_analysis": article_analysis
                 }
             else:
                 logger.warning("Audio generation failed, continuing without audio")
@@ -541,7 +561,8 @@ async def generate_video(
             topic=topic,
             generate_short=generate_short,
             generate_audio=generate_audio,
-            hero_image_path=hero_image_path
+            hero_image_path=hero_image_path,
+            full_content=content  # 記事全文を渡して分析・動画生成
         )
         return result
     except VideoGenerationError as e:

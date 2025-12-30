@@ -860,24 +860,26 @@ class GeminiClient:
         Returns:
             画像生成用の要素を含む辞書
         """
-        analysis_prompt = f"""Analyze this blog article title and summary, then suggest specific visual elements for an illustration.
+        analysis_prompt = f"""Analyze this blog article title and summary, then suggest specific visual elements for an ANIME-STYLE illustration with PEOPLE/CHARACTERS.
 
 Title: {title}
 Summary: {summary}
 
 Provide a JSON response with:
-1. "main_subject": The primary visual subject/object to depict (be specific, e.g., "a glowing neural network", "hands exchanging a lightbulb")
-2. "visual_metaphor": A creative visual metaphor that represents the article's core message
-3. "mood": The emotional tone (e.g., "hopeful and bright", "calm and reflective", "dynamic and energetic")
-4. "key_elements": List of 3-4 specific visual elements to include (be concrete, not abstract)
-5. "background_style": Describe the background (e.g., "soft gradient from light blue to white", "abstract geometric shapes")
-6. "lighting": Describe the lighting style (e.g., "warm sunrise glow", "cool ambient light", "dramatic spotlight")
+1. "main_character": Describe an anime-style character that represents the article's theme (e.g., "a young professional woman with short black hair looking at a holographic display", "a thoughtful male student with glasses reading a book", "a confident businessperson pointing at a rising chart")
+2. "character_action": What the character is doing (e.g., "typing on a laptop with determination", "explaining concepts with hand gestures", "studying with focused concentration")
+3. "visual_metaphor": A creative visual metaphor that represents the article's core message, integrated with the character
+4. "mood": The emotional tone (e.g., "hopeful and bright", "calm and reflective", "dynamic and energetic")
+5. "key_elements": List of 3-4 specific visual elements to include around the character (be concrete)
+6. "background_style": Describe the background (e.g., "modern office with soft lighting", "cozy study room with bookshelves", "futuristic cityscape")
+7. "lighting": Describe the lighting style (e.g., "warm golden hour glow", "soft studio lighting", "dramatic backlight")
 
 Important:
-- Be specific and visual, not abstract
-- Suggest concrete objects, not vague concepts
-- Each image should be unique based on the article content
-- Avoid generic descriptions like "professional" or "modern"
+- MUST include at least one anime-style human character
+- Characters should be relatable and represent the target audience
+- Use modern Japanese anime art style (clean lines, expressive eyes, stylized features)
+- Be specific about character appearance, clothing, and pose
+- Each image should tell a story related to the article content
 
 Respond ONLY with valid JSON, no other text."""
 
@@ -912,17 +914,18 @@ Respond ONLY with valid JSON, no other text."""
 
         except Exception as e:
             logger.warning(f"Image analysis failed, using fallback: {e}")
-            # フォールバック: 基本的な分析結果を返す
+            # フォールバック: アニメ風キャラクターの基本的な分析結果を返す
             colors = self.TOPIC_COLORS.get(topic_id, self.TOPIC_COLORS["default"])
             return {
-                "main_subject": f"abstract representation of {title[:50]}",
-                "visual_metaphor": "interconnected nodes and pathways",
-                "mood": "professional and thoughtful",
-                "key_elements": ["geometric shapes", "flowing lines", "soft gradients"],
-                "background_style": "clean gradient from light to white",
-                "lighting": "soft ambient light",
+                "main_character": "a young professional with a friendly expression, wearing casual business attire",
+                "character_action": "looking thoughtfully at the viewer while gesturing toward floating information displays",
+                "visual_metaphor": "knowledge and discovery represented by glowing light particles",
+                "mood": "optimistic and engaging",
+                "key_elements": ["laptop or tablet", "floating data visualizations", "warm ambient lighting"],
+                "background_style": "modern minimalist workspace with soft gradients",
+                "lighting": "soft studio lighting with warm accents",
                 "color_scheme": colors,
-                "composition": "centered focal point with clean negative space"
+                "composition": "character slightly off-center with visual elements balanced around them"
             }
 
     async def generate_blog_image(
@@ -949,56 +952,67 @@ Respond ONLY with valid JSON, no other text."""
             ImageGenerationResult: 生成結果
         """
         if use_smart_prompt:
-            # 記事を分析してスマートプロンプトを生成
+            # 記事を分析してアニメ風キャラクター入りのスマートプロンプトを生成
             analysis = await self.analyze_for_image_prompt(title, summary, topic_id)
 
             colors = analysis.get("color_scheme", self.TOPIC_COLORS["default"])
 
-            prompt = f"""Create a {image_type} illustration for a blog article.
+            prompt = f"""Create a {image_type} illustration in MODERN JAPANESE ANIME STYLE for a blog article.
+
+CHARACTER (REQUIRED):
+Main Character: {analysis.get('main_character', 'a young professional with a friendly expression')}
+Action/Pose: {analysis.get('character_action', 'looking thoughtfully at floating information')}
 
 VISUAL CONCEPT:
-Main Subject: {analysis.get('main_subject', 'abstract concept')}
-Visual Metaphor: {analysis.get('visual_metaphor', 'flowing connections')}
+Visual Metaphor: {analysis.get('visual_metaphor', 'knowledge and discovery')}
 
-SPECIFIC ELEMENTS TO INCLUDE:
-{chr(10).join([f"- {elem}" for elem in analysis.get('key_elements', ['geometric shapes'])])}
+ENVIRONMENT & ELEMENTS:
+{chr(10).join([f"- {elem}" for elem in analysis.get('key_elements', ['modern workspace', 'digital elements'])])}
 
 STYLE & MOOD:
-- Mood: {analysis.get('mood', 'professional')}
-- Composition: {analysis.get('composition', 'centered layout')}
-- Background: {analysis.get('background_style', 'clean gradient')}
-- Lighting: {analysis.get('lighting', 'soft ambient')}
+- Art Style: Modern Japanese anime (clean lines, expressive features, stylized but relatable)
+- Mood: {analysis.get('mood', 'optimistic and engaging')}
+- Composition: {analysis.get('composition', 'character-focused with balanced visual elements')}
+- Background: {analysis.get('background_style', 'soft gradient with subtle details')}
+- Lighting: {analysis.get('lighting', 'soft studio lighting')}
 
 COLOR PALETTE:
 - Primary color: {colors['primary']} ({colors['name']})
 - Accent color: {colors['accent']}
-- Use white and light gray for balance
+- Skin tones: Natural and warm
+- Use complementary colors for visual interest
 
 TECHNICAL REQUIREMENTS:
 - High resolution, crisp details
 - No text, words, or letters in the image
-- No human faces
-- Clean, uncluttered composition
-- Suitable as blog featured image with text overlay space
+- Character should be the focal point
+- Clean, professional anime art style (NOT chibi, NOT overly cartoonish)
+- Suitable as blog featured image with some negative space for text overlay
+- Character should look relatable and approachable
 
-Create a unique, visually striking illustration that specifically represents: "{title[:100]}" """
+Create a unique, visually engaging anime-style illustration that represents: "{title[:100]}" """
 
         else:
-            # 従来のシンプルなプロンプト
-            prompt = f"""Create a {image_type} image for a blog article.
+            # シンプルなアニメ風プロンプト
+            prompt = f"""Create a {image_type} image in MODERN JAPANESE ANIME STYLE for a blog article.
 
 Article Title: {title}
 Article Summary: {summary}
 
-Style Requirements:
-- {style}
-- Clean and professional design
-- Suitable for blog featured image
-- No text or watermarks in the image
-- High quality, visually appealing
-- Abstract or conceptual representation of the topic
+REQUIRED ELEMENTS:
+- Include at least one anime-style human character (young professional or student)
+- Character should be engaged with the topic (reading, working, explaining, etc.)
+- Modern, relatable character design
 
-Generate a visually stunning image that captures the essence of this article."""
+Style Requirements:
+- Modern Japanese anime art style (clean lines, expressive eyes)
+- {style}
+- Professional and polished appearance
+- Suitable for blog featured image with text overlay space
+- No text, words, or letters in the image
+- High quality, visually appealing
+
+Generate a visually engaging anime-style illustration that captures the essence of this article."""
 
         logger.info(f"Generating image with {'smart' if use_smart_prompt else 'simple'} prompt for: {title[:50]}...")
 
@@ -1075,21 +1089,123 @@ Generate a visually stunning image that captures the essence of this article."""
             logger.error(f"Audio generation failed: {e}")
             raise
 
+    async def analyze_article_for_video(
+        self,
+        title: str,
+        content: str,
+        summary: str = ""
+    ) -> Dict[str, Any]:
+        """
+        ブログ記事全体を分析して動画用の要素を抽出
+
+        Args:
+            title: 記事タイトル
+            content: 記事本文（マークダウン）
+            summary: 記事概要（オプション）
+
+        Returns:
+            動画用に構造化された記事分析結果
+        """
+        # 記事が長い場合は最初の部分を使用（API制限対策）
+        content_for_analysis = content[:8000] if len(content) > 8000 else content
+
+        prompt = f"""以下のブログ記事を分析して、動画用のコンテンツを抽出してください。
+
+【記事タイトル】
+{title}
+
+【記事概要】
+{summary}
+
+【記事本文】
+{content_for_analysis}
+
+【抽出内容】以下のJSON形式で出力してください:
+{{
+    "main_theme": "記事の主要テーマ（1文で）",
+    "key_message": "読者に伝えたい最も重要なメッセージ（1文で）",
+    "sections": [
+        {{
+            "title": "セクションタイトル",
+            "key_point": "そのセクションの要点（1-2文）",
+            "stat_or_fact": "印象的な数値やファクト（あれば）"
+        }}
+    ],
+    "statistics": ["記事内の重要な数値データ（最大5つ）"],
+    "expert_quotes": ["専門家の引用や研究結果（最大3つ）"],
+    "action_items": ["読者が実践できるアクション（最大3つ）"],
+    "narrative_arc": {{
+        "hook": "冒頭で注意を引くポイント",
+        "problem": "提起される問題や課題",
+        "solution": "提示される解決策",
+        "conclusion": "結論・まとめ"
+    }},
+    "video_points": ["動画で強調すべきポイント（最大5つ、各20文字以内）"]
+}}
+
+【注意事項】
+- 記事の本質的な内容を抽出する
+- 具体的で視聴者に価値のある情報を優先
+- 抽象的・一般的な内容は避ける
+- JSON形式のみを出力、余計な説明は不要"""
+
+        try:
+            result = await self.generate_content(
+                prompt=prompt,
+                model=self.MODEL_FLASH,
+                temperature=0.3  # 一貫性のため低めに
+            )
+
+            # JSONをパース
+            import json
+            import re
+            text = result.text.strip()
+            json_match = re.search(r'\{[\s\S]*\}', text)
+            if json_match:
+                analysis = json.loads(json_match.group())
+                logger.info(f"Article analysis completed: {len(analysis.get('sections', []))} sections found")
+                return analysis
+            else:
+                raise ValueError("No valid JSON found")
+
+        except Exception as e:
+            logger.warning(f"Article analysis failed, using fallback: {e}")
+            # フォールバック
+            return {
+                "main_theme": title,
+                "key_message": summary[:100] if summary else title,
+                "sections": [],
+                "statistics": [],
+                "expert_quotes": [],
+                "action_items": [],
+                "narrative_arc": {
+                    "hook": title,
+                    "problem": "",
+                    "solution": "",
+                    "conclusion": ""
+                },
+                "video_points": []
+            }
+
     async def generate_narration_script(
         self,
         title: str,
         summary: str,
         points: List[str],
-        duration_seconds: int = 30
+        duration_seconds: int = 30,
+        full_content: str = "",
+        article_analysis: Dict = None
     ) -> str:
         """
-        ブログ動画用のナレーションスクリプトを生成
+        ブログ動画用のナレーションスクリプトを生成（記事全体を考慮）
 
         Args:
             title: 記事タイトル
             summary: 記事概要
             points: 主要ポイントのリスト
             duration_seconds: 動画の長さ（秒）
+            full_content: 記事全文（オプション）
+            article_analysis: 記事分析結果（オプション）
 
         Returns:
             ナレーションスクリプト（読み上げ用テキスト）
@@ -1099,7 +1215,27 @@ Generate a visually stunning image that captures the essence of this article."""
         # 文字数の目安: 日本語で約4文字/秒
         target_chars = duration_seconds * 4
 
+        # 記事分析結果がある場合は追加情報として使用
+        analysis_context = ""
+        if article_analysis:
+            stats = article_analysis.get("statistics", [])
+            quotes = article_analysis.get("expert_quotes", [])
+            arc = article_analysis.get("narrative_arc", {})
+
+            if stats:
+                analysis_context += f"\n【重要な数値データ】\n" + "\n".join([f"- {s}" for s in stats[:3]])
+            if quotes:
+                analysis_context += f"\n【専門家の知見】\n" + "\n".join([f"- {q}" for q in quotes[:2]])
+            if arc.get("hook"):
+                analysis_context += f"\n【ストーリーの流れ】\n- 導入: {arc.get('hook', '')}\n- 問題提起: {arc.get('problem', '')}\n- 解決策: {arc.get('solution', '')}\n- 結論: {arc.get('conclusion', '')}"
+
+        # 記事本文から抜粋（分析結果がない場合のフォールバック）
+        content_excerpt = ""
+        if full_content and not article_analysis:
+            content_excerpt = f"\n【記事本文（抜粋）】\n{full_content[:1500]}"
+
         prompt = f"""以下のブログ記事情報から、{duration_seconds}秒間のナレーション用スクリプトを作成してください。
+記事全体の内容を考慮し、視聴者に価値のある情報を凝縮して伝えてください。
 
 【記事タイトル】
 {title}
@@ -1109,17 +1245,20 @@ Generate a visually stunning image that captures the essence of this article."""
 
 【主要ポイント】
 {points_text}
+{analysis_context}
+{content_excerpt}
 
 【スクリプト作成ルール】
 1. 約{target_chars}文字程度（{duration_seconds}秒で読み上げる量）
 2. 自然な話し言葉で、聞きやすいリズム
 3. 以下の構成で作成:
-   - 冒頭（5秒）: タイトルを紹介
-   - 本文（20秒）: 主要ポイントを説明
-   - 締め（5秒）: 簡潔なまとめ
-4. 絵文字や記号は使用しない
-5. 「〜ですね」「〜しましょう」などの押し付けがましい表現は避ける
-6. 専門的だが親しみやすいトーン
+   - 冒頭（5秒）: 視聴者の興味を引く導入
+   - 本文（20秒）: 記事の核心部分と具体的な情報
+   - 締め（5秒）: 視聴者へのメッセージ
+4. 記事全体の価値を凝縮して伝える
+5. 具体的な数値やファクトを含める（あれば）
+6. 絵文字や記号は使用しない
+7. 押し付けがましい表現は避け、専門的だが親しみやすいトーンで
 
 【出力形式】
 ナレーションスクリプトのみを出力してください。余計な説明は不要です。"""
@@ -1142,10 +1281,12 @@ Generate a visually stunning image that captures the essence of this article."""
         summary: str,
         points: List[str],
         duration_seconds: int = 30,
-        voice: str = "default"
+        voice: str = "default",
+        full_content: str = "",
+        analyze_content: bool = True
     ) -> Dict[str, Any]:
         """
-        ブログ動画用のナレーション音声を一括生成
+        ブログ動画用のナレーション音声を一括生成（記事全体を分析）
 
         Args:
             title: 記事タイトル
@@ -1153,23 +1294,46 @@ Generate a visually stunning image that captures the essence of this article."""
             points: 主要ポイントのリスト
             duration_seconds: 動画の長さ（秒）
             voice: 音声タイプ
+            full_content: 記事全文（オプション）
+            analyze_content: 記事を分析してより良いナレーションを生成するか
 
         Returns:
-            ナレーション結果（スクリプト、音声データ）
+            ナレーション結果（スクリプト、音声データ、記事分析）
         """
         logger.info(f"Generating video narration for: {title[:50]}...")
+        logger.info(f"Full content provided: {len(full_content)} chars, analyze: {analyze_content}")
+
+        article_analysis = None
 
         try:
-            # 1. ナレーションスクリプトを生成
+            # 1. 記事全体を分析（コンテンツがある場合）
+            if full_content and analyze_content:
+                logger.info("Analyzing full article content for video...")
+                article_analysis = await self.analyze_article_for_video(
+                    title=title,
+                    content=full_content,
+                    summary=summary
+                )
+
+                # 分析結果からポイントを補完
+                video_points = article_analysis.get("video_points", [])
+                if video_points:
+                    # 既存のポイントに分析結果を追加
+                    points = list(set(points + video_points))[:5]
+                    logger.info(f"Enhanced points with analysis: {len(points)} points")
+
+            # 2. ナレーションスクリプトを生成（記事分析を活用）
             script = await self.generate_narration_script(
                 title=title,
                 summary=summary,
                 points=points,
-                duration_seconds=duration_seconds
+                duration_seconds=duration_seconds,
+                full_content=full_content,
+                article_analysis=article_analysis
             )
             logger.info(f"Narration script generated: {len(script)} chars")
 
-            # 2. TTSで音声を生成
+            # 3. TTSで音声を生成
             audio_result = await self.generate_audio(
                 text=script,
                 voice=voice
@@ -1180,7 +1344,9 @@ Generate a visually stunning image that captures the essence of this article."""
                 "script": script,
                 "audio_data": audio_result.audio_data,
                 "audio_size_bytes": len(audio_result.audio_data),
-                "voice": voice
+                "voice": voice,
+                "article_analysis": article_analysis,
+                "enhanced_points": points
             }
 
         except Exception as e:
@@ -1189,5 +1355,6 @@ Generate a visually stunning image that captures the essence of this article."""
                 "status": "error",
                 "error": str(e),
                 "script": None,
-                "audio_data": None
+                "audio_data": None,
+                "article_analysis": article_analysis
             }
