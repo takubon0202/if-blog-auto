@@ -103,19 +103,38 @@ async def main():
             logger.info("Step 3: Skipping image generation")
             result["steps"]["images"] = {"status": "skipped"}
 
-        # Step 4: Remotion (動画生成)
+        # Step 4: Remotion (動画生成) + TTS音声
         videos = {"status": "skipped"}
         if not args.skip_video:
             logger.info("=" * 50)
-            logger.info("Step 4: Generating video with Remotion...")
+            logger.info("Step 4: Generating video with Remotion + TTS...")
             logger.info("=" * 50)
-            videos = await generate_video(article)
+
+            # ヒーロー画像パスを取得（動画に統合）
+            hero_image_path = None
+            if images.get("status") == "success" and images.get("hero"):
+                hero_images = images.get("hero", {}).get("images", [])
+                if hero_images:
+                    hero_image_path = hero_images[0]
+                    logger.info(f"Hero image for video: {hero_image_path}")
+
+            # 記事データにヒーロー画像パスを追加
+            video_article = {**article, "hero_image_path": hero_image_path}
+
+            # 動画生成（ショート動画はスキップ、TTS音声を生成）
+            videos = await generate_video(
+                article=video_article,
+                generate_short=False,  # ショート動画はデフォルトでスキップ
+                generate_audio=True    # TTS音声を生成
+            )
             result["steps"]["videos"] = {
                 "status": videos.get("status", "error"),
-                "videos": videos.get("videos", {})
+                "videos": videos.get("videos", {}),
+                "narration": videos.get("narration", {})
             }
             if videos.get("status") == "success":
-                logger.info(f"Videos generated: standard + short")
+                has_audio = videos.get("videos", {}).get("standard", {}).get("has_audio", False)
+                logger.info(f"Video generated: standard (with audio: {has_audio})")
             else:
                 logger.warning(f"Video generation failed: {videos.get('error', 'Unknown error')}")
         else:

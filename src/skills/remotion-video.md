@@ -2,12 +2,13 @@
 
 ## 概要
 Remotionフレームワークを使用したブログ動画生成スキル。
-記事の内容を視覚的な動画に自動変換します。
+記事の内容を視覚的な動画に自動変換し、**TTS音声ナレーション**と**ヒーロー画像**を統合します。
 
 ## 使用技術
 - **Framework**: Remotion 4.0
 - **Language**: TypeScript/React
-- **Output**: MP4 (H.264)
+- **TTS**: Gemini 2.5 Flash TTS
+- **Output**: MP4 (H.264 + AAC)
 
 ## Remotion概要
 Remotionは、Reactコンポーネントを使ってプログラマティックに動画を作成できるフレームワークです。
@@ -18,10 +19,11 @@ Remotionは、Reactコンポーネントを使ってプログラマティック�
 - **useCurrentFrame**: 現在のフレーム番号を取得
 - **interpolate**: 値をアニメーション
 - **spring**: 物理ベースのアニメーション
+- **Audio**: 音声トラックの統合
 
 ## コンポジション設定
 
-### BlogVideo（標準版）
+### BlogVideo（標準版）- メイン
 ```typescript
 <Composition
   id="BlogVideo"
@@ -34,7 +36,7 @@ Remotionは、Reactコンポーネントを使ってプログラマティック�
 />
 ```
 
-### BlogVideoShort（ショート版）
+### BlogVideoShort（ショート版）- 将来拡張用
 ```typescript
 <Composition
   id="BlogVideoShort"
@@ -50,17 +52,74 @@ Remotionは、Reactコンポーネントを使ってプログラマティック�
 ## Props インターフェース
 ```typescript
 interface BlogVideoProps {
-  title: string;        // 記事タイトル
-  summary: string;      // 記事要約
-  points: string[];     // 主要ポイント（配列）
-  topic: string;        // トピックID
-  date: string;         // 日付
-  authorName?: string;  // 著者名（デフォルト: "if(塾) Blog"）
-  isShort?: boolean;    // ショート動画フラグ
+  title: string;           // 記事タイトル
+  summary: string;         // 記事要約
+  points: string[];        // 主要ポイント（配列）
+  topic: string;           // トピックID
+  date: string;            // 日付
+  authorName?: string;     // 著者名（デフォルト: "if(塾) Blog"）
+  isShort?: boolean;       // ショート動画フラグ
+  heroImageUrl?: string;   // ヒーロー画像URL（NEW）
+  audioUrl?: string;       // ナレーション音声URL（NEW）
 }
 ```
 
-## トピック別カラースキーム
+## TTS音声統合
+
+### Pythonでの音声生成
+```python
+from lib.gemini_client import GeminiClient
+
+client = GeminiClient()
+
+# ナレーション生成
+narration = await client.generate_video_narration(
+    title=article["title"],
+    summary=article["summary"],
+    points=article["points"],
+    duration_seconds=30,
+    voice="default"  # トピック別に選択
+)
+
+# 音声ファイル保存
+audio_path = output_dir / "narration.wav"
+with open(audio_path, "wb") as f:
+    f.write(narration["audio_data"])
+```
+
+### Remotionでの音声組み込み
+```typescript
+import { Audio, staticFile } from 'remotion';
+
+export const BlogVideo: React.FC<BlogVideoProps> = (props) => {
+  return (
+    <AbsoluteFill>
+      {/* 音声トラック */}
+      {props.audioUrl && (
+        <Audio src={props.audioUrl} />
+      )}
+
+      {/* ビジュアルシーン */}
+      <Sequence from={0} durationInFrames={180}>
+        <TitleScene {...props} />
+      </Sequence>
+
+      {/* 画像シーン */}
+      {props.heroImageUrl && (
+        <Sequence from={180} durationInFrames={90}>
+          <HeroImageScene imageUrl={props.heroImageUrl} />
+        </Sequence>
+      )}
+
+      {/* 続くシーン... */}
+    </AbsoluteFill>
+  );
+};
+```
+
+## トピック別設定
+
+### カラースキーム
 ```typescript
 const TOPIC_COLORS = {
   psychology: { primary: "#2b6cb0", accent: "#4299e1", name: "心理学" },
@@ -70,6 +129,19 @@ const TOPIC_COLORS = {
   ai_tools: { primary: "#1a365d", accent: "#3182ce", name: "AIツール" },
   inclusive_education: { primary: "#285e61", accent: "#38b2ac", name: "インクルーシブ教育" },
   weekly_summary: { primary: "#553c9a", accent: "#805ad5", name: "週間総括" }
+};
+```
+
+### 推奨TTS音声
+```typescript
+const TOPIC_VOICES = {
+  psychology: "default",     // Kore - 落ち着いた声
+  education: "default",
+  startup: "bright",         // Puck - 明るい声
+  investment: "default",
+  ai_tools: "bright",
+  inclusive_education: "calm", // Charon - 静かな声
+  weekly_summary: "warm"       // Aoede - 温かみのある声
 };
 ```
 
@@ -93,52 +165,99 @@ const opacity = interpolate(frame, [0, 20], [0, 1], {
 const translateY = interpolate(slideIn, [0, 1], [50, 0]);
 ```
 
-## シーン構成
+### 画像フェード効果
+```typescript
+const HeroImageScene: React.FC<{ imageUrl: string }> = ({ imageUrl }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+
+  const scale = interpolate(frame, [0, 30], [1.1, 1], {
+    extrapolateRight: "clamp"
+  });
+
+  const opacity = interpolate(frame, [0, 15, 75, 90], [0, 1, 1, 0]);
+
+  return (
+    <AbsoluteFill style={{ opacity }}>
+      <Img
+        src={imageUrl}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          transform: `scale(${scale})`
+        }}
+      />
+    </AbsoluteFill>
+  );
+};
+```
+
+## シーン構成（音声同期版）
 
 ### TitleScene
 - グラデーション背景（トピックカラー）
 - トピックラベル（スケールアニメーション）
 - メインタイトル（フェードイン + スライドアップ）
+- **音声**: 「今日は〇〇についてお話しします」
+
+### HeroImageScene（NEW）
+- ヒーロー画像を全画面表示（Ken Burnsエフェクト）
+- オーバーレイでタイトル再表示
+- **音声**: 「最新動向を見ていきましょう」
 
 ### SummaryScene
 - ダークグレー背景
 - カラーアクセントバー
 - 要約テキスト（フェードイン）
+- **音声**: 要約の読み上げ
 
 ### PointScene
 - ライトグレー背景
 - 番号バッジ（スケールアニメーション）
 - ポイントテキスト（スライドイン）
+- **音声**: 各ポイントの説明
 
 ### EndingScene
 - グラデーション背景（トピックカラー）
 - 著者名/ブログ名（スケールアニメーション）
 - 日付（フェードイン）
 - CTA「ブログで詳しく読む」
+- **音声**: 「詳しくはブログをご覧ください」
 
 ## レンダリング
 
 ### CLIでのレンダリング
 ```bash
-# 標準動画
+# 標準動画のみ（推奨）
 npx remotion render BlogVideo out/video.mp4
 
-# ショート動画
-npx remotion render BlogVideoShort out/video_short.mp4
-
-# カスタムprops
-npx remotion render BlogVideo out/video.mp4 --props='{"title":"カスタムタイトル"}'
+# カスタムprops（音声・画像付き）
+npx remotion render BlogVideo out/video.mp4 --props='{"title":"タイトル","audioUrl":"file:///path/to/audio.wav","heroImageUrl":"file:///path/to/image.png"}'
 ```
 
-### プログラマティックレンダリング
+### プログラマティックレンダリング（音声付き）
 ```javascript
 import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
+import fs from "fs";
+import path from "path";
+
+// 音声ファイルをpublic/に配置
+const audioPath = path.join(__dirname, "public", "narration.wav");
+fs.copyFileSync(sourceAudioPath, audioPath);
 
 const bundled = await bundle({
   entryPoint: "./src/index.tsx",
   webpackOverride: (config) => config,
+  publicDir: "./public",  // 音声・画像ファイル配置先
 });
+
+const blogData = {
+  ...articleData,
+  audioUrl: staticFile("narration.wav"),
+  heroImageUrl: staticFile("hero.png")
+};
 
 const composition = await selectComposition({
   serveUrl: bundled,
@@ -155,28 +274,59 @@ await renderMedia({
 });
 ```
 
-## Pythonからの呼び出し
+## Pythonからの完全フロー
 ```python
 import subprocess
 import json
 import os
+from pathlib import Path
+from lib.gemini_client import GeminiClient
 
-def render_video(blog_data: dict, output_path: str, is_short: bool = False):
-    """Remotion動画をレンダリング"""
+async def render_video_with_audio(article: dict, output_path: str):
+    """音声・画像付きRemotionレンダリング"""
 
-    remotion_dir = os.path.join(os.path.dirname(__file__), "..", "remotion")
+    client = GeminiClient()
+    remotion_dir = Path(__file__).parent.parent / "remotion"
+    public_dir = remotion_dir / "public"
+    public_dir.mkdir(exist_ok=True)
 
-    # propsをJSONファイルに保存
-    props_file = os.path.join(remotion_dir, "props.json")
+    # 1. TTS音声生成
+    topic = article.get("topic", "ai_tools")
+    voice = TOPIC_VOICES.get(topic, "default")
+
+    narration = await client.generate_video_narration(
+        title=article["title"],
+        summary=article["summary"],
+        points=article["points"],
+        duration_seconds=30,
+        voice=voice
+    )
+
+    # 2. 音声ファイル保存
+    audio_path = public_dir / "narration.wav"
+    with open(audio_path, "wb") as f:
+        f.write(narration["audio_data"])
+
+    # 3. ヒーロー画像をコピー
+    if article.get("hero_image_path"):
+        hero_dest = public_dir / "hero.png"
+        shutil.copy(article["hero_image_path"], hero_dest)
+
+    # 4. propsをJSONに保存
+    props_data = {
+        **article,
+        "audioUrl": "narration.wav",  # staticFile参照
+        "heroImageUrl": "hero.png" if article.get("hero_image_path") else None
+    }
+
+    props_file = remotion_dir / "props.json"
     with open(props_file, "w", encoding="utf-8") as f:
-        json.dump(blog_data, f, ensure_ascii=False)
+        json.dump(props_data, f, ensure_ascii=False)
 
-    composition = "BlogVideoShort" if is_short else "BlogVideo"
-
-    # Remotionレンダリング実行
+    # 5. Remotionレンダリング
     result = subprocess.run(
-        ["node", "render.mjs", composition, output_path, props_file],
-        cwd=remotion_dir,
+        ["node", "render.mjs", "BlogVideo", output_path, str(props_file)],
+        cwd=str(remotion_dir),
         capture_output=True,
         text=True
     )
@@ -184,7 +334,11 @@ def render_video(blog_data: dict, output_path: str, is_short: bool = False):
     if result.returncode != 0:
         raise Exception(f"Render failed: {result.stderr}")
 
-    return output_path
+    return {
+        "video_path": output_path,
+        "narration_script": narration["script"],
+        "has_audio": True
+    }
 ```
 
 ## プロジェクト構成
@@ -194,11 +348,20 @@ remotion/
 ├── remotion.config.ts
 ├── render.mjs              # レンダリングスクリプト
 ├── tsconfig.json
+├── public/                 # 静的ファイル（音声・画像）
+│   ├── narration.wav       # TTS音声（動的生成）
+│   └── hero.png            # ヒーロー画像（動的コピー）
 └── src/
     ├── index.tsx           # エントリーポイント
     ├── Root.tsx            # コンポジション定義
     └── compositions/
-        └── BlogVideo.tsx   # メイン動画コンポーネント
+        ├── BlogVideo.tsx   # メイン動画コンポーネント
+        └── scenes/
+            ├── TitleScene.tsx
+            ├── HeroImageScene.tsx  # NEW
+            ├── SummaryScene.tsx
+            ├── PointScene.tsx
+            └── EndingScene.tsx
 ```
 
 ## 依存関係インストール
@@ -214,29 +377,79 @@ npm start
 ```
 
 ## エラーハンドリング
+
+### 音声生成エラー
+```python
+try:
+    narration = await client.generate_video_narration(...)
+except Exception as e:
+    logger.warning(f"TTS failed: {e}")
+    # フォールバック: 音声なしで続行
+    narration = {"audio_data": None, "script": None}
+```
+
+### レンダリングエラー
 ```python
 class VideoRenderError(Exception):
     """動画レンダリングエラー"""
     pass
 
 try:
-    output = render_video(blog_data, "out/video.mp4")
+    output = await render_video_with_audio(article, "out/video.mp4")
 except subprocess.CalledProcessError as e:
+    # エラー解析
+    if "Target closed" in str(e.stderr):
+        raise VideoRenderError("Chromium crashed - check dependencies")
+    elif "libasound" in str(e.stderr):
+        raise VideoRenderError("Audio library missing - install libasound2t64")
     raise VideoRenderError(f"Remotion render failed: {e.stderr}")
-except FileNotFoundError:
-    raise VideoRenderError("Node.js or Remotion not found")
 ```
 
 ## 出力ディレクトリ
 ```
 output/
 └── videos/
-    ├── blog_video_20251230_ai_tools.mp4       # 標準版
-    └── blog_video_short_20251230_ai_tools.mp4 # ショート版
+    ├── blog_video_20251230_ai_tools.mp4       # 音声付き標準版
+    └── blog_video_short_20251230_ai_tools.mp4 # ショート版（将来拡張用）
+```
+
+## CI環境設定
+
+### GitHub Actions
+```yaml
+- name: Install Chrome dependencies
+  run: |
+    sudo apt-get update
+    sudo apt-get install -y \
+      libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 \
+      libcups2 libdrm2 libxkbcommon0 libxcomposite1 \
+      libxdamage1 libxfixes3 libxrandr2 libgbm1 \
+      libasound2t64 libpango-1.0-0 libpangocairo-1.0-0 \
+      libcairo2 libatspi2.0-0 libgtk-3-0 libgdk-pixbuf-2.0-0 \
+      libx11-xcb1 libxcb-dri3-0 libxshmfence1 \
+      fonts-liberation fonts-noto-cjk xvfb \
+      libegl1 libgl1-mesa-dri libglx-mesa0 mesa-utils
+
+- name: Start Xvfb
+  run: |
+    Xvfb :99 -screen 0 1920x1080x24 &
+    echo "DISPLAY=:99" >> $GITHUB_ENV
+```
+
+### render.mjs CI設定
+```javascript
+const isCI = process.env.CI === 'true';
+
+const chromiumOptions = {
+  gl: isCI ? 'swangle' : 'angle',
+  enableMultiProcessOnLinux: true,
+  headless: true,
+};
 ```
 
 ## 注意事項
 - Node.js 20+ が必要
 - 初回実行時は依存関係のインストールが必要
-- レンダリングは重い処理のため、CI/CDでのタイムアウトに注意
-- 日本語フォントが必要な場合は、システムフォントを使用
+- レンダリングは重い処理のため、CI/CDでのタイムアウトに注意（45分推奨）
+- 日本語フォント（fonts-noto-cjk）が必要
+- TTS音声はWAV形式で保存し、Remotionで読み込む

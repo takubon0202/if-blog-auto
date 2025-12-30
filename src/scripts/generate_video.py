@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-動画生成スクリプト - Remotion Edition
+動画生成スクリプト - Remotion Edition with TTS
 
 ブログ記事の内容からRemotionを使用して動画を自動生成します。
-- 標準動画（30秒、1920x1080）
-- ショート動画（15秒、1080x1920 縦型）
+- 標準動画（30秒、1920x1080）+ TTS音声 + ヒーロー画像
+- ショート動画（15秒、1080x1920 縦型）- デフォルトでスキップ
 
 使用方法:
     python generate_video.py --title "記事タイトル" --summary "記事概要" --topic ai_tools
@@ -16,6 +16,7 @@ import argparse
 import logging
 import subprocess
 import os
+import shutil
 from pathlib import Path
 from typing import Dict, List, Optional
 from datetime import datetime
@@ -23,6 +24,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from lib.timezone import get_timestamp_jst, format_date
+from lib.gemini_client import GeminiClient
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -33,13 +35,39 @@ class VideoGenerationError(Exception):
     pass
 
 
+class AudioGenerationError(Exception):
+    """音声生成エラー"""
+    pass
+
+
+# トピック別推奨TTS音声
+TOPIC_VOICES = {
+    "psychology": "default",       # Kore - 落ち着いた声
+    "education": "default",
+    "startup": "bright",           # Puck - 明るい声
+    "investment": "default",
+    "ai_tools": "bright",
+    "inclusive_education": "calm", # Charon - 静かな声
+    "weekly_summary": "warm"       # Aoede - 温かみのある声
+}
+
+
 class BlogVideoGenerator:
-    """ブログ用動画生成クラス"""
+    """ブログ用動画生成クラス（TTS対応）"""
 
     def __init__(self):
         self.remotion_dir = Path(__file__).parent.parent.parent / "remotion"
+        self.public_dir = self.remotion_dir / "public"
         self.output_dir = Path(__file__).parent.parent.parent / "output" / "videos"
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.public_dir.mkdir(parents=True, exist_ok=True)
+        self.gemini_client = None
+
+    def _get_gemini_client(self) -> GeminiClient:
+        """GeminiClientを取得（遅延初期化）"""
+        if self.gemini_client is None:
+            self.gemini_client = GeminiClient()
+        return self.gemini_client
 
     def _check_dependencies(self) -> bool:
         """依存関係をチェック"""
@@ -103,6 +131,102 @@ class BlogVideoGenerator:
 
         return points[:max_points]
 
+    async def _generate_narration(
+        self,
+        title: str,
+        summary: str,
+        points: List[str],
+        topic: str,
+        duration_seconds: int = 30
+    ) -> Dict:
+        """
+        Gemini TTSでナレーション音声を生成
+
+        Args:
+            title: 記事タイトル
+            summary: 記事概要
+            points: 主要ポイントのリスト
+            topic: トピックID（音声選択用）
+            duration_seconds: 動画の長さ
+
+        Returns:
+            ナレーション結果（audio_data, script）
+        """
+        logger.info(f"Generating TTS narration for: {title[:50]}...")
+
+        try:
+            client = self._get_gemini_client()
+            voice = TOPIC_VOICES.get(topic, "default")
+
+            narration = await client.generate_video_narration(
+                title=title,
+                summary=summary,
+                points=points,
+                duration_seconds=duration_seconds,
+                voice=voice
+            )
+
+            if narration.get("status") == "success" and narration.get("audio_data"):
+                logger.info(f"Narration generated: {narration.get('audio_size_bytes', 0)} bytes, voice: {voice}")
+                return narration
+            else:
+                logger.warning(f"TTS generation failed: {narration.get('error', 'Unknown error')}")
+                return {"status": "error", "audio_data": None, "script": None}
+
+        except Exception as e:
+            logger.error(f"TTS generation error: {e}")
+            return {"status": "error", "audio_data": None, "script": None, "error": str(e)}
+
+    def _prepare_public_files(
+        self,
+        audio_data: Optional[bytes],
+        hero_image_path: Optional[str]
+    ) -> Dict[str, Optional[str]]:
+        """
+        public/ディレクトリに音声・画像ファイルを配置
+
+        Args:
+            audio_data: 音声バイナリデータ
+            hero_image_path: ヒーロー画像のパス
+
+        Returns:
+            staticFile参照用のファイル名
+        """
+        result = {"audio_file": None, "hero_image_file": None}
+
+        # 音声ファイル保存
+        if audio_data:
+            audio_path = self.public_dir / "narration.wav"
+            try:
+                with open(audio_path, "wb") as f:
+                    f.write(audio_data)
+                result["audio_file"] = "narration.wav"
+                logger.info(f"Audio saved to: {audio_path}")
+            except Exception as e:
+                logger.error(f"Failed to save audio: {e}")
+
+        # ヒーロー画像コピー
+        if hero_image_path and Path(hero_image_path).exists():
+            hero_dest = self.public_dir / "hero.png"
+            try:
+                shutil.copy(hero_image_path, hero_dest)
+                result["hero_image_file"] = "hero.png"
+                logger.info(f"Hero image copied to: {hero_dest}")
+            except Exception as e:
+                logger.error(f"Failed to copy hero image: {e}")
+
+        return result
+
+    def _cleanup_public_files(self):
+        """public/ディレクトリの一時ファイルをクリーンアップ"""
+        for filename in ["narration.wav", "hero.png"]:
+            filepath = self.public_dir / filename
+            if filepath.exists():
+                try:
+                    filepath.unlink()
+                except Exception as e:
+                    logger.warning(f"Failed to cleanup {filename}: {e}")
+
     async def generate_video(
         self,
         title: str,
@@ -111,10 +235,12 @@ class BlogVideoGenerator:
         topic: str,
         date: Optional[str] = None,
         author_name: str = "if(塾) Blog",
-        generate_short: bool = True
+        generate_short: bool = False,  # デフォルトでスキップ
+        generate_audio: bool = True,
+        hero_image_path: Optional[str] = None
     ) -> Dict:
         """
-        ブログ動画を生成
+        ブログ動画を生成（TTS音声付き）
 
         Args:
             title: 記事タイトル
@@ -123,12 +249,17 @@ class BlogVideoGenerator:
             topic: トピックID
             date: 日付文字列
             author_name: 著者名
-            generate_short: ショート動画も生成するか
+            generate_short: ショート動画も生成するか（デフォルト: False）
+            generate_audio: TTS音声を生成するか（デフォルト: True）
+            hero_image_path: ヒーロー画像のパス
 
         Returns:
             生成結果の辞書
         """
         logger.info(f"Generating video for: {title}")
+        logger.info(f"  - Generate audio: {generate_audio}")
+        logger.info(f"  - Generate short: {generate_short}")
+        logger.info(f"  - Hero image: {hero_image_path or 'None'}")
 
         # 依存関係チェック
         if not self._check_dependencies():
@@ -140,6 +271,39 @@ class BlogVideoGenerator:
 
         timestamp = get_timestamp_jst()
 
+        result = {
+            "status": "success",
+            "videos": {},
+            "narration": {},
+            "generated_at": timestamp
+        }
+
+        # TTS音声生成
+        audio_data = None
+        narration_script = None
+        if generate_audio:
+            narration = await self._generate_narration(
+                title=title,
+                summary=summary,
+                points=points,
+                topic=topic,
+                duration_seconds=30
+            )
+            if narration.get("status") == "success":
+                audio_data = narration.get("audio_data")
+                narration_script = narration.get("script")
+                result["narration"] = {
+                    "script": narration_script,
+                    "audio_size_bytes": len(audio_data) if audio_data else 0,
+                    "voice": TOPIC_VOICES.get(topic, "default")
+                }
+            else:
+                logger.warning("Audio generation failed, continuing without audio")
+                result["narration"] = {"status": "skipped", "reason": narration.get("error", "Unknown")}
+
+        # public/ディレクトリにファイル配置
+        public_files = self._prepare_public_files(audio_data, hero_image_path)
+
         # propsデータを準備
         props_data = {
             "title": title,
@@ -147,19 +311,15 @@ class BlogVideoGenerator:
             "points": points,
             "topic": topic,
             "date": date,
-            "authorName": author_name
+            "authorName": author_name,
+            "audioUrl": public_files.get("audio_file"),
+            "heroImageUrl": public_files.get("hero_image_file")
         }
 
         # ショート用props
         props_data_short = {
             **props_data,
             "isShort": True
-        }
-
-        result = {
-            "status": "success",
-            "videos": {},
-            "generated_at": timestamp
         }
 
         # propsをJSONファイルに保存
@@ -188,11 +348,13 @@ class BlogVideoGenerator:
                 "path": str(standard_output),
                 "duration": 30,
                 "resolution": "1920x1080",
-                "size_bytes": os.path.getsize(standard_output) if standard_output.exists() else 0
+                "size_bytes": os.path.getsize(standard_output) if standard_output.exists() else 0,
+                "has_audio": audio_data is not None,
+                "has_hero_image": public_files.get("hero_image_file") is not None
             }
             logger.info(f"Standard video saved: {standard_output}")
 
-            # ショート動画をレンダリング
+            # ショート動画をレンダリング（デフォルトでスキップ）
             if generate_short:
                 short_output = self.output_dir / f"blog_video_short_{timestamp}_{topic}.mp4"
                 logger.info("Rendering short video (15s, 1080x1920)...")
@@ -221,6 +383,7 @@ class BlogVideoGenerator:
                 props_file.unlink()
             if props_short_file.exists():
                 props_short_file.unlink()
+            self._cleanup_public_files()
 
         return result
 
@@ -305,6 +468,10 @@ class BlogVideoGenerator:
             "timeout": {
                 "cause": "レンダリングがタイムアウトしました",
                 "solution": "タイムアウト値を延長してください"
+            },
+            "audio": {
+                "cause": "音声ファイル関連のエラー",
+                "solution": "音声ファイルの形式を確認してください（WAV推奨）"
             }
         }
 
@@ -320,7 +487,8 @@ class BlogVideoGenerator:
 async def generate_video(
     article: Dict,
     output_dir: Optional[str] = None,
-    generate_short: bool = True
+    generate_short: bool = False,  # デフォルトでスキップ
+    generate_audio: bool = True
 ) -> Dict:
     """
     記事データから動画を生成（メインエントリーポイント）
@@ -332,8 +500,10 @@ async def generate_video(
             - content: 記事本文（ポイント抽出用）
             - points: 主要ポイント（オプション）
             - topic_id/topic: トピックID
+            - hero_image_path: ヒーロー画像パス（オプション）
         output_dir: 出力ディレクトリ（オプション）
-        generate_short: ショート動画も生成するか
+        generate_short: ショート動画も生成するか（デフォルト: False）
+        generate_audio: TTS音声を生成するか（デフォルト: True）
 
     Returns:
         生成結果
@@ -348,6 +518,7 @@ async def generate_video(
     summary = article.get("summary") or article.get("description", "")
     topic = article.get("topic_id") or article.get("topic", "ai_tools")
     content = article.get("content", "")
+    hero_image_path = article.get("hero_image_path")
 
     # ポイントの取得または抽出
     points = article.get("points", [])
@@ -368,7 +539,9 @@ async def generate_video(
             summary=summary,
             points=points,
             topic=topic,
-            generate_short=generate_short
+            generate_short=generate_short,
+            generate_audio=generate_audio,
+            hero_image_path=hero_image_path
         )
         return result
     except VideoGenerationError as e:
@@ -388,7 +561,7 @@ async def generate_video(
 def main():
     """CLIエントリーポイント"""
     parser = argparse.ArgumentParser(
-        description="Generate blog video with Remotion"
+        description="Generate blog video with Remotion and TTS"
     )
     parser.add_argument("--title", "-t", required=True, help="Article title")
     parser.add_argument("--summary", "-s", required=True, help="Article summary")
@@ -397,15 +570,19 @@ def main():
     parser.add_argument("--points", "-p", type=str,
                         help="JSON array of key points")
     parser.add_argument("--output", "-o", type=str, help="Output directory")
-    parser.add_argument("--no-short", action="store_true",
-                        help="Skip short video generation")
+    parser.add_argument("--hero-image", type=str, help="Path to hero image")
+    parser.add_argument("--with-short", action="store_true",
+                        help="Also generate short video (default: skip)")
+    parser.add_argument("--no-audio", action="store_true",
+                        help="Skip TTS audio generation")
 
     args = parser.parse_args()
 
     article = {
         "title": args.title,
         "summary": args.summary,
-        "topic_id": args.topic
+        "topic_id": args.topic,
+        "hero_image_path": args.hero_image
     }
 
     if args.points:
@@ -417,7 +594,8 @@ def main():
     result = asyncio.run(generate_video(
         article=article,
         output_dir=args.output,
-        generate_short=not args.no_short
+        generate_short=args.with_short,
+        generate_audio=not args.no_audio
     ))
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

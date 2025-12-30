@@ -57,6 +57,15 @@ class ImageGenerationResult:
     text_response: Optional[str] = None
 
 
+@dataclass
+class AudioGenerationResult:
+    """音声生成結果のデータクラス"""
+    audio_data: bytes
+    model: str
+    text: str
+    duration_seconds: Optional[float] = None
+
+
 class GeminiClient:
     """Gemini API統合クライアント"""
 
@@ -65,7 +74,16 @@ class GeminiClient:
     MODEL_FLASH = "gemini-2.0-flash"
     MODEL_FLASH_3 = "gemini-3-flash-preview"  # SEO/Review用
     MODEL_IMAGE = "gemini-2.5-flash-image"
+    MODEL_TTS = "gemini-2.5-flash-preview-tts"  # TTS用
     AGENT_DEEP_RESEARCH = "deep-research-pro-preview-12-2025"
+
+    # TTS音声オプション（日本語対応音声）
+    TTS_VOICES = {
+        "default": "Kore",      # 落ち着いた声
+        "bright": "Puck",       # 明るい声
+        "calm": "Charon",       # 静かな声
+        "warm": "Aoede",        # 温かみのある声
+    }
 
     def __init__(self, api_key: Optional[str] = None):
         """
@@ -985,3 +1003,191 @@ Generate a visually stunning image that captures the essence of this article."""
         logger.info(f"Generating image with {'smart' if use_smart_prompt else 'simple'} prompt for: {title[:50]}...")
 
         return await self.generate_image(prompt)
+
+    async def generate_audio(
+        self,
+        text: str,
+        voice: str = "default",
+        model: str = None
+    ) -> AudioGenerationResult:
+        """
+        Gemini 2.5 Flash TTSで音声を生成する
+
+        Args:
+            text: 読み上げるテキスト
+            voice: 音声タイプ（default, bright, calm, warm）
+            model: 使用モデル（デフォルト: gemini-2.5-flash-preview-tts）
+
+        Returns:
+            AudioGenerationResult: 生成結果（音声バイナリデータ）
+        """
+        model = model or self.MODEL_TTS
+        voice_name = self.TTS_VOICES.get(voice, self.TTS_VOICES["default"])
+
+        logger.info(f"Generating audio with voice '{voice_name}': {text[:50]}...")
+
+        try:
+            # TTS用の設定
+            config = types.GenerateContentConfig(
+                response_modalities=["AUDIO"],
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                            voice_name=voice_name
+                        )
+                    )
+                )
+            )
+
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
+                model=model,
+                contents=text,
+                config=config
+            )
+
+            # レスポンスから音声データを抽出
+            audio_data = None
+            if response.candidates and len(response.candidates) > 0:
+                parts = response.candidates[0].content.parts
+                for part in parts:
+                    if hasattr(part, 'inline_data') and part.inline_data:
+                        data = part.inline_data.data
+                        if isinstance(data, str):
+                            import base64
+                            audio_data = base64.b64decode(data)
+                        else:
+                            audio_data = data
+                        break
+
+            if not audio_data:
+                raise ValueError("No audio data in response")
+
+            logger.info(f"Audio generated: {len(audio_data)} bytes")
+
+            return AudioGenerationResult(
+                audio_data=audio_data,
+                model=model,
+                text=text
+            )
+
+        except Exception as e:
+            logger.error(f"Audio generation failed: {e}")
+            raise
+
+    async def generate_narration_script(
+        self,
+        title: str,
+        summary: str,
+        points: List[str],
+        duration_seconds: int = 30
+    ) -> str:
+        """
+        ブログ動画用のナレーションスクリプトを生成
+
+        Args:
+            title: 記事タイトル
+            summary: 記事概要
+            points: 主要ポイントのリスト
+            duration_seconds: 動画の長さ（秒）
+
+        Returns:
+            ナレーションスクリプト（読み上げ用テキスト）
+        """
+        points_text = "\n".join([f"- {p}" for p in points])
+
+        # 文字数の目安: 日本語で約4文字/秒
+        target_chars = duration_seconds * 4
+
+        prompt = f"""以下のブログ記事情報から、{duration_seconds}秒間のナレーション用スクリプトを作成してください。
+
+【記事タイトル】
+{title}
+
+【記事概要】
+{summary}
+
+【主要ポイント】
+{points_text}
+
+【スクリプト作成ルール】
+1. 約{target_chars}文字程度（{duration_seconds}秒で読み上げる量）
+2. 自然な話し言葉で、聞きやすいリズム
+3. 以下の構成で作成:
+   - 冒頭（5秒）: タイトルを紹介
+   - 本文（20秒）: 主要ポイントを説明
+   - 締め（5秒）: 簡潔なまとめ
+4. 絵文字や記号は使用しない
+5. 「〜ですね」「〜しましょう」などの押し付けがましい表現は避ける
+6. 専門的だが親しみやすいトーン
+
+【出力形式】
+ナレーションスクリプトのみを出力してください。余計な説明は不要です。"""
+
+        try:
+            result = await self.generate_content(
+                prompt=prompt,
+                model=self.MODEL_FLASH,
+                temperature=0.7
+            )
+            return result.text.strip()
+        except Exception as e:
+            logger.error(f"Narration script generation failed: {e}")
+            # フォールバック: シンプルなスクリプト
+            return f"{title}。{summary[:100]}"
+
+    async def generate_video_narration(
+        self,
+        title: str,
+        summary: str,
+        points: List[str],
+        duration_seconds: int = 30,
+        voice: str = "default"
+    ) -> Dict[str, Any]:
+        """
+        ブログ動画用のナレーション音声を一括生成
+
+        Args:
+            title: 記事タイトル
+            summary: 記事概要
+            points: 主要ポイントのリスト
+            duration_seconds: 動画の長さ（秒）
+            voice: 音声タイプ
+
+        Returns:
+            ナレーション結果（スクリプト、音声データ）
+        """
+        logger.info(f"Generating video narration for: {title[:50]}...")
+
+        try:
+            # 1. ナレーションスクリプトを生成
+            script = await self.generate_narration_script(
+                title=title,
+                summary=summary,
+                points=points,
+                duration_seconds=duration_seconds
+            )
+            logger.info(f"Narration script generated: {len(script)} chars")
+
+            # 2. TTSで音声を生成
+            audio_result = await self.generate_audio(
+                text=script,
+                voice=voice
+            )
+
+            return {
+                "status": "success",
+                "script": script,
+                "audio_data": audio_result.audio_data,
+                "audio_size_bytes": len(audio_result.audio_data),
+                "voice": voice
+            }
+
+        except Exception as e:
+            logger.error(f"Video narration generation failed: {e}")
+            return {
+                "status": "error",
+                "error": str(e),
+                "script": None,
+                "audio_data": None
+            }
