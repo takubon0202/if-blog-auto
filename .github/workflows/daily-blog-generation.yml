@@ -65,14 +65,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: remotion/package-lock.json
 
       - name: Install Remotion dependencies
         if: ${{ github.event.inputs.skip_video != 'true' }}
         run: |
           cd remotion
-          npm ci || npm install
+          npm install
           echo "Remotion dependencies installed successfully"
 
       - name: Determine today's topic and research method

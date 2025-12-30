@@ -155,8 +155,19 @@ class GitHubPagesPublisher:
 
         return filepath
 
+    def is_ci_environment(self) -> bool:
+        """CI環境かどうかを判定"""
+        # GitHub Actions, GitLab CI, CircleCI など
+        ci_vars = ['GITHUB_ACTIONS', 'CI', 'GITLAB_CI', 'CIRCLECI', 'JENKINS_URL']
+        return any(os.environ.get(var) for var in ci_vars)
+
     def git_commit_and_push(self, message: str) -> bool:
         """Git操作（add, commit, push）"""
+        # CI環境ではワークフローがgit操作を行うためスキップ
+        if self.is_ci_environment():
+            logger.info("CI environment detected - skipping git operations (handled by workflow)")
+            return True
+
         try:
             # Git add
             subprocess.run(

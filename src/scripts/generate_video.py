@@ -252,19 +252,28 @@ class BlogVideoGenerator:
 
         stdout, stderr = await process.communicate()
 
+        # 出力をログに記録
+        if stdout:
+            for line in stdout.decode().split('\n'):
+                if line.strip():
+                    logger.info(f"[Remotion] {line}")
+
+        if stderr:
+            stderr_text = stderr.decode()
+            for line in stderr_text.split('\n'):
+                if line.strip():
+                    logger.warning(f"[Remotion stderr] {line}")
+
         if process.returncode != 0:
             error_msg = stderr.decode() if stderr else "Unknown error"
+            logger.error(f"Remotion render failed with exit code {process.returncode}")
+            logger.error(f"Error details: {error_msg}")
             raise subprocess.CalledProcessError(
                 process.returncode,
                 cmd,
                 output=stdout,
                 stderr=stderr
             )
-
-        if stdout:
-            for line in stdout.decode().split('\n'):
-                if line.strip():
-                    logger.info(f"[Remotion] {line}")
 
 
 async def generate_video(

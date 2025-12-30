@@ -76,6 +76,9 @@ async function render() {
     process.exit(0);
   } catch (error) {
     console.error(`\n[Remotion] Error: ${error.message}`);
+    if (error.stack) {
+      console.error(`[Remotion] Stack trace:\n${error.stack}`);
+    }
     process.exit(1);
   }
 }
