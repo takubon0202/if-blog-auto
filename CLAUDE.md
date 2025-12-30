@@ -1,14 +1,15 @@
 # Blog Automation Project Rules - Gemini API Edition
 
 ## プロジェクト概要
-Multi-Search（3回検索、メイン）とDeep Research API（日曜のみ・週間総括）を活用し、最新トレンド情報を自動収集して画像付きブログ記事を生成・投稿するシステム。
+Multi-Search（3回検索、メイン）とDeep Research API（日曜のみ・週間総括）を活用し、最新トレンド情報を自動収集して画像・動画付きブログ記事を生成・投稿するシステム。
 
 ## 技術スタック
 - **AI**: Gemini 3 Pro Preview, Deep Research Pro Preview（日曜のみ）
-- **言語**: Python 3.11+, JavaScript (Node.js 20+)
+- **言語**: Python 3.11+, JavaScript (Node.js 20+), TypeScript
 - **検索（メイン）**: Multi-Search 3回検索 (Gemini Built-in) - 月〜土曜日
 - **検索（深層）**: Deep Research API - 日曜日のみ（週間総括）
 - **画像生成**: Gemini 2.5 Flash image (`gemini-2.5-flash-image`)
+- **動画生成**: Remotion 4.0 (React-based video framework)
 - **CI/CD**: GitHub Actions
 - **CMS**: GitHub Pages (Jekyll)
 - **公開URL**: https://takubon0202.github.io/if-blog-auto/
@@ -54,18 +55,23 @@ Multi-Search（3回検索、メイン）とDeep Research API（日曜のみ・�
 3. 画像生成
    └── gemini-2.5-flash-image でアイキャッチ画像生成
 
-4. SEO最適化 & レビュー
+4. 動画生成
+   └── Remotion でブログ動画を自動生成
+       ├── 標準動画: 30秒、1920x1080
+       └── ショート動画: 15秒、1080x1920（縦型）
+
+5. SEO最適化 & レビュー
    └── gemini-3-flash-preview（思考オフ）で高速処理
 
-5. GitHub Pages投稿
+6. GitHub Pages投稿
    └── Git push → Jekyll自動ビルド → 公開
 ```
 
 ## Gemini API使用ルール
 
 ### モデル選択
-| 用途 | モデル | 曜日/タイミング |
-|------|--------|----------------|
+| 用途 | モデル/ツール | 曜日/タイミング |
+|------|-------------|----------------|
 | 情報収集（メイン） | `gemini-3-pro-preview` + Multi-Search 3回 | 月〜土（デフォルト） |
 | 情報収集（週間総括） | `deep-research-pro-preview-12-2025` | 日曜のみ |
 | 情報収集（フォールバック） | `gemini-3-pro-preview` + Multi-Search 3回 | Deep Research失敗時 |
@@ -73,6 +79,7 @@ Multi-Search（3回検索、メイン）とDeep Research API（日曜のみ・�
 | SEO最適化 | `gemini-3-flash-preview`（思考オフ） | 全曜日 |
 | 品質レビュー | `gemini-3-flash-preview`（思考オフ） | 全曜日 |
 | 画像生成 | `gemini-2.5-flash-image` | 全曜日 |
+| 動画生成 | Remotion 4.0 (React) | 全曜日 |
 | 軽量タスク | `gemini-2.0-flash` | 全曜日 |
 
 ### API呼び出しパターン
@@ -128,6 +135,7 @@ Expected Output: [期待する出力形式]
 - `deep-research-agent.md`: Deep Researchによる週間総括（日曜のみ）
 - `writing-agent.md`: Gemini 3 Proによる記事執筆
 - `image-agent.md`: Gemini 2.5 Flash imageによる画像生成
+- `video-agent.md`: Remotionによる動画生成（標準30秒/ショート15秒）
 - `seo-agent.md`: SEO最適化
 - `review-agent.md`: 品質レビュー
 
@@ -142,6 +150,7 @@ API: [使用するGemini API]
 - `gemini-research.md`: Deep Research実行
 - `gemini-content.md`: コンテンツ生成
 - `image-generation.md`: 画像生成（Gemini 2.5 Flash image）
+- `remotion-video.md`: 動画生成（Remotion 4.0）
 - `cms-integration.md`: CMS連携
 
 ## 品質基準

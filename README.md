@@ -1,6 +1,6 @@
 # if(塾) Blog Automation System
 
-Gemini API を活用した、最新トレンド情報を自動収集して画像付きブログ記事を生成・GitHub Pagesに自動投稿するシステム。
+Gemini API を活用した、最新トレンド情報を自動収集して画像・動画付きブログ記事を生成・GitHub Pagesに自動投稿するシステム。
 
 ## 公開URL
 
@@ -57,7 +57,16 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 │  └─────────────────────────────────────────────────────────────────────┘ │
 │                                    ↓                                      │
 │  ┌─────────────────────────────────────────────────────────────────────┐ │
-│  │                   Step 4: SEO最適化 & 品質レビュー                   │ │
+│  │                        Step 4: 動画生成                              │ │
+│  │  ┌─────────────────────────────────────────────────────────────┐   │ │
+│  │  │  Remotion (React-based video framework)                     │   │ │
+│  │  │  → 標準動画（30秒、1920x1080）                               │   │ │
+│  │  │  → ショート動画（15秒、1080x1920 縦型）                      │   │ │
+│  │  └─────────────────────────────────────────────────────────────┘   │ │
+│  └─────────────────────────────────────────────────────────────────────┘ │
+│                                    ↓                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐ │
+│  │                   Step 5: SEO最適化 & 品質レビュー                   │ │
 │  │  ┌─────────────────────────────────────────────────────────────┐   │ │
 │  │  │  Gemini 3 Flash Preview (gemini-3-flash-preview)            │   │ │
 │  │  │  思考モード: オフ（高速応答）                                 │   │ │
@@ -66,7 +75,7 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 │  └─────────────────────────────────────────────────────────────────────┘ │
 │                                    ↓                                      │
 │  ┌─────────────────────────────────────────────────────────────────────┐ │
-│  │                     Step 5: GitHub Pages 投稿                        │ │
+│  │                     Step 6: GitHub Pages 投稿                        │ │
 │  │  ┌─────────────────────────────────────────────────────────────┐   │ │
 │  │  │  Jekyll → Git Push → 自動ビルド → 公開                       │   │ │
 │  │  └─────────────────────────────────────────────────────────────┘   │ │
@@ -77,15 +86,16 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 
 ---
 
-## 使用AIモデル
+## 使用AIモデル・ツール
 
-| ステップ | モデル | 曜日/タイミング | 検索回数 | 応答時間 |
-|----------|--------|----------------|----------|----------|
+| ステップ | モデル/ツール | 曜日/タイミング | 検索回数 | 応答時間 |
+|----------|--------------|----------------|----------|----------|
 | 情報収集（メイン） | `gemini-3-pro-preview` + Multi-Search | 月〜土 | 3回 | 約10秒 |
 | 情報収集（深層） | `deep-research-pro-preview-12-2025` | 日曜のみ | 1回 | 約5分 |
 | 情報収集（フォールバック） | `gemini-3-pro-preview` + Multi-Search | Deep Research失敗時 | 3回 | 約10秒 |
 | 記事生成 | `gemini-3-pro-preview` | 全曜日 | - | 約30秒 |
 | 画像生成 | `gemini-2.5-flash-image` | 全曜日 | - | 約5秒 |
+| 動画生成 | Remotion (React-based) | 全曜日 | - | 約30-60秒 |
 | SEO最適化 | `gemini-3-flash-preview`（思考オフ） | 全曜日 | - | 約3-5秒 |
 | 品質レビュー | `gemini-3-flash-preview`（思考オフ） | 全曜日 | - | 約5-8秒 |
 
@@ -139,6 +149,9 @@ python main.py --topic education --dry-run
 
 # 画像生成をスキップ
 python main.py --topic startup --skip-images --publish
+
+# 動画生成をスキップ
+python main.py --topic education --skip-video --publish
 ```
 
 ### 3. コマンドラインオプション
@@ -148,6 +161,7 @@ python main.py --topic startup --skip-images --publish
 | `--topic` | トピックID（必須） | - |
 | `--use-deep-research` | Deep Research APIを使用 | False（Google Search） |
 | `--skip-images` | 画像生成をスキップ | False |
+| `--skip-video` | 動画生成をスキップ | False |
 | `--dry-run` | ドライラン（投稿なし） | False |
 | `--publish` | GitHub Pagesに投稿 | True |
 
@@ -177,12 +191,13 @@ python main.py --topic startup --skip-images --publish
 
 ## サブエージェント構成
 
-| エージェント | 役割 | モデル | 使用タイミング |
-|-------------|------|--------|--------------|
+| エージェント | 役割 | モデル/ツール | 使用タイミング |
+|-------------|------|--------------|--------------|
 | `google-search-agent` | Multi-Search情報収集（メイン） | Gemini 3 Pro + 3回検索 | 月〜土・フォールバック |
 | `deep-research-agent` | 深層調査 | Deep Research API | 日曜のみ |
 | `writing-agent` | ブログ記事の執筆 | Gemini 3 Pro | 全曜日 |
 | `image-agent` | アイキャッチ画像生成（スマートプロンプト） | Gemini 2.5 Flash image + 記事分析 | 全曜日 |
+| `video-agent` | ブログ動画生成（標準/ショート） | Remotion 4.0 (React) | 全曜日 |
 | `seo-agent` | SEOメタデータ最適化 | Gemini 3 Flash（思考オフ） | 全曜日 |
 | `review-agent` | 品質チェック・ファクトチェック | Gemini 3 Flash（思考オフ） | 全曜日 |
 | `site-builder-agent` | Jekyllサイト構造管理 | - | 必要時 |
@@ -192,12 +207,13 @@ python main.py --topic startup --skip-images --publish
 
 ## スキル構成
 
-| スキル | 目的 | 使用API |
-|--------|------|---------|
+| スキル | 目的 | 使用API/ツール |
+|--------|------|---------------|
 | `gemini-research` | 7日以内情報収集（Multi-Search 3回/Deep Research） | Gemini API |
 | `gemini-content` | 引用元付きコンテンツ生成 | Gemini 3 Pro |
 | `gemini-3-flash` | SEO/レビュー高速処理（思考オフ） | Gemini 3 Flash |
 | `image-generation` | ブログ用画像生成（スマートプロンプト対応） | Gemini 2.5 Flash image |
+| `remotion-video` | ブログ動画生成（標準30秒/ショート15秒） | Remotion 4.0 |
 | `timezone` | JST日時処理 | Python datetime |
 | `github-pages` | GitHub Pages操作 | Git API |
 | `jekyll-content` | Jekyll形式コンテンツ生成 | - |
@@ -317,22 +333,35 @@ if-blog-auto/
 │   ├── about.md
 │   └── categories.md
 │
+├── remotion/                # 動画生成（Remotion）
+│   ├── package.json         # Remotion依存関係
+│   ├── remotion.config.ts   # Remotion設定
+│   ├── render.mjs           # レンダリングスクリプト
+│   ├── tsconfig.json        # TypeScript設定
+│   └── src/
+│       ├── index.tsx        # エントリーポイント
+│       ├── Root.tsx         # コンポジション定義
+│       └── compositions/
+│           └── BlogVideo.tsx # ブログ動画コンポーネント
+│
 ├── src/
-│   ├── agents/              # サブエージェント定義（8種類）
+│   ├── agents/              # サブエージェント定義（9種類）
 │   │   ├── google-search-agent.md   # メイン（月〜土）
 │   │   ├── deep-research-agent.md   # 日曜のみ
 │   │   ├── writing-agent.md
 │   │   ├── image-agent.md
+│   │   ├── video-agent.md           # 動画生成
 │   │   ├── seo-agent.md
 │   │   ├── review-agent.md
 │   │   ├── site-builder-agent.md
 │   │   └── blog-publisher-agent.md
 │   │
-│   ├── skills/              # スキル定義（8種類）
+│   ├── skills/              # スキル定義（9種類）
 │   │   ├── gemini-research.md
 │   │   ├── gemini-content.md
 │   │   ├── gemini-3-flash.md
 │   │   ├── image-generation.md
+│   │   ├── remotion-video.md        # 動画生成
 │   │   ├── timezone.md
 │   │   ├── github-pages.md
 │   │   ├── jekyll-content.md
@@ -351,6 +380,7 @@ if-blog-auto/
 │   │   ├── research.py      # リサーチ実行
 │   │   ├── generate_content.py  # 記事生成
 │   │   ├── generate_image.py    # 画像生成
+│   │   ├── generate_video.py    # 動画生成
 │   │   ├── seo_optimize.py      # SEO最適化
 │   │   ├── review.py            # 品質レビュー
 │   │   └── publish.py           # GitHub Pages投稿
@@ -360,6 +390,10 @@ if-blog-auto/
 │       └── meta-template.json
 │
 ├── output/                  # 生成された記事（ローカル保存）
+│   ├── posts/               # Markdown記事
+│   ├── images/              # 生成画像
+│   └── videos/              # 生成動画
+│
 ├── CLAUDE.md                # プロジェクトルール
 ├── requirements.txt         # Python依存関係
 └── package.json             # Node.js依存関係
@@ -550,12 +584,86 @@ Deep Research失敗時は自動的にMulti-Search（3回検索）にフォール
 
 ---
 
+## 動画生成（Remotion）
+
+ブログ記事の内容から自動で動画を生成します。
+
+### 動画仕様
+
+| 種類 | 解像度 | 長さ | 用途 |
+|------|--------|------|------|
+| 標準動画 | 1920x1080 | 30秒 | YouTube、ブログ埋め込み |
+| ショート動画 | 1080x1920（縦型） | 15秒 | YouTube Shorts、TikTok、Reels |
+
+### シーン構成
+
+```
+Scene 1: タイトルシーン（6秒）
+  - トピックラベル表示（アニメーション付き）
+  - メインタイトル（フェードイン + スライドアップ）
+
+Scene 2: サマリーシーン（5秒）
+  - 記事要約をシンプルに表示
+  - カラーアクセント付き
+
+Scene 3-5: ポイントシーン（各4秒 × 3ポイント = 12秒）
+  - 番号アイコン（スケールアニメーション）
+  - ポイントテキスト（スライドイン）
+
+Scene 6: エンディング（5秒）
+  - ブログ名/著者名
+  - 日付
+  - CTA「ブログで詳しく読む」
+```
+
+### トピック別カラースキーム（画像と統一）
+
+動画も画像と同じカラースキームを使用：
+
+| トピックID | Primary | Accent |
+|-----------|---------|--------|
+| `psychology` | #2b6cb0 | #4299e1 |
+| `education` | #2f855a | #48bb78 |
+| `startup` | #c05621 | #ed8936 |
+| `investment` | #744210 | #d69e2e |
+| `ai_tools` | #1a365d | #3182ce |
+| `inclusive_education` | #285e61 | #38b2ac |
+| `weekly_summary` | #553c9a | #805ad5 |
+
+### 動画生成API
+
+```python
+from scripts.generate_video import generate_video
+
+result = await generate_video(
+    article={
+        "title": "記事タイトル",
+        "summary": "記事要約",
+        "points": ["ポイント1", "ポイント2", "ポイント3"],
+        "topic_id": "ai_tools"
+    },
+    generate_short=True  # ショート動画も生成
+)
+```
+
+### 依存関係
+
+動画生成にはNode.js 20+が必要です：
+
+```bash
+cd remotion
+npm install
+```
+
+---
+
 ## 技術スタック
 
 | カテゴリ | 技術 |
 |---------|------|
 | **AI モデル** | Gemini 3 Pro, Gemini 3 Flash, Deep Research, Gemini 2.5 Flash image |
-| **言語** | Python 3.11+, JavaScript (Node.js 20+) |
+| **動画生成** | Remotion 4.0 (React-based) |
+| **言語** | Python 3.11+, JavaScript (Node.js 20+), TypeScript |
 | **ライブラリ** | `google-genai>=1.56.0` |
 | **検索** | Google Search Tool (Gemini Built-in) |
 | **静的サイト** | Jekyll (GitHub Pages) |
