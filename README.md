@@ -177,6 +177,7 @@ python main.py --topic education --skip-video --publish
 | トピック選択 | 曜日別に自動選択 |
 | リサーチ方法 | 日曜日のみDeep Research、他はGoogle Search |
 | タイムゾーン | Asia/Tokyo（JST） |
+| タイムアウト | 45分（動画生成対応） |
 
 ### 手動実行
 
@@ -186,6 +187,16 @@ python main.py --topic education --skip-video --publish
    - **topic**: トピックを選択
    - **research_method**: `google_search` または `deep_research`
    - **skip_images**: 画像生成をスキップするか
+   - **skip_video**: 動画生成をスキップするか
+
+### GitHub Actionsでの動画生成
+
+GitHub Actionsでは自動的に以下の処理が行われます：
+
+1. **Node.js 20のセットアップ**
+2. **Remotion依存関係のインストール** (`npm ci`)
+3. **動画のレンダリング** (標準30秒 + ショート15秒)
+4. **成果物のアップロード** (30日間保持)
 
 ---
 

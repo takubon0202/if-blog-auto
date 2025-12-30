@@ -24,15 +24,21 @@ on:
         required: false
         type: boolean
         default: false
+      skip_video:
+        description: '動画生成をスキップ'
+        required: false
+        type: boolean
+        default: false
 
 env:
   PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
   TZ: 'Asia/Tokyo'  # 日本標準時 (JST)
 
 jobs:
   generate-blog:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45  # 動画生成のため延長
 
     permissions:
       contents: write
@@ -53,6 +59,21 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Setup Node.js for Remotion
+        if: ${{ github.event.inputs.skip_video != 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: remotion/package-lock.json
+
+      - name: Install Remotion dependencies
+        if: ${{ github.event.inputs.skip_video != 'true' }}
+        run: |
+          cd remotion
+          npm ci || npm install
+          echo "Remotion dependencies installed successfully"
 
       - name: Determine today's topic and research method
         id: config
@@ -109,11 +130,13 @@ jobs:
           GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
         run: |
           echo "Research Method: ${{ steps.config.outputs.research_display }}"
+          echo "Skip Video: ${{ github.event.inputs.skip_video }}"
           cd src/scripts
           python main.py \
             --topic "${{ steps.config.outputs.topic }}" \
             ${{ steps.config.outputs.use_deep_research == 'true' && '--use-deep-research' || '' }} \
             ${{ github.event.inputs.skip_images == 'true' && '--skip-images' || '' }} \
+            ${{ github.event.inputs.skip_video == 'true' && '--skip-video' || '' }} \
             --publish
 
       - name: Commit and push generated content
@@ -141,8 +164,19 @@ jobs:
           echo "- **Topic**: ${{ steps.config.outputs.topic }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Research Method**: ${{ steps.config.outputs.research_display }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Skip Images**: ${{ github.event.inputs.skip_images == 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Skip Video**: ${{ github.event.inputs.skip_video == 'true' }}" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.config.outputs.topic }}" = "weekly_summary" ]; then
             echo "- **Type**: 週間総括記事 (Deep Research)" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Generated Content" >> $GITHUB_STEP_SUMMARY
+          echo "- Blog post (Markdown)" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event.inputs.skip_images }}" != "true" ]; then
+            echo "- Hero image (PNG)" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ github.event.inputs.skip_video }}" != "true" ]; then
+            echo "- Standard video (30s, 1920x1080)" >> $GITHUB_STEP_SUMMARY
+            echo "- Short video (15s, 1080x1920)" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Published URL" >> $GITHUB_STEP_SUMMARY
