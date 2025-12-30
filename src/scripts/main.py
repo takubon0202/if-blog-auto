@@ -212,9 +212,35 @@ async def main():
         logger.info("=" * 50)
 
     except Exception as e:
-        logger.error(f"Error during blog generation: {e}")
+        import traceback
+        error_traceback = traceback.format_exc()
+
+        logger.error("=" * 50)
+        logger.error("BLOG GENERATION FAILED")
+        logger.error("=" * 50)
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Error message: {e}")
+        logger.error(f"Full traceback:\n{error_traceback}")
+
+        # エラー解析
+        error_str = str(e).lower()
+        if "api" in error_str or "key" in error_str:
+            logger.error("[Error Analysis] API関連のエラーです。APIキーが正しく設定されているか確認してください。")
+        elif "timeout" in error_str:
+            logger.error("[Error Analysis] タイムアウトエラーです。ネットワーク接続を確認してください。")
+        elif "rate" in error_str or "limit" in error_str:
+            logger.error("[Error Analysis] レート制限に達しました。しばらく待ってから再試行してください。")
+        elif "video" in error_str or "remotion" in error_str:
+            logger.error("[Error Analysis] 動画生成エラーです。Remotion依存関係を確認してください。")
+        elif "image" in error_str:
+            logger.error("[Error Analysis] 画像生成エラーです。")
+        elif "git" in error_str or "push" in error_str:
+            logger.error("[Error Analysis] Git操作エラーです。リポジトリの状態を確認してください。")
+
         result["status"] = "error"
         result["error"] = str(e)
+        result["error_type"] = type(e).__name__
+        result["traceback"] = error_traceback
         raise
 
     return result

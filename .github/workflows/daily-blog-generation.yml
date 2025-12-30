@@ -70,6 +70,7 @@ jobs:
         if: ${{ github.event.inputs.skip_video != 'true' }}
         run: |
           sudo apt-get update
+          # Ubuntu 24.04 (noble) uses libasound2t64 instead of libasound2
           sudo apt-get install -y \
             libnss3 \
             libatk1.0-0 \
@@ -82,7 +83,7 @@ jobs:
             libxfixes3 \
             libxrandr2 \
             libgbm1 \
-            libasound2
+            libasound2t64
           echo "Chrome dependencies installed"
 
       - name: Install Remotion dependencies
@@ -143,6 +144,7 @@ jobs:
           fi
 
       - name: Generate blog post
+        id: generate
         env:
           GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
         run: |
@@ -154,7 +156,41 @@ jobs:
             ${{ steps.config.outputs.use_deep_research == 'true' && '--use-deep-research' || '' }} \
             ${{ github.event.inputs.skip_images == 'true' && '--skip-images' || '' }} \
             ${{ github.event.inputs.skip_video == 'true' && '--skip-video' || '' }} \
-            --publish
+            --publish 2>&1 | tee generation.log
+
+      - name: Analyze errors on failure
+        if: failure()
+        run: |
+          echo "## Error Analysis Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Error Log (last 100 lines)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -100 src/scripts/generation.log 2>/dev/null || echo "No log file found"
+          tail -100 src/scripts/generation.log >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Common error patterns analysis
+          echo "### Detected Issues" >> $GITHUB_STEP_SUMMARY
+          if grep -q "libasound" src/scripts/generation.log 2>/dev/null; then
+            echo "- Audio library issue (libasound)" >> $GITHUB_STEP_SUMMARY
+          fi
+          if grep -q "Target closed" src/scripts/generation.log 2>/dev/null; then
+            echo "- Browser/Puppeteer crashed (Target closed)" >> $GITHUB_STEP_SUMMARY
+          fi
+          if grep -q "GOOGLE_AI_API_KEY" src/scripts/generation.log 2>/dev/null; then
+            echo "- API key issue" >> $GITHUB_STEP_SUMMARY
+          fi
+          if grep -q "rate limit" src/scripts/generation.log 2>/dev/null; then
+            echo "- Rate limit exceeded" >> $GITHUB_STEP_SUMMARY
+          fi
+          if grep -q "timeout" src/scripts/generation.log 2>/dev/null; then
+            echo "- Timeout error" >> $GITHUB_STEP_SUMMARY
+          fi
+          if grep -q "ModuleNotFoundError\|ImportError" src/scripts/generation.log 2>/dev/null; then
+            echo "- Python module import error" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: Commit and push generated content
         run: |

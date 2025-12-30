@@ -268,12 +268,53 @@ class BlogVideoGenerator:
             error_msg = stderr.decode() if stderr else "Unknown error"
             logger.error(f"Remotion render failed with exit code {process.returncode}")
             logger.error(f"Error details: {error_msg}")
+
+            # エラー解析
+            self._analyze_error(error_msg)
+
             raise subprocess.CalledProcessError(
                 process.returncode,
                 cmd,
                 output=stdout,
                 stderr=stderr
             )
+
+    def _analyze_error(self, error_msg: str):
+        """エラーメッセージを解析して原因を特定"""
+        error_patterns = {
+            "Target closed": {
+                "cause": "Chromium/Puppeteerがクラッシュしました",
+                "solution": "Chrome依存ライブラリ(libasound2t64等)がインストールされているか確認してください"
+            },
+            "libasound": {
+                "cause": "オーディオライブラリが見つかりません",
+                "solution": "Ubuntu 24.04ではlibasound2t64を使用してください"
+            },
+            "ENOENT": {
+                "cause": "必要なファイルまたはディレクトリが見つかりません",
+                "solution": "node_modulesが存在するか確認してください"
+            },
+            "Cannot find module": {
+                "cause": "Node.jsモジュールが見つかりません",
+                "solution": "npm installを実行してください"
+            },
+            "out of memory": {
+                "cause": "メモリ不足",
+                "solution": "タイムアウトを延長するか、動画の解像度を下げてください"
+            },
+            "timeout": {
+                "cause": "レンダリングがタイムアウトしました",
+                "solution": "タイムアウト値を延長してください"
+            }
+        }
+
+        for pattern, info in error_patterns.items():
+            if pattern.lower() in error_msg.lower():
+                logger.error(f"[Error Analysis] 原因: {info['cause']}")
+                logger.error(f"[Error Analysis] 解決策: {info['solution']}")
+                return
+
+        logger.error("[Error Analysis] 未知のエラーです。詳細なログを確認してください。")
 
 
 async def generate_video(
