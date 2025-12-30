@@ -116,34 +116,60 @@ QUALITY_GUIDELINES = """
 
 def extract_sources_text(sources: list) -> str:
     """
-    ソースリストからMarkdown形式のテキストを生成
+    ソースリストからMarkdown形式のハイパーリンクテキストを生成
 
     Args:
         sources: ソース情報のリスト
 
     Returns:
-        Markdown形式のソーステキスト
+        Markdown形式のソーステキスト（ハイパーリンク付き）
     """
     if not sources:
         return "（調査結果から適切な参考文献を記載してください）"
 
     sources_list = []
+    seen_urls = set()  # 重複URL防止
+
     for source in sources:
         if isinstance(source, dict):
-            title = source.get('title', '')
-            url = source.get('url', source.get('uri', ''))
+            title = source.get('title', '').strip()
+            url = source.get('url', source.get('uri', '')).strip()
+
             if url:
                 # URLが完全形式でない場合は補完
                 if not url.startswith('http'):
                     url = f"https://{url}"
-                sources_list.append(f"- [{title or url}]({url})")
-        elif isinstance(source, str):
-            if source.startswith('http'):
-                sources_list.append(f"- [{source}]({source})")
-            else:
-                sources_list.append(f"- {source}")
 
-    return "\n".join(sources_list) if sources_list else "（利用可能なソースがありません）"
+                # 重複チェック
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+
+                # タイトルがない場合はURLからドメイン名を抽出
+                if not title:
+                    try:
+                        from urllib.parse import urlparse
+                        parsed = urlparse(url)
+                        title = parsed.netloc or url
+                    except:
+                        title = url
+
+                # Markdown ハイパーリンク形式
+                sources_list.append(f"- [{title}]({url})")
+
+        elif isinstance(source, str):
+            source = source.strip()
+            if source.startswith('http') and source not in seen_urls:
+                seen_urls.add(source)
+                sources_list.append(f"- [{source}]({source})")
+            elif source and source not in seen_urls:
+                # URLなしのテキストソースは除外（ハイパーリンクにできないため）
+                pass
+
+    if not sources_list:
+        return "（URLを含む参考文献が見つかりませんでした）"
+
+    return "\n".join(sources_list)
 
 
 async def generate_article(topic_id: str, research_data: dict) -> dict:
@@ -240,13 +266,14 @@ async def generate_article(topic_id: str, research_data: dict) -> dict:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 【品質チェックリスト（執筆後に確認）】
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-□ 文字数: 2500-3500文字
+□ 文字数: 4000-5500文字（長めの充実した記事）
 □ 絵文字を一切使用していないか
-□ 具体的な数値・データを最低3箇所以上含めたか
+□ 具体的な数値・データを最低5箇所以上含めたか
 □ 各主張に根拠（ソース）を明記したか
 □ 読者が実践できる具体的なアクションを示したか
 □ 7日より古い情報を含めていないか
 □ 専門用語は初出時に説明したか
+□ 各セクションに十分な内容（300-500字）があるか
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 【出力形式】
@@ -263,49 +290,62 @@ tags: [関連性の高いタグを3-5個]
 author: "AI Blog Generator"
 ---
 
-【リード文】読者の課題や関心に寄り添う導入。具体的な数値や事実で始める。
+【リード文】読者の課題や関心に寄り添う導入。具体的な数値や事実で始める。（200-300字）
 
 ## 見出し1（検索キーワードを含む具体的な見出し）
 
-本文（具体例やデータを含む）
+本文（具体例やデータを含む、300-500字）
 
-### サブ見出し（必要に応じて）
+### サブ見出し1-1（必要に応じて）
 
 詳細な説明
 
-## 見出し2
+### サブ見出し1-2（必要に応じて）
 
-本文...
+詳細な説明
 
-## 見出し3
+## 見出し2（重要なポイント）
 
-本文...
+本文（具体例やデータを含む、300-500字）
 
-## 見出し4
+### サブ見出し2-1
 
-本文...
+詳細な説明
 
-## 見出し5（必要に応じて）
+## 見出し3（実践的な内容）
 
-本文...
+本文（300-500字）
+
+## 見出し4（データや事例）
+
+本文（300-500字）
+
+## 見出し5（専門家の見解や研究）
+
+本文（300-500字）
+
+## 見出し6（今後の展望）
+
+本文（300-500字）
 
 ## まとめ：今日から始める3つのアクション
 
-1. **アクション1**: 具体的な行動指針
-2. **アクション2**: 具体的な行動指針
-3. **アクション3**: 具体的な行動指針
+記事の要点を振り返り、読者が今日から実践できる具体的なアクションを提示（300-400字）
+
+1. **アクション1**: 具体的な行動指針と期待される効果
+2. **アクション2**: 具体的な行動指針と期待される効果
+3. **アクション3**: 具体的な行動指針と期待される効果
 
 ---
 
 ## 参考文献・引用元
 
-<div class="sources-section">
-
 この記事は以下の情報源を参考に作成されました（{start_date}〜{end_date}の調査に基づく）：
 
-{sources_text}
+**重要**: 必ず以下の形式でハイパーリンクを記載してください：
+- [記事タイトル](https://完全なURL)
 
-</div>
+{sources_text}
 
 ---
 
