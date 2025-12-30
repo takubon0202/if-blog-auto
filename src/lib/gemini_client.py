@@ -292,6 +292,75 @@ class GeminiClient:
             enable_search=True
         )
 
+    def _generate_topic_specific_queries(
+        self,
+        topic_id: str,
+        topic_name: str,
+        topic_info: Dict[str, Any],
+        date_range: Dict[str, str]
+    ) -> List[str]:
+        """
+        トピック別に最適化された検索クエリを生成
+
+        各トピックの特性に合わせた具体的で効果的な検索クエリを生成します。
+        """
+        keywords = topic_info.get('keywords', [])
+        focus_areas = topic_info.get('research_focus', [])
+        year = "2025"
+
+        # トピック別の専門的な検索クエリパターン
+        topic_query_patterns = {
+            "psychology": [
+                f"心理学 メンタルヘルス 最新研究 論文発表 {date_range['end']}",
+                f"認知行動療法 マインドフルネス 効果 エビデンス 学会 {year}",
+                f"ストレス対策 うつ病予防 カウンセリング 新手法 臨床心理"
+            ],
+            "education": [
+                f"教育改革 学習指導要領 文部科学省 発表 {date_range['end']}",
+                f"EdTech オンライン学習 AI教育 導入事例 効果測定 {year}",
+                f"学習科学 アクティブラーニング 教育効果 研究 実証実験"
+            ],
+            "startup": [
+                f"スタートアップ 資金調達 IPO M&A ニュース {date_range['end']}",
+                f"起業家 成功事例 ユニコーン企業 ビジネスモデル {year} 日本",
+                f"ベンチャーキャピタル 投資動向 注目スタートアップ テック企業"
+            ],
+            "investment": [
+                f"新NISA iDeCo 制度変更 金融庁 発表 {date_range['end']}",
+                f"投資信託 資産形成 ポートフォリオ 運用戦略 {year}",
+                f"株式市場 経済動向 金融リテラシー 投資教育 初心者向け"
+            ],
+            "ai_tools": [
+                f"生成AI ChatGPT Claude Gemini 新機能 アップデート {date_range['end']}",
+                f"AIツール 業務効率化 活用事例 企業導入 {year}",
+                f"機械学習 大規模言語モデル LLM 技術動向 開発者向け"
+            ],
+            "inclusive_education": [
+                f"不登校 支援制度 フリースクール 教育機会確保法 {date_range['end']}",
+                f"発達障害 ADHD ASD 合理的配慮 学校支援 {year}",
+                f"ニューロダイバーシティ インクルーシブ教育 成功事例 専門家"
+            ],
+            "weekly_summary": [
+                f"週間ニュース 注目トピック AI 教育 経済 {date_range['end']}",
+                f"心理学 スタートアップ 投資 トレンド まとめ {year}",
+                f"インクルーシブ教育 メンタルヘルス テクノロジー 最新動向"
+            ]
+        }
+
+        # トピック別クエリがあればそれを使用、なければ汎用クエリを生成
+        if topic_id in topic_query_patterns:
+            return topic_query_patterns[topic_id]
+
+        # フォールバック: 汎用的だが詳細なクエリを生成
+        keyword_str = ' '.join(keywords[:3]) if keywords else topic_name
+        focus_str = ' '.join(focus_areas[:2]) if focus_areas else ""
+
+        return [
+            f"{keyword_str} 最新ニュース 公式発表 {date_range['end']}",
+            f"{topic_name} 専門家 研究 調査報告 論文 {year}",
+            f"{topic_name} {focus_str} 事例 統計データ 分析レポート"
+        ]
+
     async def multi_search_research(
         self,
         topic: str,
@@ -304,9 +373,9 @@ class GeminiClient:
         Google Searchを複数回実行してDeep Research簡易版として情報収集
 
         3つの異なる視点から検索を行い、情報を統合します：
-        1. 最新ニュース・動向
-        2. 専門家の見解・研究
-        3. 具体的な事例・統計データ
+        1. 最新ニュース・動向（公式発表、重要ニュース）
+        2. 専門家の見解・研究（学術的知見、エビデンス）
+        3. 具体的な事例・統計データ（実践例、数値データ）
 
         Args:
             topic: トピック名
@@ -320,45 +389,80 @@ class GeminiClient:
         """
         logger.info(f"Starting Multi-Search Research ({search_count} searches): {topic}")
 
-        # 検索クエリのバリエーションを生成
-        keywords = topic_info.get('keywords', [topic])
-        focus_areas = topic_info.get('research_focus', [])
+        # トピックIDを取得（topic_infoまたはtopicから）
+        topic_id = topic_info.get('id', '')
+        topic_name = topic_info.get('name', topic)
 
-        search_queries = [
-            # 1回目: 最新ニュース・発表
-            f"{topic} 最新ニュース {date_range['end']} 発表 動向",
-            # 2回目: 専門家・研究
-            f"{topic} 専門家 研究 調査結果 {' '.join(keywords[:2]) if keywords else ''}",
-            # 3回目: 事例・統計・トレンド
-            f"{topic} 事例 統計 トレンド {' '.join(focus_areas[:2]) if focus_areas else ''} 2025"
-        ]
+        # トピック別に最適化された検索クエリを生成
+        search_queries = self._generate_topic_specific_queries(
+            topic_id=topic_id,
+            topic_name=topic_name,
+            topic_info=topic_info,
+            date_range=date_range
+        )
 
         all_sources = []
         all_findings = []
         errors = []
 
+        # 検索視点のラベル
+        search_perspectives = [
+            "最新ニュース・公式発表",
+            "専門家の見解・研究データ",
+            "実践事例・統計情報"
+        ]
+
         for i, query in enumerate(search_queries[:search_count], 1):
-            logger.info(f"Search {i}/{search_count}: {query[:50]}...")
+            perspective = search_perspectives[i-1] if i <= len(search_perspectives) else f"視点{i}"
+            logger.info(f"Search {i}/{search_count} ({perspective}): {query[:50]}...")
 
             search_prompt = f"""
-【重要】本日は{date_range['end']}です。
-必ず過去7日以内（{date_range['start']}〜{date_range['end']}）の最新情報のみを検索してください。
+【重要な前提条件】
+- 本日は{date_range['end']}です
+- 必ず過去7日以内（{date_range['start']}〜{date_range['end']}）の最新情報のみを検索・報告してください
+- 7日より古い情報は絶対に含めないでください
 
+【検索視点】{perspective}
 【検索クエリ】{query}
 
-【出力形式】
-以下の形式で情報を整理してください：
+【詳細な出力要件】
 
-## 発見した情報
-- [日付] 情報の要約（ソースURL）
+あなたはプロのリサーチャーです。以下の形式で、**読者に価値を提供できる具体的で詳細な情報**を収集してください。
+
+## 発見した重要情報（最低3件、できれば5件以上）
+
+各情報について以下を必ず記載：
+- **日付**: YYYY年MM月DD日形式
+- **情報の種類**: ニュース/研究発表/政策発表/企業発表/調査結果
+- **要約**: 50-100字で具体的に（数値データがあれば必ず含める）
+- **重要度**: 高/中（なぜ重要かを一言で）
+- **ソースURL**: 完全なURLを記載
+
+## 具体的な数値・データ（見つかった場合）
+
+- 統計データ、調査結果の数値
+- 前年比、増減率などの変化
+- 市場規模、利用者数などの具体値
+
+## 専門家の意見・分析（見つかった場合）
+
+- 専門家名（または機関名）
+- 発言・分析の要約
+- 出典
 
 ## ソース一覧
-各ソースについて以下を記載：
-- タイトル: [タイトル]
-- URL: [完全なURL]
-- 要約: [1-2文の要約]
 
-7日より古い情報は絶対に含めないでください。
+各ソースについて：
+- タイトル: [記事タイトル]
+- URL: [https://で始まる完全URL]
+- 信頼度: 高/中（公的機関、大手メディア、専門誌は「高」）
+- 公開日: [日付]
+
+【品質基準】
+- 曖昧な情報より具体的なデータを優先
+- 「〜らしい」「〜と思われる」などの推測は含めない
+- 一次ソース（政府発表、研究機関、企業公式）を優先
+- 読者がすぐに活用できる実践的な情報を重視
 """
 
             try:
@@ -410,44 +514,70 @@ class GeminiClient:
         # 収集した情報を統合
         combined_content = "\n\n".join(all_findings)
 
-        # 統合プロンプトで情報を整理
+        # 統合プロンプトで情報を整理（高品質版）
+        target_audience = topic_info.get('target_audience', '一般読者')
+
         synthesis_prompt = f"""
-以下は「{topic}」に関する複数回の検索結果です。
-これらを統合して、構造化されたリサーチレポートを作成してください。
+あなたは{topic_name}分野の専門ライターです。
+以下の検索結果を統合して、**読者が価値を感じる高品質なリサーチレポート**を作成してください。
 
-【期間】{date_range['start']}〜{date_range['end']}（7日以内の情報のみ）
+【対象読者】{target_audience}
+【調査期間】{date_range['start']}〜{date_range['end']}（7日以内の情報のみ）
 
-【収集した情報】
+【収集した情報（3つの視点から検索）】
 {combined_content}
 
-【出力形式】
-以下の構造で出力してください：
+【レポート作成ガイドライン】
 
-## 調査結果サマリー
-[2-3文で要約]
+## 1. エグゼクティブサマリー（重要度: 最高）
+- この1週間で最も重要な3つのポイントを箇条書きで
+- 読者が「これだけは知っておくべき」という情報
+- 具体的な数値やファクトを含める
 
-## 主要な発見事項
-1. [発見1]（日付）
-2. [発見2]（日付）
-3. [発見3]（日付）
-...
+## 2. 今週の重要ニュース
+各ニュースについて：
+- **[日付] タイトル**
+- 内容の要約（50-100字）
+- なぜ重要か（読者への影響）
+- ソース情報
 
-## 最新動向
-[トレンドや動向の説明]
+## 3. 注目トレンド・動向分析
+- 今週見られた傾向や変化
+- 前週や前年との比較（データがあれば）
+- 業界・分野への影響予測
 
-## 専門家の見解
-[専門家の意見や研究結果]
+## 4. 専門家の見解・研究知見
+- 専門家の発言や分析を引用
+- 研究機関からの新しい知見
+- エビデンスに基づいた洞察
 
-## 統計・データ
-[数値データや統計情報]
+## 5. 実践的な数値・データ
+- 具体的な統計データ
+- 調査結果の数値
+- 市場データ、利用状況など
 
-## 今後の展望
-[予測や今後の見通し]
+## 6. 読者へのアクションポイント
+- この情報を踏まえて読者が取るべき行動
+- 注意すべき点、チェックすべきこと
+- 次のステップとして推奨すること
 
-注意事項：
-- 7日より古い情報は含めない
-- 各情報に日付を明記
-- 根拠のない推測は避ける
+## 7. 来週の注目ポイント（予告）
+- 来週発表予定の情報や動向
+- フォローすべきトピック
+
+【品質チェックリスト】
+- [ ] すべての情報に日付を明記したか
+- [ ] 具体的な数値・データを含めたか
+- [ ] 読者にとっての価値を明確にしたか
+- [ ] 根拠のない推測を排除したか
+- [ ] 7日より古い情報を除外したか
+- [ ] ソース情報を記載したか
+
+【文体・トーン】
+- 専門的だが親しみやすい
+- 押し付けがましくない
+- 絵文字は使用しない
+- 「革新的」「画期的」などの陳腐な表現を避ける
 """
 
         try:
