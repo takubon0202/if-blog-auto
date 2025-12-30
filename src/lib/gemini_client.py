@@ -81,6 +81,37 @@ class GeminiClient:
         # Deep Researchは公式ドキュメント通り同期クライアントを使用
         logger.info("GeminiClient initialized")
 
+    def _extract_urls_from_text(self, text: str) -> List[str]:
+        """
+        テキストからURLを抽出する
+
+        Args:
+            text: 検索結果テキスト
+
+        Returns:
+            抽出されたURLのリスト
+        """
+        import re
+
+        # URLパターン（https/httpで始まるURL）
+        url_pattern = r'https?://[^\s\)\]\}\"\'<>]+'
+
+        urls = re.findall(url_pattern, text)
+
+        # URLのクリーンアップ
+        cleaned_urls = []
+        for url in urls:
+            # 末尾の句読点を除去
+            url = url.rstrip('.,;:!?')
+            # 末尾の括弧を除去
+            url = url.rstrip(')')
+            # 有効なURLかチェック
+            if url.startswith('http') and '.' in url and len(url) > 10:
+                cleaned_urls.append(url)
+
+        # 重複を除去して返す
+        return list(dict.fromkeys(cleaned_urls))
+
     async def generate_content(
         self,
         prompt: str,
@@ -130,10 +161,30 @@ class GeminiClient:
                 config=types.GenerateContentConfig(**config)
             )
 
-            # Grounding情報の抽出
+            # Grounding情報の抽出（複数の場所をチェック）
             grounding_sources = None
-            if hasattr(response, 'grounding_metadata'):
+
+            # 方法1: response.grounding_metadata（直接）
+            if hasattr(response, 'grounding_metadata') and response.grounding_metadata:
                 grounding_sources = response.grounding_metadata
+                logger.debug("Found grounding_metadata in response")
+
+            # 方法2: response.candidates[0].grounding_metadata
+            if not grounding_sources and hasattr(response, 'candidates') and response.candidates:
+                candidate = response.candidates[0]
+                if hasattr(candidate, 'grounding_metadata') and candidate.grounding_metadata:
+                    grounding_sources = candidate.grounding_metadata
+                    logger.debug("Found grounding_metadata in candidate")
+
+            # デバッグ: grounding情報の構造をログ出力
+            if grounding_sources:
+                logger.debug(f"Grounding sources type: {type(grounding_sources)}")
+                if hasattr(grounding_sources, 'grounding_chunks'):
+                    chunks = grounding_sources.grounding_chunks
+                    logger.debug(f"Found {len(chunks) if chunks else 0} grounding chunks")
+                if hasattr(grounding_sources, 'web_search_queries'):
+                    queries = grounding_sources.web_search_queries
+                    logger.debug(f"Web search queries: {queries}")
 
             return GenerationResult(
                 text=response.text,
@@ -450,13 +501,21 @@ class GeminiClient:
 - 発言・分析の要約
 - 出典
 
-## ソース一覧
+## ソース一覧（必須 - 最低5件）
+
+**重要**: 以下の形式で必ずソースURLを記載してください。これは記事の引用元として使用されます。
 
 各ソースについて：
 - タイトル: [記事タイトル]
-- URL: [https://で始まる完全URL]
+- URL: https://で始まる完全URL（必須）
 - 信頼度: 高/中（公的機関、大手メディア、専門誌は「高」）
-- 公開日: [日付]
+- 公開日: [YYYY年MM月DD日]
+
+例:
+- タイトル: 教育改革の最新動向2025
+- URL: https://www.mext.go.jp/example
+- 信頼度: 高
+- 公開日: 2025年12月28日
 
 【品質基準】
 - 曖昧な情報より具体的なデータを優先
@@ -476,21 +535,50 @@ class GeminiClient:
                 if result.text:
                     all_findings.append(f"【検索{i}の結果】\n{result.text}")
 
-                # Grounding sourcesを収集
+                    # テキストからURLを抽出（フォールバック）
+                    extracted_urls = self._extract_urls_from_text(result.text)
+                    for url in extracted_urls:
+                        if not any(s.get('url') == url for s in all_sources):
+                            all_sources.append({
+                                "title": "",
+                                "url": url,
+                                "snippet": "",
+                                "extracted_from": "text"
+                            })
+
+                # Grounding sourcesを収集（複数の構造に対応）
+                sources_found = 0
+                logger.debug(f"Checking grounding_sources: {result.grounding_sources is not None}")
                 if result.grounding_sources:
-                    if hasattr(result.grounding_sources, 'grounding_chunks'):
+                    logger.debug(f"grounding_sources type: {type(result.grounding_sources)}")
+                    logger.debug(f"grounding_sources attrs: {dir(result.grounding_sources)}")
+                    # 方法1: grounding_chunks
+                    if hasattr(result.grounding_sources, 'grounding_chunks') and result.grounding_sources.grounding_chunks:
                         for chunk in result.grounding_sources.grounding_chunks:
                             if hasattr(chunk, 'web') and chunk.web:
-                                source = {
-                                    "title": getattr(chunk.web, 'title', ''),
-                                    "url": getattr(chunk.web, 'uri', ''),
-                                    "snippet": ""
-                                }
-                                # 重複チェック
-                                if not any(s['url'] == source['url'] for s in all_sources):
-                                    all_sources.append(source)
+                                url = getattr(chunk.web, 'uri', '') or getattr(chunk.web, 'url', '')
+                                title = getattr(chunk.web, 'title', '')
+                                if url and not any(s.get('url') == url for s in all_sources):
+                                    all_sources.append({
+                                        "title": title,
+                                        "url": url,
+                                        "snippet": ""
+                                    })
+                                    sources_found += 1
 
-                logger.info(f"Search {i} completed, found {len(all_findings)} findings so far")
+                    # 方法2: search_entry_point (代替構造)
+                    if hasattr(result.grounding_sources, 'search_entry_point'):
+                        sep = result.grounding_sources.search_entry_point
+                        if hasattr(sep, 'rendered_content'):
+                            logger.debug(f"Search entry point found")
+
+                    # 方法3: grounding_supports
+                    if hasattr(result.grounding_sources, 'grounding_supports') and result.grounding_sources.grounding_supports:
+                        for support in result.grounding_sources.grounding_supports:
+                            if hasattr(support, 'grounding_chunk_indices'):
+                                logger.debug(f"Grounding support indices: {support.grounding_chunk_indices}")
+
+                logger.info(f"Search {i} completed, found {len(all_findings)} findings, {sources_found} new sources from grounding, total sources: {len(all_sources)}")
 
                 # API制限を避けるため少し待機
                 if i < search_count:
@@ -593,6 +681,34 @@ class GeminiClient:
         except Exception as e:
             logger.error(f"Synthesis failed: {e}")
             final_content = combined_content  # フォールバック: 生の結果を使用
+
+        # ソースが少ない場合、結合コンテンツからも抽出を試みる
+        if len(all_sources) < 3:
+            logger.info(f"Sources count ({len(all_sources)}) is low, extracting from combined content...")
+            additional_urls = self._extract_urls_from_text(combined_content)
+            for url in additional_urls:
+                if not any(s.get('url') == url for s in all_sources):
+                    all_sources.append({
+                        "title": "",
+                        "url": url,
+                        "snippet": "",
+                        "extracted_from": "combined_content"
+                    })
+            logger.info(f"After extraction from combined content: {len(all_sources)} sources")
+
+        # 最終コンテンツからもURLを抽出
+        if len(all_sources) < 3:
+            logger.info(f"Still low ({len(all_sources)}), extracting from final content...")
+            final_urls = self._extract_urls_from_text(final_content)
+            for url in final_urls:
+                if not any(s.get('url') == url for s in all_sources):
+                    all_sources.append({
+                        "title": "",
+                        "url": url,
+                        "snippet": "",
+                        "extracted_from": "final_content"
+                    })
+            logger.info(f"After extraction from final content: {len(all_sources)} sources")
 
         logger.info(f"Multi-Search Research completed: {len(all_sources)} sources, {search_count} searches")
 
