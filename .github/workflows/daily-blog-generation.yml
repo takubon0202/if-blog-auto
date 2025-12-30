@@ -70,9 +70,10 @@ jobs:
         if: ${{ github.event.inputs.skip_video != 'true' }}
         run: |
           sudo apt-get update
-          # Ubuntu 24.04 (noble) uses libasound2t64 instead of libasound2
+          # Comprehensive Chrome/Puppeteer dependencies for Ubuntu 24.04
           sudo apt-get install -y \
             libnss3 \
+            libnspr4 \
             libatk1.0-0 \
             libatk-bridge2.0-0 \
             libcups2 \
@@ -83,8 +84,34 @@ jobs:
             libxfixes3 \
             libxrandr2 \
             libgbm1 \
-            libasound2t64
-          echo "Chrome dependencies installed"
+            libasound2t64 \
+            libpango-1.0-0 \
+            libpangocairo-1.0-0 \
+            libcairo2 \
+            libatspi2.0-0 \
+            libgtk-3-0 \
+            libgdk-pixbuf-2.0-0 \
+            libx11-xcb1 \
+            libxcb-dri3-0 \
+            libxshmfence1 \
+            fonts-liberation \
+            fonts-noto-cjk \
+            xvfb \
+            libegl1 \
+            libgl1-mesa-dri \
+            libglx-mesa0 \
+            mesa-utils
+          echo "Chrome and Mesa dependencies installed successfully"
+
+      - name: Start Xvfb for headless rendering
+        if: ${{ github.event.inputs.skip_video != 'true' }}
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+          sleep 2
+          echo "Xvfb started on display :99"
+          # Test display
+          xdpyinfo -display :99 > /dev/null 2>&1 && echo "Display :99 is working" || echo "Display test failed"
 
       - name: Install Remotion dependencies
         if: ${{ github.event.inputs.skip_video != 'true' }}

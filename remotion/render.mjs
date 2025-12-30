@@ -1,6 +1,8 @@
 /**
  * Remotion Render Script
  * ブログ動画をプログラマティックにレンダリング
+ *
+ * CI環境対応: 適切なChromium設定とGL設定
  */
 
 import { bundle } from "@remotion/bundler";
@@ -12,6 +14,19 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// CI環境かどうかを判定
+const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+
+// CI環境用のChromiumオプション (Remotion 4.0 API)
+const chromiumOptions = {
+  // CI環境ではソフトウェアレンダリングを使用
+  gl: isCI ? 'swangle' : 'angle',
+  // Linux環境ではマルチプロセスを有効化
+  enableMultiProcessOnLinux: true,
+  // ヘッドレスモード
+  headless: true,
+};
+
 async function render() {
   // コマンドライン引数を取得
   const args = process.argv.slice(2);
@@ -22,6 +37,9 @@ async function render() {
   console.log(`[Remotion] Starting render...`);
   console.log(`[Remotion] Composition: ${compositionId}`);
   console.log(`[Remotion] Output: ${outputPath}`);
+  console.log(`[Remotion] CI Environment: ${isCI}`);
+  console.log(`[Remotion] GL mode: ${chromiumOptions.gl}`);
+  console.log(`[Remotion] DISPLAY: ${process.env.DISPLAY || 'not set'}`);
 
   // propsを読み込む
   let inputProps = {};
@@ -29,6 +47,7 @@ async function render() {
     const propsContent = fs.readFileSync(propsFile, "utf-8");
     inputProps = JSON.parse(propsContent);
     console.log(`[Remotion] Props loaded from: ${propsFile}`);
+    console.log(`[Remotion] Title: ${inputProps.title || 'N/A'}`);
   }
 
   // 出力ディレクトリを作成
@@ -45,40 +64,101 @@ async function render() {
       webpackOverride: (config) => config,
     });
 
+    console.log("[Remotion] Bundle complete");
+
     // コンポジションを選択
     console.log("[Remotion] Selecting composition...");
     const composition = await selectComposition({
       serveUrl: bundled,
       id: compositionId,
       inputProps,
+      chromiumOptions,
     });
 
+    console.log(`[Remotion] Composition: ${composition.id}`);
+    console.log(`[Remotion] Duration: ${composition.durationInFrames} frames @ ${composition.fps}fps`);
+    console.log(`[Remotion] Size: ${composition.width}x${composition.height}`);
+
     // レンダリング実行
-    console.log("[Remotion] Rendering...");
+    console.log("[Remotion] Starting render...");
+    const startTime = Date.now();
+
     await renderMedia({
       composition,
       serveUrl: bundled,
       codec: "h264",
       outputLocation: outputPath,
       inputProps,
+      chromiumOptions,
+      // CRF値を調整（品質とファイルサイズのバランス）
+      crf: 23,
+      // ピクセルフォーマット
+      pixelFormat: "yuv420p",
       onProgress: ({ progress }) => {
         const percent = Math.round(progress * 100);
-        process.stdout.write(`\r[Remotion] Progress: ${percent}%`);
+        // 10%ごとにログを出力
+        if (percent % 10 === 0) {
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+          console.log(`[Remotion] Progress: ${percent}% (${elapsed}s elapsed)`);
+        }
       },
     });
 
-    console.log(`\n[Remotion] Render complete: ${outputPath}`);
+    const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[Remotion] Render complete in ${totalTime}s`);
+    console.log(`[Remotion] Output: ${outputPath}`);
 
     // ファイルサイズを確認
     const stats = fs.statSync(outputPath);
-    console.log(`[Remotion] File size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
+    const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
+    console.log(`[Remotion] File size: ${sizeMB} MB (${stats.size} bytes)`);
 
+    if (stats.size < 10000) {
+      console.error(`[Remotion] ERROR: File size is too small (${stats.size} bytes)`);
+      process.exit(1);
+    }
+
+    console.log("[Remotion] SUCCESS");
     process.exit(0);
   } catch (error) {
-    console.error(`\n[Remotion] Error: ${error.message}`);
+    console.error(`[Remotion] ERROR: ${error.message}`);
+
+    // 詳細なエラー情報
     if (error.stack) {
       console.error(`[Remotion] Stack trace:\n${error.stack}`);
     }
+
+    // エラー解析と解決策の提案
+    const errorMsg = error.message.toLowerCase();
+    console.error("\n[Remotion] === Error Analysis ===");
+
+    if (errorMsg.includes('target closed')) {
+      console.error("Cause: Chromium browser crashed");
+      console.error("Solutions:");
+      console.error("  1. Ensure all Chrome dependencies are installed");
+      console.error("  2. Try using gl: 'swiftshader' instead of 'swangle'");
+      console.error("  3. Increase available memory");
+      console.error("  4. Check DISPLAY environment variable is set");
+    } else if (errorMsg.includes('enoent')) {
+      console.error("Cause: Required file or directory not found");
+      console.error("Solutions:");
+      console.error("  1. Run 'npm install' in the remotion directory");
+      console.error("  2. Check that all source files exist");
+    } else if (errorMsg.includes('timeout')) {
+      console.error("Cause: Operation timed out");
+      console.error("Solutions:");
+      console.error("  1. Increase timeout value");
+      console.error("  2. Reduce video complexity or duration");
+    } else if (errorMsg.includes('gl') || errorMsg.includes('gpu') || errorMsg.includes('angle')) {
+      console.error("Cause: Graphics/GPU related error");
+      console.error("Solutions:");
+      console.error("  1. Try gl: 'swiftshader' for software rendering");
+      console.error("  2. Ensure Mesa/LLVM libraries are installed");
+    } else {
+      console.error("Cause: Unknown error");
+      console.error("Check the full stack trace above for more details");
+    }
+
     process.exit(1);
   }
 }
