@@ -31,11 +31,13 @@ class GitHubPagesPublisher:
         self.docs_dir = self.repo_root / "docs"
         self.posts_dir = self.docs_dir / "_posts"
         self.images_dir = self.docs_dir / "assets" / "images"
+        self.videos_dir = self.docs_dir / "assets" / "videos"
         self.base_url = "https://takubon0202.github.io/if-blog-auto"
 
         # ディレクトリ作成
         self.posts_dir.mkdir(parents=True, exist_ok=True)
         self.images_dir.mkdir(parents=True, exist_ok=True)
+        self.videos_dir.mkdir(parents=True, exist_ok=True)
 
     def slugify(self, text: str) -> str:
         """URLスラッグを生成"""
@@ -125,6 +127,83 @@ class GitHubPagesPublisher:
         # Jekyll用の相対パス（relative_urlフィルタで変換されるためbaseurl不要）
         return f"/assets/images/{filename}"
 
+    def copy_videos(self, article: Dict, slug: str) -> Optional[Dict]:
+        """動画をdocs/assets/videosにコピー"""
+        videos = article.get("videos", {})
+
+        if not videos:
+            logger.info("No videos available")
+            return None
+
+        copied_videos = {}
+
+        for video_type, video_info in videos.items():
+            src_path = Path(video_info.get("path", ""))
+
+            if not src_path.exists():
+                logger.warning(f"Video not found: {src_path}")
+                continue
+
+            # ファイルサイズ検証（最低100KB以上）
+            MIN_VIDEO_SIZE = 100 * 1024  # 100KB
+            file_size = src_path.stat().st_size
+            if file_size < MIN_VIDEO_SIZE:
+                logger.warning(f"Video too small ({file_size} bytes): {src_path}")
+                continue
+
+            # コピー先
+            filename = f"{slug}_{video_type}_{src_path.name}"
+            dest_path = self.videos_dir / filename
+
+            shutil.copy(src_path, dest_path)
+            logger.info(f"Copied video ({file_size} bytes): {dest_path}")
+
+            copied_videos[video_type] = {
+                "path": f"/assets/videos/{filename}",
+                "duration": video_info.get("duration", 30),
+                "resolution": video_info.get("resolution", "1920x1080")
+            }
+
+        return copied_videos if copied_videos else None
+
+    def embed_video_section(self, videos: Dict) -> str:
+        """動画セクションのHTMLを生成"""
+        if not videos:
+            return ""
+
+        sections = []
+        sections.append("\n\n---\n\n## 動画で見る\n")
+
+        # 標準動画
+        if "standard" in videos:
+            video = videos["standard"]
+            video_path = video["path"]
+            sections.append(f"""
+<div class="video-container">
+<video controls width="100%" preload="metadata">
+  <source src="{{{{ '{video_path}' | relative_url }}}}" type="video/mp4">
+  お使いのブラウザは動画再生に対応していません。
+</video>
+<p class="video-caption">記事の要約動画（{video["duration"]}秒）</p>
+</div>
+""")
+
+        # ショート動画
+        if "short" in videos:
+            video = videos["short"]
+            video_path = video["path"]
+            sections.append(f"""
+<div class="video-container video-short">
+<video controls width="320" preload="metadata">
+  <source src="{{{{ '{video_path}' | relative_url }}}}" type="video/mp4">
+  お使いのブラウザは動画再生に対応していません。
+</video>
+<p class="video-caption">ショート動画（{video["duration"]}秒・縦型）</p>
+</div>
+""")
+
+        return "\n".join(sections)
+
     def create_post_file(
         self,
         title: str,
@@ -132,7 +211,8 @@ class GitHubPagesPublisher:
         description: str,
         categories: List[str],
         tags: Optional[List[str]] = None,
-        featured_image: Optional[str] = None
+        featured_image: Optional[str] = None,
+        video_section: Optional[str] = None
     ) -> Path:
         """記事ファイルを作成（日本時間）"""
         slug = self.slugify(title)
@@ -148,8 +228,10 @@ class GitHubPagesPublisher:
             featured_image=featured_image
         )
 
-        # ファイル書き込み
+        # ファイル書き込み（動画セクションを末尾に追加）
         full_content = front_matter + content
+        if video_section:
+            full_content += video_section
         filepath.write_text(full_content, encoding='utf-8')
         logger.info(f"Created post: {filepath}")
 
@@ -220,6 +302,7 @@ async def publish_to_github_pages(article: Dict) -> Dict:
             - categories: カテゴリリスト
             - tags: タグリスト（オプション）
             - images: 画像データ（オプション）
+            - videos: 動画データ（オプション）
 
     Returns:
         投稿結果
@@ -241,6 +324,12 @@ async def publish_to_github_pages(article: Dict) -> Dict:
         slug = publisher.slugify(title)
         featured_image = publisher.copy_images(article, slug)
 
+        # 動画コピー
+        copied_videos = publisher.copy_videos(article, slug)
+        video_section = publisher.embed_video_section(copied_videos)
+        if copied_videos:
+            logger.info(f"Videos embedded: {list(copied_videos.keys())}")
+
         # 記事ファイル作成
         post_path = publisher.create_post_file(
             title=title,
@@ -248,7 +337,8 @@ async def publish_to_github_pages(article: Dict) -> Dict:
             description=description,
             categories=categories,
             tags=tags,
-            featured_image=featured_image
+            featured_image=featured_image,
+            video_section=video_section
         )
 
         # Git操作

@@ -132,6 +132,8 @@ class SEOOptimizer:
             "seo_score": optimized.get('seo_score', 70),
             "keywords": optimized.get('keywords', []),
             "improvements": optimized.get('improvements', []),
+            "categories": article.get('categories', []),  # カテゴリを保持
+            "tags": article.get('tags', []),  # タグを保持
             "optimized": True,
             "model_used": self.model
         }

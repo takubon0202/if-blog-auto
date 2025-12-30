@@ -130,16 +130,39 @@ async def main():
         result["steps"]["seo"] = {"status": "completed"}
         logger.info("SEO optimization completed.")
 
-        # Step 6: レビュー
+        # Step 6: レビュー（品質保証ループ）
         logger.info("=" * 50)
         logger.info("Step 6: Quality review...")
         logger.info("=" * 50)
-        final = await review_article(optimized)
+
+        # 品質スコアが80点以上になるまでリトライ（最大3回）
+        MIN_QUALITY_SCORE = 80
+        MAX_REVIEW_ATTEMPTS = 3
+        final = optimized
+        review_attempts = 0
+
+        for attempt in range(MAX_REVIEW_ATTEMPTS):
+            review_attempts += 1
+            final = await review_article(final)
+            quality_score = final.get("quality_score", 0)
+            status = final.get("status", "")
+
+            logger.info(f"Review attempt {review_attempts}: Score={quality_score}, Status={status}")
+
+            if quality_score >= MIN_QUALITY_SCORE and status == "approved":
+                logger.info(f"Quality threshold met! Final score: {quality_score}")
+                break
+            elif attempt < MAX_REVIEW_ATTEMPTS - 1:
+                logger.warning(f"Quality score {quality_score} below threshold {MIN_QUALITY_SCORE}, retrying...")
+            else:
+                logger.warning(f"Max attempts reached. Final score: {quality_score}")
+
         result["steps"]["review"] = {
             "status": "completed",
-            "quality_score": final.get("quality_score", 0)
+            "quality_score": final.get("quality_score", 0),
+            "review_attempts": review_attempts
         }
-        logger.info(f"Review completed. Quality score: {final.get('quality_score', 0)}")
+        logger.info(f"Review completed. Final quality score: {final.get('quality_score', 0)} (after {review_attempts} attempt(s))")
 
         # ローカル保存（日本時間）
         output_dir = Path(__file__).parent.parent.parent / "output" / "posts"
@@ -164,7 +187,8 @@ async def main():
                 "categories": final.get("categories", [research_data.get("topic_info", {}).get("name", "未分類")]),
                 "tags": final.get("tags", []),
                 "images": images,
-                "videos": videos
+                # videosは成功時のみ内部のvideos dictを渡す
+                "videos": videos.get("videos", {}) if videos.get("status") == "success" else {}
             }
 
             publish_result = await publish_to_github_pages(publish_data)

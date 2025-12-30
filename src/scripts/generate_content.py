@@ -406,6 +406,14 @@ author: "AI Blog Generator"
     desc_match = re.search(r'description:\s*["\']?(.+?)["\']?\s*\n', content)
     description = desc_match.group(1) if desc_match else ""
 
+    # tagsを抽出
+    tags_match = re.search(r'tags:\s*\[([^\]]+)\]', content)
+    tags = []
+    if tags_match:
+        tags_str = tags_match.group(1)
+        # タグを分割してクリーンアップ
+        tags = [tag.strip().strip('"\'') for tag in tags_str.split(',') if tag.strip()]
+
     return {
         "topic": topic_id,
         "title": title,
@@ -413,7 +421,7 @@ author: "AI Blog Generator"
         "content": content,
         "word_count": len(content),
         "categories": [topic_info.get('name', topic_id)],
-        "tags": [],
+        "tags": tags,
         "sources": sources,
         "research_date": research_date,
         "date_range": date_range
