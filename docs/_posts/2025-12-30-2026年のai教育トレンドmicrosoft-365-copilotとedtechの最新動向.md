@@ -1,3 +1,12 @@
+---
+layout: post
+title: "2026年のAI教育トレンド｜Microsoft 365 CopilotとEdTechの最新動向"
+description: "2026年に向けたAI教育の最前線を解説。Microsoft 365 Copilotの導入効果や、Google for Education等のEdTech市場動向、学習効率を高めるAI活用法まで。最新の教育ICTニュースを専門家が分析します"
+date: 2025-12-30 17:28:24 +0900
+categories: []
+author: "AI Blog Generator"
+featured_image: "/assets/images/2026年のai教育トレンドmicrosoft-365-copilotとedtechの最新動向_hero_20251230_172751_0.png"
+---
 # 2026年のAI教育トレンド：MicrosoftとEdTechが切り拓く次世代の学習環境
 
 2025年末から2026年にかけて、教育現場でのAI活用は「実験段階」から「実用段階」へと大きくシフトしています。本記事では、Microsoftの最新動向を中心に、EdTech市場の劇的な変化を解説します。
