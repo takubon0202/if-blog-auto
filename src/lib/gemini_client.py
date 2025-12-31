@@ -843,6 +843,27 @@ class GeminiClient:
         "geometric abstract pattern"
     ]
 
+    # キャラクター多様性設定（ランダム選択用）
+    CHARACTER_GENDERS = ["male", "female"]
+    CHARACTER_AGES = [
+        "child (8-12 years old)",
+        "teenager (13-17 years old)",
+        "young adult (18-25 years old)",
+        "adult (26-40 years old)",
+        "middle-aged (41-55 years old)",
+        "senior (56+ years old)"
+    ]
+    CHARACTER_APPEARANCES = [
+        "with short hair",
+        "with long hair",
+        "with glasses",
+        "with a friendly smile",
+        "with a thoughtful expression",
+        "with casual clothing",
+        "with business casual attire",
+        "with professional attire"
+    ]
+
     async def analyze_for_image_prompt(
         self,
         title: str,
@@ -860,13 +881,23 @@ class GeminiClient:
         Returns:
             画像生成用の要素を含む辞書
         """
+        # ランダムな性別・年齢を選択（多様性のため）
+        import random
+        random_gender = random.choice(self.CHARACTER_GENDERS)
+        random_age = random.choice(self.CHARACTER_AGES)
+        random_appearance = random.choice(self.CHARACTER_APPEARANCES)
+
         analysis_prompt = f"""Analyze this blog article title and summary, then suggest specific visual elements for an ANIME-STYLE illustration with PEOPLE/CHARACTERS.
 
 Title: {title}
 Summary: {summary}
 
+IMPORTANT CHARACTER DIVERSITY REQUIREMENT:
+- The main character MUST be: {random_gender}, {random_age}, {random_appearance}
+- Do NOT always use young women - vary gender and age each time
+
 Provide a JSON response with:
-1. "main_character": Describe an anime-style character that represents the article's theme (e.g., "a young professional woman with short black hair looking at a holographic display", "a thoughtful male student with glasses reading a book", "a confident businessperson pointing at a rising chart")
+1. "main_character": Describe an anime-style {random_gender} character, {random_age}, {random_appearance}, that represents the article's theme. Be specific about their appearance, clothing style, and expression.
 2. "character_action": What the character is doing (e.g., "typing on a laptop with determination", "explaining concepts with hand gestures", "studying with focused concentration")
 3. "visual_metaphor": A creative visual metaphor that represents the article's core message, integrated with the character
 4. "mood": The emotional tone (e.g., "hopeful and bright", "calm and reflective", "dynamic and energetic")
@@ -875,8 +906,7 @@ Provide a JSON response with:
 7. "lighting": Describe the lighting style (e.g., "warm golden hour glow", "soft studio lighting", "dramatic backlight")
 
 Important:
-- MUST include at least one anime-style human character
-- Characters should be relatable and represent the target audience
+- Character MUST be {random_gender}, {random_age}
 - Use modern Japanese anime art style (clean lines, expressive eyes, stylized features)
 - Be specific about character appearance, clothing, and pose
 - Each image should tell a story related to the article content
@@ -914,10 +944,14 @@ Respond ONLY with valid JSON, no other text."""
 
         except Exception as e:
             logger.warning(f"Image analysis failed, using fallback: {e}")
-            # フォールバック: アニメ風キャラクターの基本的な分析結果を返す
+            # フォールバック: ランダムな多様性を持つキャラクター
+            import random
             colors = self.TOPIC_COLORS.get(topic_id, self.TOPIC_COLORS["default"])
+            fallback_gender = random.choice(self.CHARACTER_GENDERS)
+            fallback_age = random.choice(self.CHARACTER_AGES)
+            fallback_appearance = random.choice(self.CHARACTER_APPEARANCES)
             return {
-                "main_character": "a young professional with a friendly expression, wearing casual business attire",
+                "main_character": f"a {fallback_gender} {fallback_age} {fallback_appearance}, wearing appropriate attire for their age",
                 "character_action": "looking thoughtfully at the viewer while gesturing toward floating information displays",
                 "visual_metaphor": "knowledge and discovery represented by glowing light particles",
                 "mood": "optimistic and engaging",
@@ -957,73 +991,86 @@ Respond ONLY with valid JSON, no other text."""
 
             colors = analysis.get("color_scheme", self.TOPIC_COLORS["default"])
 
-            prompt = f"""Create a {image_type} illustration in MODERN JAPANESE ANIME STYLE for a blog article.
+            prompt = f"""Generate a WIDESCREEN 16:9 LANDSCAPE illustration in MODERN JAPANESE ANIME STYLE.
 
-IMAGE FORMAT (CRITICAL):
-- Aspect ratio: 16:9 WIDESCREEN (landscape orientation, like 1920x1080)
-- MUST be horizontally wide, NOT square, NOT portrait
-- Width should be approximately 1.78 times the height
+=== MANDATORY IMAGE DIMENSIONS ===
+OUTPUT FORMAT: 16:9 WIDESCREEN ONLY
+- The image MUST be wide and horizontal (landscape)
+- Width MUST be much greater than height (ratio 16:9, like a movie screen)
+- DO NOT create square images
+- DO NOT create portrait/vertical images
+- Example dimensions: 1920x1080, 1280x720, 1600x900
 
-CHARACTER (REQUIRED):
+=== CHARACTER (REQUIRED) ===
 Main Character: {analysis.get('main_character', 'a young professional with a friendly expression')}
 Action/Pose: {analysis.get('character_action', 'looking thoughtfully at floating information')}
 
-VISUAL CONCEPT:
+=== VISUAL CONCEPT ===
 Visual Metaphor: {analysis.get('visual_metaphor', 'knowledge and discovery')}
 
-ENVIRONMENT & ELEMENTS:
+=== ENVIRONMENT & ELEMENTS ===
 {chr(10).join([f"- {elem}" for elem in analysis.get('key_elements', ['modern workspace', 'digital elements'])])}
 
-STYLE & MOOD:
+=== STYLE & MOOD ===
 - Art Style: Modern Japanese anime (clean lines, expressive features, stylized but relatable)
 - Mood: {analysis.get('mood', 'optimistic and engaging')}
-- Composition: {analysis.get('composition', 'character-focused with balanced visual elements')}
+- Composition: {analysis.get('composition', 'character-focused with balanced visual elements')} - use the WIDE canvas
 - Background: {analysis.get('background_style', 'soft gradient with subtle details')}
 - Lighting: {analysis.get('lighting', 'soft studio lighting')}
 
-COLOR PALETTE:
+=== COLOR PALETTE ===
 - Primary color: {colors['primary']} ({colors['name']})
 - Accent color: {colors['accent']}
 - Skin tones: Natural and warm
-- Use complementary colors for visual interest
 
-TECHNICAL REQUIREMENTS:
-- WIDESCREEN 16:9 aspect ratio (horizontal/landscape)
+=== TECHNICAL REQUIREMENTS ===
+- MANDATORY: 16:9 widescreen horizontal landscape format
 - High resolution, crisp details
 - No text, words, or letters in the image
-- Character should be the focal point
+- Character positioned to utilize the wide format
 - Clean, professional anime art style (NOT chibi, NOT overly cartoonish)
-- Suitable as blog featured image with negative space on sides for text overlay
-- Character should look relatable and approachable
+- Leave negative space on sides for text overlay
 
-Create a unique, visually engaging anime-style illustration in 16:9 WIDESCREEN format that represents: "{title[:100]}" """
+Generate a 16:9 WIDESCREEN anime illustration for: "{title[:100]}" """
 
         else:
-            # シンプルなアニメ風プロンプト（16:9横長）
-            prompt = f"""Create a {image_type} image in MODERN JAPANESE ANIME STYLE for a blog article.
+            # シンプルなアニメ風プロンプト（16:9横長）+ キャラクター多様性
+            # ランダムな性別・年齢を選択（多様性のため）
+            random_gender = random.choice(self.CHARACTER_GENDERS)
+            random_age = random.choice(self.CHARACTER_AGES)
+            random_appearance = random.choice(self.CHARACTER_APPEARANCES)
 
-IMAGE FORMAT (CRITICAL):
-- Aspect ratio: 16:9 WIDESCREEN (landscape orientation, like 1920x1080)
-- MUST be horizontally wide, NOT square, NOT portrait
+            prompt = f"""Generate a WIDESCREEN 16:9 LANDSCAPE illustration in MODERN JAPANESE ANIME STYLE.
 
-Article Title: {title}
-Article Summary: {summary}
+=== MANDATORY IMAGE DIMENSIONS ===
+OUTPUT FORMAT: 16:9 WIDESCREEN ONLY
+- The image MUST be wide and horizontal (landscape orientation)
+- Width MUST be much greater than height (ratio 16:9, like a movie screen)
+- DO NOT create square images
+- DO NOT create portrait/vertical images
+- Example dimensions: 1920x1080, 1280x720, 1600x900
+- The ENTIRE image frame must be 16:9 horizontal
 
-REQUIRED ELEMENTS:
-- Include at least one anime-style human character (young professional or student)
-- Character should be engaged with the topic (reading, working, explaining, etc.)
-- Modern, relatable character design
+=== ARTICLE INFORMATION ===
+Title: {title}
+Summary: {summary}
 
-Style Requirements:
-- WIDESCREEN 16:9 aspect ratio (horizontal/landscape)
+=== CHARACTER REQUIREMENTS (MANDATORY) ===
+Main Character: A {random_gender} character, {random_age}, {random_appearance}
+- Character should be engaging with the topic (reading, working, thinking, explaining)
+- Modern, relatable anime character design
+- NOT chibi style, NOT overly cartoonish
+- Natural proportions, expressive face
+
+=== STYLE REQUIREMENTS ===
 - Modern Japanese anime art style (clean lines, expressive eyes)
 - {style}
 - Professional and polished appearance
-- Suitable for blog featured image with text overlay space
+- High quality, detailed illustration
 - No text, words, or letters in the image
-- High quality, visually appealing
+- Leave some space on sides for text overlay
 
-Generate a visually engaging anime-style illustration in 16:9 WIDESCREEN format that captures the essence of this article."""
+Generate a visually engaging 16:9 WIDESCREEN anime illustration that captures the essence of this article."""
 
         logger.info(f"Generating image with {'smart' if use_smart_prompt else 'simple'} prompt for: {title[:50]}...")
 
