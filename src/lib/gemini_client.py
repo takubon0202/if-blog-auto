@@ -959,6 +959,11 @@ Respond ONLY with valid JSON, no other text."""
 
             prompt = f"""Create a {image_type} illustration in MODERN JAPANESE ANIME STYLE for a blog article.
 
+IMAGE FORMAT (CRITICAL):
+- Aspect ratio: 16:9 WIDESCREEN (landscape orientation, like 1920x1080)
+- MUST be horizontally wide, NOT square, NOT portrait
+- Width should be approximately 1.78 times the height
+
 CHARACTER (REQUIRED):
 Main Character: {analysis.get('main_character', 'a young professional with a friendly expression')}
 Action/Pose: {analysis.get('character_action', 'looking thoughtfully at floating information')}
@@ -983,18 +988,23 @@ COLOR PALETTE:
 - Use complementary colors for visual interest
 
 TECHNICAL REQUIREMENTS:
+- WIDESCREEN 16:9 aspect ratio (horizontal/landscape)
 - High resolution, crisp details
 - No text, words, or letters in the image
 - Character should be the focal point
 - Clean, professional anime art style (NOT chibi, NOT overly cartoonish)
-- Suitable as blog featured image with some negative space for text overlay
+- Suitable as blog featured image with negative space on sides for text overlay
 - Character should look relatable and approachable
 
-Create a unique, visually engaging anime-style illustration that represents: "{title[:100]}" """
+Create a unique, visually engaging anime-style illustration in 16:9 WIDESCREEN format that represents: "{title[:100]}" """
 
         else:
-            # シンプルなアニメ風プロンプト
+            # シンプルなアニメ風プロンプト（16:9横長）
             prompt = f"""Create a {image_type} image in MODERN JAPANESE ANIME STYLE for a blog article.
+
+IMAGE FORMAT (CRITICAL):
+- Aspect ratio: 16:9 WIDESCREEN (landscape orientation, like 1920x1080)
+- MUST be horizontally wide, NOT square, NOT portrait
 
 Article Title: {title}
 Article Summary: {summary}
@@ -1005,6 +1015,7 @@ REQUIRED ELEMENTS:
 - Modern, relatable character design
 
 Style Requirements:
+- WIDESCREEN 16:9 aspect ratio (horizontal/landscape)
 - Modern Japanese anime art style (clean lines, expressive eyes)
 - {style}
 - Professional and polished appearance
@@ -1012,7 +1023,7 @@ Style Requirements:
 - No text, words, or letters in the image
 - High quality, visually appealing
 
-Generate a visually engaging anime-style illustration that captures the essence of this article."""
+Generate a visually engaging anime-style illustration in 16:9 WIDESCREEN format that captures the essence of this article."""
 
         logger.info(f"Generating image with {'smart' if use_smart_prompt else 'simple'} prompt for: {title[:50]}...")
 

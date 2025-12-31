@@ -5,10 +5,11 @@
 **スマートプロンプト機能**により、記事タイトルを分析して内容に合った具体的で多様な**人物入り画像**を生成します。
 
 ## アニメスタイル仕様（重要）
+- **アスペクト比**: 16:9 横長（ワイドスクリーン）必須
 - **必須**: 各画像にアニメ風の人物キャラクターを含める
 - **スタイル**: モダンな日本のアニメスタイル（クリーンな線、表情豊か）
 - **キャラクター**: 親しみやすく、記事のターゲット読者を反映
-- **禁止**: ちびキャラ、過度にカートゥーン風なスタイル
+- **禁止**: ちびキャラ、過度にカートゥーン風なスタイル、正方形画像
 
 ## 使用API
 - **Primary**: Gemini 2.5 Flash image (`gemini-2.5-flash-image`)
@@ -169,22 +170,27 @@ Text: Dark Gray (#2d3748) - 読みやすさ
 
 ## プロンプトテンプレート
 
-### ヒーロー画像（アニメ風）
+### ヒーロー画像（アニメ風・16:9横長）
 ```
 Create a hero illustration in MODERN JAPANESE ANIME STYLE for a blog article about [TOPIC].
+
+IMAGE FORMAT (CRITICAL):
+- Aspect ratio: 16:9 WIDESCREEN (landscape orientation, like 1920x1080)
+- MUST be horizontally wide, NOT square, NOT portrait
 
 CHARACTER (REQUIRED):
 Main Character: [young professional/student with friendly expression]
 Action/Pose: [engaged with topic - reading, working, explaining]
 
 Style Requirements:
+- WIDESCREEN 16:9 aspect ratio
 - Modern Japanese anime art style (clean lines, expressive eyes)
 - Professional and polished appearance
 - Character should be the focal point
 
 Colors: [CATEGORY_COLOR] as accent, warm skin tones, clean background
 Composition: Character slightly off-center with space for text overlay
-Avoid: purple colors, chibi style, text in image, overly cartoonish
+Avoid: purple colors, chibi style, text in image, overly cartoonish, square format
 ```
 
 ### セクション画像（アニメ風）

@@ -115,7 +115,12 @@ async def main():
             if images.get("status") == "success" and images.get("hero"):
                 hero_images = images.get("hero", {}).get("images", [])
                 if hero_images:
-                    hero_image_path = hero_images[0]
+                    # hero_images[0]はdict型: {"file_path": "...", "filename": "...", "size_bytes": ...}
+                    first_image = hero_images[0]
+                    if isinstance(first_image, dict):
+                        hero_image_path = first_image.get("file_path")
+                    else:
+                        hero_image_path = first_image
                     logger.info(f"Hero image for video: {hero_image_path}")
 
             # 記事データにヒーロー画像パスを追加

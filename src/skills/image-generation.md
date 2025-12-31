@@ -5,10 +5,11 @@ Gemini 2.5 Flash imageを使用した**アニメ風画像生成**スキル。
 **スマートプロンプト機能**により、記事タイトルを分析して内容に合った**人物キャラクター入り**のアニメ風イラストを生成します。
 
 ## アニメスタイル仕様
+- **アスペクト比**: 16:9 横長（ワイドスクリーン）必須
 - **必須**: 各画像にアニメ風の人物キャラクターを含める
 - **スタイル**: モダンな日本のアニメスタイル（クリーンな線、表情豊か）
 - **キャラクター**: 若いプロフェッショナル/学生、親しみやすい外見
-- **禁止**: ちびキャラ、過度にカートゥーン風なスタイル
+- **禁止**: ちびキャラ、過度にカートゥーン風なスタイル、正方形画像
 
 ## 使用モデル
 - **画像生成**: `gemini-2.5-flash-image`
@@ -150,6 +151,10 @@ TOPIC_COLORS = {
 ```
 Create a {image_type} illustration in MODERN JAPANESE ANIME STYLE for a blog article.
 
+IMAGE FORMAT (CRITICAL):
+- Aspect ratio: 16:9 WIDESCREEN (landscape orientation, like 1920x1080)
+- MUST be horizontally wide, NOT square, NOT portrait
+
 CHARACTER (REQUIRED):
 Main Character: {main_character}
 Action/Pose: {character_action}
@@ -158,6 +163,7 @@ Article Title: {title}
 Article Summary: {summary}
 
 Style Requirements:
+- WIDESCREEN 16:9 aspect ratio (horizontal/landscape)
 - Modern Japanese anime art style (clean lines, expressive eyes)
 - {style}
 - Professional and polished appearance
@@ -166,7 +172,7 @@ Style Requirements:
 - No text, words, or letters in the image
 - High quality, visually appealing
 
-Generate a visually engaging anime-style illustration that captures the essence of this article.
+Generate a visually engaging anime-style illustration in 16:9 WIDESCREEN format that captures the essence of this article.
 ```
 
 ## 画像仕様
