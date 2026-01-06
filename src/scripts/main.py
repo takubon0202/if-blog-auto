@@ -247,6 +247,20 @@ async def main():
             logger.info("=" * 50)
 
             # 記事データを構築
+            # 動画データの準備（成功時は生成した動画、それ以外は空でフォールバックを使用）
+            video_data = {}
+            video_status = videos.get("status", "skipped")
+            if video_status == "success":
+                video_data = videos.get("videos", {})
+                logger.info(f"Using generated videos: {list(video_data.keys())}")
+            elif video_status == "partial":
+                # 部分的な成功の場合も動画を使用
+                video_data = videos.get("videos", {})
+                logger.info(f"Using partially generated videos: {list(video_data.keys())}")
+            else:
+                # 失敗やスキップの場合は空で渡し、publish.pyでフォールバック
+                logger.info(f"Video status '{video_status}', will use fallback in publish")
+
             publish_data = {
                 "title": final.get("title", article.get("title", "Untitled")),
                 "content": final.get("content", ""),
@@ -254,8 +268,8 @@ async def main():
                 "categories": final.get("categories", [research_data.get("topic_info", {}).get("name", "未分類")]),
                 "tags": final.get("tags", []),
                 "images": images,
-                # videosは成功時のみ内部のvideos dictを渡す（失敗時はフォールバックで既存動画を使用）
-                "videos": videos.get("videos", {}) if videos.get("status") == "success" else {},
+                # videosは成功/部分成功時は生成した動画、それ以外はフォールバック
+                "videos": video_data,
                 # トピックID（動画フォールバック用）
                 "topic": args.topic,
                 "topic_id": args.topic

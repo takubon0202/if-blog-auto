@@ -37,10 +37,10 @@ class QualityResult:
 
 
 class QualityEvaluator:
-    """品質評価クラス（3倍厳格）"""
+    """品質評価クラス（高品質保証）"""
 
-    # 合格ライン（95%以上）
-    PASS_THRESHOLD = 0.95
+    # 合格ライン（97%以上 - 最高品質を保証）
+    PASS_THRESHOLD = 0.97
 
     # 各評価項目の重み（合計100）
     WEIGHTS = {

@@ -743,7 +743,8 @@ class GeminiClient:
         self,
         prompt: str,
         model: str = MODEL_IMAGE,
-        num_images: int = 1
+        num_images: int = 1,
+        aspect_ratio: str = "16:9"
     ) -> ImageGenerationResult:
         """
         Gemini 2.5 Flash imageで画像を生成する
@@ -752,19 +753,25 @@ class GeminiClient:
             prompt: 画像生成プロンプト
             model: 使用モデル（デフォルト: gemini-2.5-flash-image）
             num_images: 生成画像数
+            aspect_ratio: アスペクト比（デフォルト: "16:9" YouTubeサムネイル向け）
 
         Returns:
             ImageGenerationResult: 生成結果（画像バイナリデータのリスト）
         """
         logger.info(f"Generating image with prompt: {prompt[:50]}...")
+        logger.info(f"Aspect ratio: {aspect_ratio}")
 
         try:
-            # 画像生成用の設定（response_modalitiesが必須）
+            # 画像生成用の設定（response_modalitiesとimage_configが必須）
             config = types.GenerateContentConfig(
                 response_modalities=["IMAGE"],
                 temperature=1.0,
                 top_p=0.95,
-                top_k=40
+                top_k=40,
+                # 16:9アスペクト比を強制（YouTubeサムネイル/ブログヒーロー画像向け）
+                image_config=types.ImageConfig(
+                    aspect_ratio=aspect_ratio
+                )
             )
 
             response = await asyncio.to_thread(
@@ -1076,6 +1083,32 @@ Generate a visually engaging 16:9 WIDESCREEN anime illustration that captures th
 
         return await self.generate_image(prompt)
 
+    def _pcm_to_wav(self, pcm_data: bytes, sample_rate: int = 24000, channels: int = 1, sample_width: int = 2) -> bytes:
+        """
+        PCM（生の音声データ）をWAV形式に変換する
+
+        Args:
+            pcm_data: PCMバイナリデータ
+            sample_rate: サンプルレート（デフォルト: 24000 Hz）
+            channels: チャンネル数（デフォルト: 1 = モノラル）
+            sample_width: サンプル幅（デフォルト: 2 = 16ビット）
+
+        Returns:
+            WAV形式のバイナリデータ
+        """
+        import io
+        import wave
+
+        wav_buffer = io.BytesIO()
+        with wave.open(wav_buffer, 'wb') as wf:
+            wf.setnchannels(channels)
+            wf.setsampwidth(sample_width)
+            wf.setframerate(sample_rate)
+            wf.writeframes(pcm_data)
+
+        wav_buffer.seek(0)
+        return wav_buffer.read()
+
     async def generate_audio(
         self,
         text: str,
@@ -1091,7 +1124,7 @@ Generate a visually engaging 16:9 WIDESCREEN anime illustration that captures th
             model: 使用モデル（デフォルト: gemini-2.5-flash-preview-tts）
 
         Returns:
-            AudioGenerationResult: 生成結果（音声バイナリデータ）
+            AudioGenerationResult: 生成結果（WAV形式の音声バイナリデータ）
         """
         model = model or self.MODEL_TTS
         voice_name = self.TTS_VOICES.get(voice, self.TTS_VOICES["default"])
@@ -1099,7 +1132,7 @@ Generate a visually engaging 16:9 WIDESCREEN anime illustration that captures th
         logger.info(f"Generating audio with voice '{voice_name}': {text[:50]}...")
 
         try:
-            # TTS用の設定
+            # TTS用の設定（公式ドキュメントに準拠）
             config = types.GenerateContentConfig(
                 response_modalities=["AUDIO"],
                 speech_config=types.SpeechConfig(
@@ -1118,8 +1151,8 @@ Generate a visually engaging 16:9 WIDESCREEN anime illustration that captures th
                 config=config
             )
 
-            # レスポンスから音声データを抽出
-            audio_data = None
+            # レスポンスから音声データを抽出（PCM形式）
+            pcm_data = None
             if response.candidates and len(response.candidates) > 0:
                 parts = response.candidates[0].content.parts
                 for part in parts:
@@ -1127,20 +1160,29 @@ Generate a visually engaging 16:9 WIDESCREEN anime illustration that captures th
                         data = part.inline_data.data
                         if isinstance(data, str):
                             import base64
-                            audio_data = base64.b64decode(data)
+                            pcm_data = base64.b64decode(data)
                         else:
-                            audio_data = data
+                            pcm_data = data
                         break
 
-            if not audio_data:
+            if not pcm_data:
                 raise ValueError("No audio data in response")
 
-            logger.info(f"Audio generated: {len(audio_data)} bytes")
+            logger.info(f"PCM audio data received: {len(pcm_data)} bytes")
+
+            # PCMデータをWAV形式に変換（24000Hz, 16bit, mono）
+            wav_data = self._pcm_to_wav(pcm_data, sample_rate=24000, channels=1, sample_width=2)
+            logger.info(f"WAV audio generated: {len(wav_data)} bytes")
+
+            # 音声の長さを計算（概算）
+            duration_seconds = len(pcm_data) / (24000 * 2)  # 24000Hz, 16bit
+            logger.info(f"Audio duration: ~{duration_seconds:.1f} seconds")
 
             return AudioGenerationResult(
-                audio_data=audio_data,
+                audio_data=wav_data,
                 model=model,
-                text=text
+                text=text,
+                duration_seconds=duration_seconds
             )
 
         except Exception as e:
