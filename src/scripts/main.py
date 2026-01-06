@@ -6,14 +6,17 @@
 1. 情報収集（Google Search: 通常、Deep Research: 日曜のみ）
 2. Gemini 3 Pro (ブログ生成)
 3. Gemini 2.5 Flash (画像生成)
-4. Remotion (動画生成)
+4. 動画生成（2つのモード）:
+   - 従来モード: Remotion + TTS（30秒概要動画）
+   - スライドモード（推奨）: スライド生成 → Marp PDF → Remotion動画
 5. SEO最適化 & レビュー
-6. GitHub Pages投稿
+6. 品質評価（95%合格ライン）
+7. GitHub Pages投稿
 
 設計方針:
 - Google Search Tool: 日常的な情報収集（メイン・デフォルト）
 - Deep Research: 週1回（日曜日）の深層調査
-- Remotion: ブログ記事から動画を自動生成
+- スライドベース動画: 高品質な解説動画を自動生成（推奨）
 """
 import asyncio
 import argparse
@@ -41,6 +44,12 @@ async def main():
                         help='Use Deep Research API (default: False, use Google Search)')
     parser.add_argument('--skip-images', action='store_true', help='Skip image generation')
     parser.add_argument('--skip-video', action='store_true', help='Skip video generation')
+    parser.add_argument('--use-slide-video', action='store_true', default=True,
+                        help='Use slide-based video generation (default: True, recommended)')
+    parser.add_argument('--slide-count', type=int, default=12,
+                        help='Target slide count for slide-based video (default: 12)')
+    parser.add_argument('--slide-duration', type=int, default=5,
+                        help='Duration per slide in seconds (default: 5)')
     parser.add_argument('--publish', action='store_true', default=True,
                         help='Publish to GitHub Pages (default: True)')
     args = parser.parse_args()
@@ -53,9 +62,11 @@ async def main():
     from generate_content import generate_article
     from generate_image import generate_images
     from generate_video import generate_video
+    from generate_slide_video import generate_slide_video
     from seo_optimize import optimize_seo
     from review import review_article
     from publish import publish_to_github_pages
+    from quality_evaluator import QualityEvaluator
 
     result = {
         "topic": args.topic,
@@ -103,45 +114,77 @@ async def main():
             logger.info("Step 3: Skipping image generation")
             result["steps"]["images"] = {"status": "skipped"}
 
-        # Step 4: Remotion (動画生成) + TTS音声
+        # Step 4: 動画生成（スライドベースまたは従来モード）
         videos = {"status": "skipped"}
+        slides_data = None
         if not args.skip_video:
             logger.info("=" * 50)
-            logger.info("Step 4: Generating video with Remotion + TTS...")
+            video_mode = "Slide-based" if args.use_slide_video else "Traditional"
+            logger.info(f"Step 4: Generating video ({video_mode} mode)...")
             logger.info("=" * 50)
 
-            # ヒーロー画像パスを取得（動画に統合）
-            hero_image_path = None
-            if images.get("status") == "success" and images.get("hero"):
-                hero_images = images.get("hero", {}).get("images", [])
-                if hero_images:
-                    # hero_images[0]はdict型: {"file_path": "...", "filename": "...", "size_bytes": ...}
-                    first_image = hero_images[0]
-                    if isinstance(first_image, dict):
-                        hero_image_path = first_image.get("file_path")
-                    else:
-                        hero_image_path = first_image
-                    logger.info(f"Hero image for video: {hero_image_path}")
+            if args.use_slide_video:
+                # 新ワークフロー: スライドベース動画生成
+                logger.info(f"  - Target slides: {args.slide_count}")
+                logger.info(f"  - Slide duration: {args.slide_duration}s")
 
-            # 記事データにヒーロー画像パスを追加
-            video_article = {**article, "hero_image_path": hero_image_path}
+                slide_video_result = await generate_slide_video(
+                    article=article,
+                    target_slides=args.slide_count,
+                    slide_duration=args.slide_duration
+                )
 
-            # 動画生成（ショート動画はスキップ、TTS音声を生成）
-            videos = await generate_video(
-                article=video_article,
-                generate_short=False,  # ショート動画はデフォルトでスキップ
-                generate_audio=True    # TTS音声を生成
-            )
-            result["steps"]["videos"] = {
-                "status": videos.get("status", "error"),
-                "videos": videos.get("videos", {}),
-                "narration": videos.get("narration", {})
-            }
-            if videos.get("status") == "success":
-                has_audio = videos.get("videos", {}).get("standard", {}).get("has_audio", False)
-                logger.info(f"Video generated: standard (with audio: {has_audio})")
+                slides_data = slide_video_result.get("slides")
+                videos = {
+                    "status": slide_video_result.get("status", "error"),
+                    "videos": {"standard": slide_video_result.get("video", {})},
+                    "narration": slide_video_result.get("narration", {}),
+                    "slides": slides_data,
+                    "quality": slide_video_result.get("quality", {})
+                }
+                result["steps"]["videos"] = videos
+                result["steps"]["slides"] = {
+                    "status": "completed" if slides_data else "skipped",
+                    "slide_count": slide_video_result.get("slides", {}).get("slide_count", 0)
+                }
+
+                if slide_video_result.get("status") == "success":
+                    quality_pct = slide_video_result.get("quality", {}).get("overall", {}).get("percentage", 0)
+                    logger.info(f"Slide video generated! Quality: {quality_pct}%")
+                else:
+                    logger.warning(f"Slide video generation issue: {slide_video_result.get('status')}")
             else:
-                logger.warning(f"Video generation failed: {videos.get('error', 'Unknown error')}")
+                # 従来ワークフロー: Remotion + TTS
+                # ヒーロー画像パスを取得（動画に統合）
+                hero_image_path = None
+                if images.get("status") == "success" and images.get("hero"):
+                    hero_images = images.get("hero", {}).get("images", [])
+                    if hero_images:
+                        first_image = hero_images[0]
+                        if isinstance(first_image, dict):
+                            hero_image_path = first_image.get("file_path")
+                        else:
+                            hero_image_path = first_image
+                        logger.info(f"Hero image for video: {hero_image_path}")
+
+                video_article = {**article, "hero_image_path": hero_image_path}
+
+                videos = await generate_video(
+                    article=video_article,
+                    generate_short=False,
+                    generate_audio=True
+                )
+                result["steps"]["videos"] = {
+                    "status": videos.get("status", "error"),
+                    "videos": videos.get("videos", {}),
+                    "narration": videos.get("narration", {})
+                }
+
+                if videos.get("status") == "success":
+                    has_audio = videos.get("videos", {}).get("standard", {}).get("has_audio", False)
+                    logger.info(f"Video generated: standard (with audio: {has_audio})")
+                else:
+                    logger.warning(f"Video generation failed: {videos.get('error', 'Unknown error')}")
         else:
             logger.info("Step 4: Skipping video generation")
             result["steps"]["videos"] = {"status": "skipped"}

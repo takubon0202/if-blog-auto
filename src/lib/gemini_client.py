@@ -1416,3 +1416,91 @@ Generate a visually engaging 16:9 WIDESCREEN anime illustration that captures th
                 "audio_data": None,
                 "article_analysis": article_analysis
             }
+
+    async def generate_slide_narration(
+        self,
+        slides: List[Dict[str, Any]],
+        title: str,
+        topic: str = "ai_tools",
+        voice: str = "default",
+        slide_duration: int = 5
+    ) -> Dict[str, Any]:
+        """
+        スライドベースのナレーション音声を生成
+
+        Args:
+            slides: スライドデータのリスト（heading, points, type）
+            title: 記事タイトル
+            topic: トピックID
+            voice: 音声タイプ
+            slide_duration: 各スライドの表示時間（秒）
+
+        Returns:
+            各スライドのナレーションスクリプトと統合音声データ
+        """
+        logger.info(f"Generating slide narration for {len(slides)} slides...")
+
+        try:
+            # 1. スライド全体のナレーションスクリプトを生成
+            slides_info = "\n".join([
+                f"スライド{i+1} ({s.get('type', 'content')}): {s.get('heading', '')} - {', '.join(s.get('points', []))}"
+                for i, s in enumerate(slides)
+            ])
+
+            total_duration = len(slides) * slide_duration
+            target_chars = total_duration * 4  # 1秒あたり約4文字
+
+            prompt = f"""以下のプレゼンテーションスライドを解説するナレーションスクリプトを作成してください。
+
+【タイトル】
+{title}
+
+【スライド構成】
+{slides_info}
+
+【スクリプト作成ルール】
+1. 合計{total_duration}秒（約{target_chars}文字）で、各スライドを{slide_duration}秒程度で解説
+2. 自然な話し言葉で、プレゼンテーション解説者のように
+3. 構成:
+   - タイトルスライド: 導入と期待感を醸成
+   - コンテンツスライド: 各ポイントを簡潔に説明
+   - エンディング: まとめと次のアクションを促す
+4. スライド間の接続詞を適切に使用
+5. 絵文字や記号は使用しない
+6. 専門的だが親しみやすいトーンで
+
+【出力形式】
+ナレーションスクリプト全文のみを出力してください。"""
+
+            result = await self.generate_content(
+                prompt=prompt,
+                model=self.MODEL_FLASH,
+                temperature=0.7
+            )
+            script = result.text.strip()
+            logger.info(f"Slide narration script generated: {len(script)} chars")
+
+            # 2. TTSで音声を生成
+            audio_result = await self.generate_audio(
+                text=script,
+                voice=voice
+            )
+
+            return {
+                "status": "success",
+                "script": script,
+                "audio_data": audio_result.audio_data,
+                "audio_size_bytes": len(audio_result.audio_data),
+                "voice": voice,
+                "slide_count": len(slides),
+                "total_duration": total_duration
+            }
+
+        except Exception as e:
+            logger.error(f"Slide narration generation failed: {e}")
+            return {
+                "status": "error",
+                "error": str(e),
+                "script": None,
+                "audio_data": None
+            }
