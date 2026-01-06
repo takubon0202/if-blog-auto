@@ -1,9 +1,17 @@
-# if(塾) Blog Automation System v2.0
+# if(塾) Blog Automation System v2.5
 
-Gemini API を活用した、最新トレンド情報を自動収集して画像・**スライド動画**付きブログ記事を生成・GitHub Pagesに自動投稿するシステム。
+Gemini API を活用した、最新トレンド情報を自動収集して画像・**スライド動画**付き**高品質ブログ記事（20,000文字以上）**を生成・GitHub Pagesに自動投稿するシステム。
 
 ## 最新アップデート（2026年1月6日）
 
+### v2.5: 2倍品質アップデート
+- **記事ボリューム5倍**: 20,000文字以上の充実したコンテンツ（従来の5倍）
+- **17セクション構成**: 導入から行動計画まで網羅的に解説
+- **読者エンゲージメント強化**: ストーリーテリング、驚きの事実、Q&Aセクション
+- **新エージェント**: `engagement-agent.md`（読者をワクワクさせる要素）
+- **新スキル**: `storytelling-skill.md`（ストーリーテリング技術）
+
+### v2.0: スライド動画対応
 - **スライドベース動画生成**: 12枚のスライド + TTS音声で60秒の解説動画を自動生成
 - **品質評価システム**: 95%以上の合格ラインで品質を担保
 - **Marp PDF連携**: スライドをPDF/画像に自動変換
@@ -49,10 +57,11 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ Step 2: ブログ記事生成                                          │
+│ Step 2: ブログ記事生成（5倍品質版）                              │
 │  モデル: gemini-3-pro-preview                                   │
 │  出力: article (title, content, word_count)                     │
-│  目標: 4000〜5500文字                                           │
+│  目標: 20,000文字以上（17セクション構成）                       │
+│  特徴: ストーリーテリング、驚きの事実、Q&A、行動計画            │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -247,11 +256,12 @@ GitHub Actionsでは自動的に以下の処理が行われます：
 |-------------|------|--------------|--------------|
 | `google-search-agent` | Multi-Search情報収集（メイン） | Gemini 3 Pro + 3回検索 | 月〜土・フォールバック |
 | `deep-research-agent` | 深層調査 | Deep Research API | 日曜のみ |
-| `writing-agent` | ブログ記事の執筆 | Gemini 3 Pro | 全曜日 |
+| `writing-agent` | 20,000文字以上の高品質記事執筆（v2.0） | Gemini 3 Pro | 全曜日 |
+| `engagement-agent` | 読者エンゲージメント強化（NEW） | Gemini 3 Pro | 全曜日 |
 | `image-agent` | アイキャッチ画像生成（スマートプロンプト） | Gemini 2.5 Flash image + 記事分析 | 全曜日 |
 | `slide-agent` | スライド生成（12枚構成） | Gemini 3 Pro + 2.5 Flash image | 全曜日 |
 | `video-agent` | スライド動画生成（60秒） | Remotion 4.0 SlideVideo | 全曜日 |
-| `quality-agent` | 品質評価（95%合格ライン） | 独自評価システム | 全曜日 |
+| `quality-agent` | 品質評価（95%合格ライン・20,000文字チェック） | 独自評価システム | 全曜日 |
 | `seo-agent` | SEOメタデータ最適化 | Gemini 3 Flash（思考オフ） | 全曜日 |
 | `review-agent` | 品質チェック・ファクトチェック | Gemini 3 Flash（思考オフ） | 全曜日 |
 | `site-builder-agent` | Jekyllサイト構造管理 | - | 必要時 |
@@ -264,12 +274,13 @@ GitHub Actionsでは自動的に以下の処理が行われます：
 | スキル | 目的 | 使用API/ツール |
 |--------|------|---------------|
 | `gemini-research` | 7日以内情報収集（Multi-Search 3回/Deep Research） | Gemini API |
-| `gemini-content` | 引用元付きコンテンツ生成 | Gemini 3 Pro |
+| `gemini-content` | 20,000文字以上の引用元付きコンテンツ生成 | Gemini 3 Pro |
+| `storytelling-skill` | ストーリーテリング技術（NEW） | Gemini 3 Pro |
 | `gemini-3-flash` | SEO/レビュー高速処理（思考オフ） | Gemini 3 Flash |
 | `image-generation` | ブログ用画像生成（スマートプロンプト対応） | Gemini 2.5 Flash image |
 | `slide-generation` | スライド生成・PDF変換・画像変換 | Gemini + Marp CLI |
 | `remotion-video` | スライド動画生成（60秒解説動画） | Remotion 4.0 SlideVideo |
-| `quality-evaluation` | 品質評価（95%合格ライン） | 独自評価システム |
+| `quality-evaluation` | 品質評価（95%合格ライン・20,000文字チェック） | 独自評価システム |
 | `timezone` | JST日時処理 | Python datetime |
 | `github-pages` | GitHub Pages操作 | Git API |
 | `jekyll-content` | Jekyll形式コンテンツ生成 | - |
@@ -403,27 +414,29 @@ if-blog-auto/
 │           └── SlideVideo.tsx   # スライド動画コンポーネント（NEW）
 │
 ├── src/
-│   ├── agents/              # サブエージェント定義（11種類）
+│   ├── agents/              # サブエージェント定義（12種類）
 │   │   ├── google-search-agent.md   # メイン（月〜土）
 │   │   ├── deep-research-agent.md   # 日曜のみ
-│   │   ├── writing-agent.md
+│   │   ├── writing-agent.md         # 記事執筆（v2.0：20,000文字対応）
+│   │   ├── engagement-agent.md      # エンゲージメント強化（NEW v2.5）
 │   │   ├── image-agent.md
-│   │   ├── slide-agent.md           # スライド生成（NEW）
+│   │   ├── slide-agent.md           # スライド生成
 │   │   ├── video-agent.md           # 動画生成
-│   │   ├── quality-agent.md         # 品質評価（NEW）
+│   │   ├── quality-agent.md         # 品質評価（20,000文字チェック）
 │   │   ├── seo-agent.md
 │   │   ├── review-agent.md
 │   │   ├── site-builder-agent.md
 │   │   └── blog-publisher-agent.md
 │   │
-│   ├── skills/              # スキル定義（11種類）
+│   ├── skills/              # スキル定義（12種類）
 │   │   ├── gemini-research.md
 │   │   ├── gemini-content.md
+│   │   ├── storytelling-skill.md    # ストーリーテリング（NEW v2.5）
 │   │   ├── gemini-3-flash.md
 │   │   ├── image-generation.md
-│   │   ├── slide-generation.md      # スライド生成（NEW）
+│   │   ├── slide-generation.md      # スライド生成
 │   │   ├── remotion-video.md        # 動画生成
-│   │   ├── quality-evaluation.md    # 品質評価（NEW）
+│   │   ├── quality-evaluation.md    # 品質評価
 │   │   ├── timezone.md
 │   │   ├── github-pages.md
 │   │   ├── jekyll-content.md
@@ -641,12 +654,16 @@ Deep Research失敗時は自動的にMulti-Search（3回検索）にフォール
    - 具体的なデータ・事例の必須化
    - 実践可能なアクションポイントの提示
 
-3. **品質チェックリスト**
-   - 文字数: **4000-5500文字**（充実した長めの記事）
-   - 具体的数値・データ最低5箇所
-   - 各主張に根拠を明記
+3. **品質チェックリスト（5倍品質版）**
+   - 文字数: **20,000文字以上**（従来の5倍）
+   - H2見出し: 12-18個、H3サブ見出し: 40個以上
+   - 成功事例5つ以上、失敗事例3つ以上
+   - 具体的数値・データ最低25箇所
+   - 読者への問いかけ5箇所以上
+   - 驚きの事実「知っていましたか?」3つ以上
+   - Q&Aセクションに10個以上の質問と回答
    - 7日以内の情報のみ使用
-   - 参考文献は必ず**ハイパーリンク形式**で記載
+   - 参考文献は必ず**ハイパーリンク形式**で10個以上記載
 
 ---
 
@@ -747,19 +764,23 @@ npm install
 
 ---
 
-## 品質評価システム（95%合格ライン）
+## 品質評価システム（95%合格ライン・5倍品質対応）
 
-スライド動画の品質を自動評価し、95%以上で合格とします。
+記事・スライド動画の品質を自動評価し、95%以上で合格とします。
 
-### 評価基準
+### 評価基準（v2.5更新）
 
 | 項目 | 基準 | 重み |
 |-----|------|------|
-| 記事文字数 | 10,000文字以上 | 8 |
+| 記事文字数 | **20,000文字以上** | 10 |
+| 記事構成 | 12セクション以上 | 10 |
+| 情報ソース | 10個以上 | 8 |
+| 読みやすさ | 見出し・箇条書き | 8 |
+| エンゲージメント | 問いかけ・驚き・ストーリー | 4 |
+| 絵文字禁止 | 絵文字なし | 4 |
+| SEOスコア | 80点以上 | 6 |
 | スライド枚数 | 10〜15枚 | 5 |
 | 動画+音声 | TTS音声あり | 5 |
-| 画像品質 | 全スライド画像あり | 4 |
-| SEOスコア | 80点以上 | 3 |
 
 ### 自動リトライ
 

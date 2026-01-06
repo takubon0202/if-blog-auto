@@ -44,13 +44,14 @@ class QualityEvaluator:
 
     # 各評価項目の重み（合計100）
     WEIGHTS = {
-        # ブログ記事評価（40点）
-        "article_length": 8,        # 10,000文字以上
-        "article_structure": 8,     # 導入→本論→結論の構成
-        "article_sources": 6,       # 情報ソースの品質
+        # ブログ記事評価（50点）- 2倍品質対応
+        "article_length": 10,       # 20,000文字以上
+        "article_structure": 10,    # 導入→本論→結論の構成（15セクション以上）
+        "article_sources": 8,       # 情報ソースの品質（10個以上）
         "article_seo": 6,           # SEO最適化
-        "article_readability": 6,   # 読みやすさ
-        "article_no_emoji": 6,      # 絵文字禁止遵守
+        "article_readability": 8,   # 読みやすさと没入感
+        "article_no_emoji": 4,      # 絵文字禁止遵守
+        "article_engagement": 4,    # 読者エンゲージメント要素
 
         # スライド評価（30点）
         "slide_count": 5,           # 10-15枚
@@ -80,7 +81,7 @@ class QualityEvaluator:
 
     def evaluate_article(self, article: Dict) -> QualityResult:
         """
-        ブログ記事の品質を評価（3倍厳格）
+        ブログ記事の品質を評価（5倍厳格・エンゲージメント重視）
 
         Args:
             article: 記事データ
@@ -93,51 +94,61 @@ class QualityEvaluator:
             QualityResult: 評価結果
         """
         score = 0
-        max_score = 40
+        max_score = 50  # 50点満点に変更
         issues = []
         recommendations = []
 
         content = article.get("content", "")
         word_count = article.get("word_count", len(content))
 
-        # 1. 文字数チェック（10,000文字以上）
-        if word_count >= 10000:
+        # 1. 文字数チェック（20,000文字以上）
+        if word_count >= 20000:
             score += self.WEIGHTS["article_length"]
-        elif word_count >= 8000:
+        elif word_count >= 15000:
             score += self.WEIGHTS["article_length"] * 0.7
-            issues.append(f"文字数が目標未達: {word_count}文字（目標10,000+）")
+            issues.append(f"文字数が目標未達: {word_count}文字（目標20,000+）")
+        elif word_count >= 10000:
+            score += self.WEIGHTS["article_length"] * 0.5
+            issues.append(f"文字数が不足: {word_count}文字（目標20,000+）")
         elif word_count >= 5000:
-            score += self.WEIGHTS["article_length"] * 0.4
+            score += self.WEIGHTS["article_length"] * 0.3
             issues.append(f"文字数が大幅に不足: {word_count}文字")
         else:
             issues.append(f"文字数が著しく不足: {word_count}文字")
-            recommendations.append("記事の内容を大幅に拡充してください")
+            recommendations.append("記事の内容を大幅に拡充してください（目標20,000文字以上）")
 
-        # 2. 構成チェック（導入→本論→結論）
+        # 2. 構成チェック（導入→本論→結論、12セクション以上）
         has_intro = "はじめに" in content or "導入" in content or content.startswith("#")
-        has_body = content.count("## ") >= 3  # 3つ以上のセクション
+        section_count = content.count("## ")
         has_conclusion = "まとめ" in content or "結論" in content or "おわりに" in content
+        has_qa = "Q&A" in content or "よくある質問" in content or "FAQ" in content
 
-        if has_intro and has_body and has_conclusion:
+        if has_intro and section_count >= 12 and has_conclusion:
             score += self.WEIGHTS["article_structure"]
-        elif has_body:
+        elif has_intro and section_count >= 8 and has_conclusion:
+            score += self.WEIGHTS["article_structure"] * 0.7
+            issues.append(f"セクション数が目標未達: {section_count}個（目標12+）")
+        elif section_count >= 5:
             score += self.WEIGHTS["article_structure"] * 0.5
-            issues.append("記事の構成が不完全（導入または結論が不足）")
+            issues.append(f"記事の構成が不完全: {section_count}セクション")
         else:
-            issues.append("記事の構成が不十分")
-            recommendations.append("導入→本論→結論の構成を明確にしてください")
+            issues.append(f"記事の構成が不十分: {section_count}セクション")
+            recommendations.append("15セクション以上の充実した構成にしてください")
 
-        # 3. 情報ソースチェック
+        # 3. 情報ソースチェック（10個以上推奨）
         sources = article.get("sources", [])
         source_count = len(sources)
-        if source_count >= 5:
+        if source_count >= 10:
             score += self.WEIGHTS["article_sources"]
-        elif source_count >= 3:
-            score += self.WEIGHTS["article_sources"] * 0.6
-            issues.append(f"情報ソースが少ない: {source_count}件（推奨5+）")
+        elif source_count >= 7:
+            score += self.WEIGHTS["article_sources"] * 0.7
+            issues.append(f"情報ソースがやや少ない: {source_count}件（推奨10+）")
+        elif source_count >= 5:
+            score += self.WEIGHTS["article_sources"] * 0.5
+            issues.append(f"情報ソースが少ない: {source_count}件（推奨10+）")
         else:
             issues.append(f"情報ソースが不足: {source_count}件")
-            recommendations.append("信頼できる情報ソースを追加してください")
+            recommendations.append("信頼できる情報ソースを10個以上追加してください")
 
         # 4. SEOスコアチェック
         seo_score = article.get("seo_score", 70)
@@ -185,6 +196,23 @@ class QualityEvaluator:
         else:
             issues.append("絵文字が使用されています（禁止）")
             recommendations.append("全ての絵文字を削除してください")
+
+        # 7. エンゲージメント要素チェック（読者をワクワクさせる要素）
+        engagement_score = 0
+        engagement_checks = {
+            "question": "?" in content or "でしょうか" in content,  # 読者への問いかけ
+            "story": "事例" in content or "ケース" in content or "ストーリー" in content,  # ストーリー要素
+            "surprise": "意外" in content or "知っていましたか" in content or "実は" in content,  # 驚きの要素
+            "action": "アクション" in content or "実践" in content or "今日から" in content,  # 行動促進
+        }
+        for check_name, check_result in engagement_checks.items():
+            if check_result:
+                engagement_score += 0.25
+
+        score += self.WEIGHTS["article_engagement"] * engagement_score
+        if engagement_score < 0.75:
+            issues.append("読者エンゲージメント要素が不足しています")
+            recommendations.append("読者への問いかけ、驚きの事実、ストーリー要素を追加してください")
 
         passed = (score / max_score) >= self.PASS_THRESHOLD
         return QualityResult(
