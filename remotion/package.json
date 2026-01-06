@@ -1,13 +1,19 @@
 {
   "name": "blog-video-generator",
-  "version": "1.0.0",
-  "description": "Remotion video generator for blog articles",
+  "version": "2.0.0",
+  "description": "Remotion video generator for blog articles with slide-based video support",
   "type": "module",
   "scripts": {
     "start": "remotion studio",
     "build": "remotion render BlogVideo out/video.mp4",
+    "build:slide": "remotion render SlideVideo out/slide_video.mp4",
+    "build:short": "remotion render BlogVideoShort out/video_short.mp4",
     "render": "node render.mjs",
-    "upgrade": "remotion upgrade"
+    "render:blog": "node render.mjs BlogVideo",
+    "render:slide": "node render.mjs SlideVideo",
+    "preview": "remotion preview",
+    "upgrade": "remotion upgrade",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.0",

@@ -1,6 +1,12 @@
 /**
  * Remotion Render Script
- * ブログ動画をプログラマティックにレンダリング
+ * ブログ動画・スライド動画をプログラマティックにレンダリング
+ *
+ * 対応コンポジション:
+ * - BlogVideo: 30秒の概要動画
+ * - BlogVideoShort: 15秒のショート動画
+ * - SlideVideo: スライドベースの解説動画（可変長）
+ * - SlideVideoShort: スライドベースのショート動画
  *
  * CI環境対応: 適切なChromium設定とGL設定
  */
@@ -27,6 +33,14 @@ const chromiumOptions = {
   headless: true,
 };
 
+// コンポジション別のデフォルト設定
+const COMPOSITION_DEFAULTS = {
+  BlogVideo: { fps: 30, width: 1920, height: 1080, durationInFrames: 900 },
+  BlogVideoShort: { fps: 30, width: 1080, height: 1920, durationInFrames: 450 },
+  SlideVideo: { fps: 30, width: 1920, height: 1080, durationInFrames: 1800 },
+  SlideVideoShort: { fps: 30, width: 1080, height: 1920, durationInFrames: 900 },
+};
+
 async function render() {
   // コマンドライン引数を取得
   const args = process.argv.slice(2);
@@ -34,12 +48,14 @@ async function render() {
   const outputPath = args[1] || path.join(__dirname, "out", "video.mp4");
   const propsFile = args[2];
 
+  console.log(`[Remotion] ========================================`);
   console.log(`[Remotion] Starting render...`);
   console.log(`[Remotion] Composition: ${compositionId}`);
   console.log(`[Remotion] Output: ${outputPath}`);
   console.log(`[Remotion] CI Environment: ${isCI}`);
   console.log(`[Remotion] GL mode: ${chromiumOptions.gl}`);
   console.log(`[Remotion] DISPLAY: ${process.env.DISPLAY || 'not set'}`);
+  console.log(`[Remotion] ========================================`);
 
   // propsを読み込む
   let inputProps = {};
@@ -48,6 +64,18 @@ async function render() {
     inputProps = JSON.parse(propsContent);
     console.log(`[Remotion] Props loaded from: ${propsFile}`);
     console.log(`[Remotion] Title: ${inputProps.title || 'N/A'}`);
+
+    // SlideVideoの場合、スライド数を表示
+    if (compositionId.includes('Slide') && inputProps.slides) {
+      console.log(`[Remotion] Slides: ${inputProps.slides.length}`);
+      console.log(`[Remotion] Slide Duration: ${inputProps.slideDuration || 5}s each`);
+      // 動画の総時間を計算
+      const fps = 30;
+      const slideDuration = inputProps.slideDuration || 5;
+      const totalFrames = inputProps.slides.length * slideDuration * fps;
+      const totalSeconds = totalFrames / fps;
+      console.log(`[Remotion] Calculated Duration: ${totalSeconds}s (${totalFrames} frames)`);
+    }
   }
 
   // 出力ディレクトリを作成
