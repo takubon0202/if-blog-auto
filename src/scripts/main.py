@@ -254,8 +254,11 @@ async def main():
                 "categories": final.get("categories", [research_data.get("topic_info", {}).get("name", "未分類")]),
                 "tags": final.get("tags", []),
                 "images": images,
-                # videosは成功時のみ内部のvideos dictを渡す
-                "videos": videos.get("videos", {}) if videos.get("status") == "success" else {}
+                # videosは成功時のみ内部のvideos dictを渡す（失敗時はフォールバックで既存動画を使用）
+                "videos": videos.get("videos", {}) if videos.get("status") == "success" else {},
+                # トピックID（動画フォールバック用）
+                "topic": args.topic,
+                "topic_id": args.topic
             }
 
             publish_result = await publish_to_github_pages(publish_data)

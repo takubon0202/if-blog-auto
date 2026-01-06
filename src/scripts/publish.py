@@ -127,12 +127,73 @@ class GitHubPagesPublisher:
         # Jekyll用の相対パス（relative_urlフィルタで変換されるためbaseurl不要）
         return f"/assets/images/{filename}"
 
+    def find_existing_videos(self, topic: str = None) -> Optional[Dict]:
+        """
+        output/videos/から既存の動画を探す（フォールバック用）
+
+        Args:
+            topic: トピックID（指定された場合はそのトピックの動画を優先）
+
+        Returns:
+            見つかった動画の情報
+        """
+        output_videos_dir = self.repo_root / "output" / "videos"
+        if not output_videos_dir.exists():
+            return None
+
+        # 最新の動画ファイルを探す
+        video_files = list(output_videos_dir.glob("blog_video_*.mp4"))
+        if not video_files:
+            video_files = list(output_videos_dir.glob("slide_video_*.mp4"))
+        if not video_files:
+            return None
+
+        # トピック指定がある場合はフィルタリング
+        if topic:
+            topic_videos = [v for v in video_files if topic in v.name]
+            if topic_videos:
+                video_files = topic_videos
+
+        # 最新のものを選択（更新日時でソート）
+        video_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+
+        found_videos = {}
+        for video_file in video_files:
+            if "short" in video_file.name and "short" not in found_videos:
+                found_videos["short"] = {
+                    "path": str(video_file),
+                    "duration": 15,
+                    "resolution": "1080x1920"
+                }
+            elif "short" not in video_file.name and "standard" not in found_videos:
+                found_videos["standard"] = {
+                    "path": str(video_file),
+                    "duration": 30,
+                    "resolution": "1920x1080"
+                }
+
+            if "standard" in found_videos:
+                break  # 標準動画が見つかれば十分
+
+        if found_videos:
+            logger.info(f"Found existing videos: {list(found_videos.keys())}")
+
+        return found_videos if found_videos else None
+
     def copy_videos(self, article: Dict, slug: str) -> Optional[Dict]:
-        """動画をdocs/assets/videosにコピー"""
+        """動画をdocs/assets/videosにコピー（フォールバック付き）"""
         videos = article.get("videos", {})
 
+        # 動画が渡されなかった場合、既存の動画を探す
         if not videos:
-            logger.info("No videos available")
+            logger.info("No videos in article data, searching for existing videos...")
+            topic = article.get("topic") or article.get("topic_id")
+            videos = self.find_existing_videos(topic)
+            if videos:
+                logger.info(f"Using existing videos for topic '{topic}': {list(videos.keys())}")
+
+        if not videos:
+            logger.info("No videos available (even after fallback)")
             return None
 
         copied_videos = {}
