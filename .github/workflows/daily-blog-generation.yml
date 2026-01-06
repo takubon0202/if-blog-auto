@@ -106,12 +106,36 @@ jobs:
       - name: Start Xvfb for headless rendering
         if: ${{ github.event.inputs.skip_video != 'true' }}
         run: |
-          Xvfb :99 -screen 0 1920x1080x24 &
+          # Kill any existing Xvfb processes
+          pkill Xvfb || true
+
+          # Start Xvfb with proper settings
+          Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
+          XVFB_PID=$!
+          echo "XVFB_PID=$XVFB_PID" >> $GITHUB_ENV
+
+          # Set DISPLAY immediately
+          export DISPLAY=:99
           echo "DISPLAY=:99" >> $GITHUB_ENV
-          sleep 2
-          echo "Xvfb started on display :99"
-          # Test display
-          xdpyinfo -display :99 > /dev/null 2>&1 && echo "Display :99 is working" || echo "Display test failed"
+
+          # Wait for Xvfb to be ready
+          sleep 3
+
+          # Verify Xvfb is running
+          if ps -p $XVFB_PID > /dev/null 2>&1; then
+            echo "Xvfb started successfully (PID: $XVFB_PID)"
+          else
+            echo "WARNING: Xvfb may not have started correctly"
+          fi
+
+          # Test display (non-fatal if fails)
+          if command -v xdpyinfo &> /dev/null; then
+            xdpyinfo -display :99 > /dev/null 2>&1 && echo "Display :99 verified" || echo "Display verification skipped"
+          else
+            echo "xdpyinfo not available, skipping display verification"
+          fi
+
+          echo "Xvfb setup complete"
 
       - name: Install Remotion dependencies
         if: ${{ github.event.inputs.skip_video != 'true' }}

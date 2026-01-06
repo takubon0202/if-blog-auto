@@ -23,14 +23,29 @@ const __dirname = path.dirname(__filename);
 // CI環境かどうかを判定
 const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
 
+// GL mode selection (swiftshader is most reliable for CI)
+// Priority: swiftshader > swangle > angle
+const getGlMode = () => {
+  if (process.env.REMOTION_GL) {
+    return process.env.REMOTION_GL;
+  }
+  // For CI, use swiftshader (software rendering, most compatible)
+  return isCI ? 'swiftshader' : 'angle';
+};
+
 // CI環境用のChromiumオプション (Remotion 4.0 API)
 const chromiumOptions = {
   // CI環境ではソフトウェアレンダリングを使用
-  gl: isCI ? 'swangle' : 'angle',
+  gl: getGlMode(),
   // Linux環境ではマルチプロセスを有効化
   enableMultiProcessOnLinux: true,
   // ヘッドレスモード
   headless: true,
+  // CI環境での追加安定化設定
+  ...(isCI && {
+    disableWebSecurity: true,
+    ignoreCertificateErrors: true,
+  }),
 };
 
 // コンポジション別のデフォルト設定
@@ -84,71 +99,107 @@ async function render() {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
+  // GL modes to try in order of preference for CI
+  const glModesToTry = isCI ? ['swiftshader', 'swangle', 'angle'] : ['angle'];
+  let lastError = null;
+  let bundled = null;
+
+  // Webpackでバンドル (only once)
+  console.log("[Remotion] Bundling...");
   try {
-    // Webpackでバンドル
-    console.log("[Remotion] Bundling...");
-    const bundled = await bundle({
+    bundled = await bundle({
       entryPoint: path.join(__dirname, "src", "index.tsx"),
       webpackOverride: (config) => config,
     });
-
     console.log("[Remotion] Bundle complete");
+  } catch (bundleError) {
+    console.error(`[Remotion] Bundle failed: ${bundleError.message}`);
+    process.exit(1);
+  }
 
-    // コンポジションを選択
-    console.log("[Remotion] Selecting composition...");
-    const composition = await selectComposition({
-      serveUrl: bundled,
-      id: compositionId,
-      inputProps,
-      chromiumOptions,
-    });
+  // Try each GL mode until one succeeds
+  for (const glMode of glModesToTry) {
+    console.log(`\n[Remotion] ========================================`);
+    console.log(`[Remotion] Attempting render with GL mode: ${glMode}`);
+    console.log(`[Remotion] ========================================`);
 
-    console.log(`[Remotion] Composition: ${composition.id}`);
-    console.log(`[Remotion] Duration: ${composition.durationInFrames} frames @ ${composition.fps}fps`);
-    console.log(`[Remotion] Size: ${composition.width}x${composition.height}`);
+    const currentChromiumOptions = {
+      ...chromiumOptions,
+      gl: glMode,
+    };
 
-    // レンダリング実行
-    console.log("[Remotion] Starting render...");
-    const startTime = Date.now();
+    try {
+      // コンポジションを選択
+      console.log("[Remotion] Selecting composition...");
+      const composition = await selectComposition({
+        serveUrl: bundled,
+        id: compositionId,
+        inputProps,
+        chromiumOptions: currentChromiumOptions,
+      });
 
-    await renderMedia({
-      composition,
-      serveUrl: bundled,
-      codec: "h264",
-      outputLocation: outputPath,
-      inputProps,
-      chromiumOptions,
-      // CRF値を調整（品質とファイルサイズのバランス）
-      crf: 23,
-      // ピクセルフォーマット
-      pixelFormat: "yuv420p",
-      onProgress: ({ progress }) => {
-        const percent = Math.round(progress * 100);
-        // 10%ごとにログを出力
-        if (percent % 10 === 0) {
-          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-          console.log(`[Remotion] Progress: ${percent}% (${elapsed}s elapsed)`);
-        }
-      },
-    });
+      console.log(`[Remotion] Composition: ${composition.id}`);
+      console.log(`[Remotion] Duration: ${composition.durationInFrames} frames @ ${composition.fps}fps`);
+      console.log(`[Remotion] Size: ${composition.width}x${composition.height}`);
 
-    const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`[Remotion] Render complete in ${totalTime}s`);
-    console.log(`[Remotion] Output: ${outputPath}`);
+      // レンダリング実行
+      console.log("[Remotion] Starting render...");
+      const startTime = Date.now();
 
-    // ファイルサイズを確認
-    const stats = fs.statSync(outputPath);
-    const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
-    console.log(`[Remotion] File size: ${sizeMB} MB (${stats.size} bytes)`);
+      await renderMedia({
+        composition,
+        serveUrl: bundled,
+        codec: "h264",
+        outputLocation: outputPath,
+        inputProps,
+        chromiumOptions: currentChromiumOptions,
+        // CRF値を調整（品質とファイルサイズのバランス）
+        crf: 23,
+        // ピクセルフォーマット
+        pixelFormat: "yuv420p",
+        onProgress: ({ progress }) => {
+          const percent = Math.round(progress * 100);
+          // 10%ごとにログを出力
+          if (percent % 10 === 0) {
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            console.log(`[Remotion] Progress: ${percent}% (${elapsed}s elapsed)`);
+          }
+        },
+      });
 
-    if (stats.size < 10000) {
-      console.error(`[Remotion] ERROR: File size is too small (${stats.size} bytes)`);
-      process.exit(1);
+      const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`[Remotion] Render complete in ${totalTime}s`);
+      console.log(`[Remotion] Output: ${outputPath}`);
+
+      // ファイルサイズを確認
+      const stats = fs.statSync(outputPath);
+      const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
+      console.log(`[Remotion] File size: ${sizeMB} MB (${stats.size} bytes)`);
+
+      if (stats.size < 10000) {
+        console.error(`[Remotion] ERROR: File size is too small (${stats.size} bytes)`);
+        lastError = new Error(`File size too small: ${stats.size} bytes`);
+        continue; // Try next GL mode
+      }
+
+      console.log(`[Remotion] SUCCESS with GL mode: ${glMode}`);
+      process.exit(0);
+    } catch (error) {
+      console.error(`[Remotion] GL mode '${glMode}' failed: ${error.message}`);
+      lastError = error;
+
+      // If not the last mode, try the next one
+      const modeIndex = glModesToTry.indexOf(glMode);
+      if (modeIndex < glModesToTry.length - 1) {
+        console.log(`[Remotion] Trying next GL mode...`);
+        continue;
+      }
     }
+  }
 
-    console.log("[Remotion] SUCCESS");
-    process.exit(0);
-  } catch (error) {
+  // All GL modes failed
+  const error = lastError || new Error("All GL modes failed");
+  {
     console.error(`[Remotion] ERROR: ${error.message}`);
 
     // 詳細なエラー情報

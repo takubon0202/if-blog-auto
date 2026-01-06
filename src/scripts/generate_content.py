@@ -582,14 +582,38 @@ author: "AI Blog Generator"
 *この記事は{research_date}時点の情報に基づいて作成されました。最新情報は各公式サイトでご確認ください。*
 """
 
-    result = await client.generate_content(
-        prompt=prompt,
-        model=GeminiClient.MODEL_PRO,
-        enable_search=True,
-        temperature=0.7
-    )
+    # 20,000文字以上を目指してリトライ
+    MIN_CONTENT_LENGTH = 15000
+    MAX_RETRIES = 3
+    content = ""
 
-    content = result.text
+    for attempt in range(MAX_RETRIES):
+        result = await client.generate_content(
+            prompt=prompt,
+            model=GeminiClient.MODEL_PRO,
+            enable_search=True,
+            temperature=0.7 + (attempt * 0.1)  # 毎回少し温度を上げて多様性を確保
+        )
+
+        content = result.text
+        content_length = len(content)
+
+        if content_length >= MIN_CONTENT_LENGTH:
+            print(f"[generate_content] 記事生成成功: {content_length}文字 (試行{attempt + 1}回目)")
+            break
+        else:
+            print(f"[generate_content] 文字数不足: {content_length}文字 < {MIN_CONTENT_LENGTH}文字 (試行{attempt + 1}回目)")
+            if attempt < MAX_RETRIES - 1:
+                # 次の試行ではより長い記事を要求するプロンプトを追加
+                prompt = prompt.replace(
+                    "【品質チェックリスト",
+                    f"【重要】前回の生成では{content_length}文字でしたが、目標は20,000文字以上です。より詳細に、より多くの具体例を含めて執筆してください。\n\n【品質チェックリスト"
+                )
+
+    if len(content) < MIN_CONTENT_LENGTH:
+        print(f"[generate_content] 警告: 最終文字数が目標未満 ({len(content)}文字)")
+    else:
+        print(f"[generate_content] 最終文字数: {len(content)}文字")
 
     # 絵文字を除去（安全策として）
     emoji_pattern = re.compile(

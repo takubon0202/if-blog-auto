@@ -221,7 +221,8 @@ JSONのみを出力してください。"""
                 model="gemini-3-pro-preview"
             )
 
-            response_text = response.get("content", "")
+            # GenerationResultはdataclass、.textでテキストを取得
+            response_text = response.text if hasattr(response, 'text') else str(response)
 
             # JSON抽出
             import re
@@ -290,8 +291,10 @@ Generate a visually engaging 16:9 anime illustration for this presentation slide
         try:
             result = await client.generate_image(prompt)
 
-            if result.get("status") == "success" and result.get("images"):
-                image_data = result["images"][0]
+            # ImageGenerationResultはdataclass、.imagesで画像リストを取得
+            images = result.images if hasattr(result, 'images') else []
+            if images:
+                image_data = images[0]
                 image_path = output_dir / f"slide_{slide_index:02d}.png"
 
                 if isinstance(image_data, bytes):
@@ -307,6 +310,8 @@ Generate a visually engaging 16:9 anime illustration for this presentation slide
 
                 logger.info(f"Generated image for slide {slide_index}: {image_path}")
                 return str(image_path)
+            else:
+                logger.warning(f"No images generated for slide {slide_index}")
 
         except Exception as e:
             logger.error(f"Image generation error for slide {slide_index}: {e}")

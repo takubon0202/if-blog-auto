@@ -101,6 +101,9 @@ class QualityEvaluator:
         content = article.get("content", "")
         word_count = article.get("word_count", len(content))
 
+        # 文字数の最小要件（15,000文字未満は強制不合格フラグ）
+        critical_length_failure = word_count < 15000
+
         # 1. 文字数チェック（20,000文字以上）
         if word_count >= 20000:
             score += self.WEIGHTS["article_length"]
@@ -108,13 +111,15 @@ class QualityEvaluator:
             score += self.WEIGHTS["article_length"] * 0.7
             issues.append(f"文字数が目標未達: {word_count}文字（目標20,000+）")
         elif word_count >= 10000:
-            score += self.WEIGHTS["article_length"] * 0.5
-            issues.append(f"文字数が不足: {word_count}文字（目標20,000+）")
+            score += self.WEIGHTS["article_length"] * 0.4
+            issues.append(f"[重要] 文字数が不足: {word_count}文字（最低15,000+必須）")
+            recommendations.append("記事の内容を大幅に拡充してください（最低15,000文字以上）")
         elif word_count >= 5000:
-            score += self.WEIGHTS["article_length"] * 0.3
-            issues.append(f"文字数が大幅に不足: {word_count}文字")
+            score += self.WEIGHTS["article_length"] * 0.2
+            issues.append(f"[致命的] 文字数が大幅に不足: {word_count}文字")
+            recommendations.append("記事の内容を大幅に拡充してください（目標20,000文字以上）")
         else:
-            issues.append(f"文字数が著しく不足: {word_count}文字")
+            issues.append(f"[致命的] 文字数が著しく不足: {word_count}文字")
             recommendations.append("記事の内容を大幅に拡充してください（目標20,000文字以上）")
 
         # 2. 構成チェック（導入→本論→結論、12セクション以上）
@@ -214,7 +219,14 @@ class QualityEvaluator:
             issues.append("読者エンゲージメント要素が不足しています")
             recommendations.append("読者への問いかけ、驚きの事実、ストーリー要素を追加してください")
 
-        passed = (score / max_score) >= self.PASS_THRESHOLD
+        # 15,000文字未満は強制不合格（スコアに関係なく）
+        score_passed = (score / max_score) >= self.PASS_THRESHOLD
+        passed = score_passed and not critical_length_failure
+
+        if critical_length_failure and score_passed:
+            issues.insert(0, f"[強制不合格] 文字数が最低基準（15,000文字）未満: {word_count}文字")
+            recommendations.insert(0, "記事を15,000文字以上に拡充することが必須です")
+
         return QualityResult(
             category="article",
             score=score,
