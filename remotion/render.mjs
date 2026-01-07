@@ -91,6 +91,38 @@ async function render() {
       const totalSeconds = totalFrames / fps;
       console.log(`[Remotion] Calculated Duration: ${totalSeconds}s (${totalFrames} frames)`);
     }
+
+    // audioUrl の検証
+    if (inputProps.audioUrl) {
+      const audioPath = path.join(__dirname, "public", inputProps.audioUrl);
+      if (fs.existsSync(audioPath)) {
+        const audioStats = fs.statSync(audioPath);
+        console.log(`[Remotion] Audio file: ${inputProps.audioUrl} (${audioStats.size} bytes)`);
+
+        // WAVヘッダーの検証
+        const audioBuffer = Buffer.alloc(12);
+        const fd = fs.openSync(audioPath, 'r');
+        fs.readSync(fd, audioBuffer, 0, 12, 0);
+        fs.closeSync(fd);
+
+        const isValidWav = audioBuffer.slice(0, 4).toString() === 'RIFF' &&
+                          audioBuffer.slice(8, 12).toString() === 'WAVE';
+
+        if (isValidWav && audioStats.size >= 10000) {
+          console.log(`[Remotion] Audio validation: VALID WAV ✓`);
+        } else {
+          console.warn(`[Remotion] Audio validation: INVALID (removing audioUrl from props)`);
+          console.warn(`[Remotion]   - Is WAV: ${isValidWav}`);
+          console.warn(`[Remotion]   - Size: ${audioStats.size} bytes`);
+          inputProps.audioUrl = null;
+        }
+      } else {
+        console.warn(`[Remotion] Audio file not found: ${audioPath}`);
+        inputProps.audioUrl = null;
+      }
+    } else {
+      console.log(`[Remotion] Audio: None (silent video)`);
+    }
   }
 
   // 出力ディレクトリを作成

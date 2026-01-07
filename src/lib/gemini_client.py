@@ -1168,11 +1168,21 @@ Generate a visually engaging 16:9 WIDESCREEN anime illustration that captures th
             if not pcm_data:
                 raise ValueError("No audio data in response")
 
+            # PCMデータサイズの検証（最低5KB以上、約0.1秒分）
+            MIN_PCM_SIZE = 5000  # 5KB
+            if len(pcm_data) < MIN_PCM_SIZE:
+                raise ValueError(f"PCM data too small: {len(pcm_data)} bytes (minimum: {MIN_PCM_SIZE})")
+
             logger.info(f"PCM audio data received: {len(pcm_data)} bytes")
 
             # PCMデータをWAV形式に変換（24000Hz, 16bit, mono）
             wav_data = self._pcm_to_wav(pcm_data, sample_rate=24000, channels=1, sample_width=2)
             logger.info(f"WAV audio generated: {len(wav_data)} bytes")
+
+            # WAVデータの検証（ヘッダー + PCMデータ = 44 + PCMサイズ）
+            expected_wav_size = 44 + len(pcm_data)  # WAVヘッダー44バイト
+            if len(wav_data) < expected_wav_size - 10:  # 多少の誤差を許容
+                raise ValueError(f"WAV conversion failed: expected ~{expected_wav_size} bytes, got {len(wav_data)}")
 
             # 音声の長さを計算（概算）
             duration_seconds = len(pcm_data) / (24000 * 2)  # 24000Hz, 16bit

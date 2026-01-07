@@ -189,18 +189,29 @@ class SlideVideoGenerator:
                 script = narration.get("script", "")
                 audio_size = narration.get("audio_size_bytes", 0)
 
-                logger.info(f"  音声生成成功!")
-                logger.info(f"  スクリプト長: {len(script)}文字")
-                logger.info(f"  音声サイズ: {audio_size:,} bytes")
-                logger.info(f"  スクリプト冒頭: {script[:100]}...")
+                # 音声データの検証（最低10KB以上であること）
+                MIN_AUDIO_SIZE = 10000  # 10KB
+                if audio_data and len(audio_data) >= MIN_AUDIO_SIZE:
+                    logger.info(f"  音声生成成功!")
+                    logger.info(f"  スクリプト長: {len(script)}文字")
+                    logger.info(f"  音声サイズ: {len(audio_data):,} bytes")
+                    logger.info(f"  スクリプト冒頭: {script[:100]}...")
 
-                return {
-                    "status": "success",
-                    "audio_data": audio_data,
-                    "script": script,
-                    "audio_size_bytes": audio_size,
-                    "voice": voice
-                }
+                    return {
+                        "status": "success",
+                        "audio_data": audio_data,
+                        "script": script,
+                        "audio_size_bytes": len(audio_data),
+                        "voice": voice
+                    }
+                else:
+                    actual_size = len(audio_data) if audio_data else 0
+                    logger.warning(f"  音声データが小さすぎます: {actual_size} bytes (最低 {MIN_AUDIO_SIZE} bytes 必要)")
+                    return {
+                        "status": "failed",
+                        "error": f"Audio data too small: {actual_size} bytes",
+                        "audio_data": None
+                    }
             else:
                 logger.warning(f"  音声生成失敗: {narration.get('error')}")
                 return {
@@ -220,7 +231,8 @@ class SlideVideoGenerator:
     async def _step3_prepare_files(
         self,
         slide_images: List[str],
-        audio_data: Optional[bytes]
+        audio_data: Optional[bytes],
+        slides_result: Optional[Dict] = None
     ) -> Dict[str, Any]:
         """
         Step 3: ファイル配置（public/ディレクトリにファイルを配置）
@@ -228,6 +240,7 @@ class SlideVideoGenerator:
         Args:
             slide_images: スライド画像パスのリスト
             audio_data: 音声バイナリデータ（WAV形式）
+            slides_result: スライド生成結果全体（代替画像パス用）
 
         Returns:
             配置されたファイル情報
@@ -243,24 +256,53 @@ class SlideVideoGenerator:
             "has_audio": False
         }
 
-        # slidesディレクトリを作成
+        # publicディレクトリを確保
+        self.public_dir.mkdir(parents=True, exist_ok=True)
+
+        # slidesディレクトリを作成（既存があれば削除）
         slides_dir = self.public_dir / "slides"
+        if slides_dir.exists():
+            shutil.rmtree(slides_dir)
         slides_dir.mkdir(parents=True, exist_ok=True)
         result["slides_dir"] = str(slides_dir)
         logger.info(f"  スライドディレクトリ: {slides_dir}")
 
+        # 使用可能な画像パスを収集（複数のソースから）
+        available_images = []
+
+        # 1. slide_imagesから（PDF変換後の画像またはAI生成画像）
+        for path in slide_images:
+            if path and Path(path).exists():
+                available_images.append(path)
+                logger.info(f"  画像発見(slide_images): {Path(path).name}")
+
+        # 2. slides_resultのgenerated_imagesから（AI生成画像、バックアップ）
+        if slides_result and len(available_images) == 0:
+            generated = slides_result.get("generated_images", [])
+            for path in generated:
+                if path and Path(path).exists():
+                    available_images.append(path)
+                    logger.info(f"  画像発見(generated_images): {Path(path).name}")
+
+        logger.info(f"  利用可能な画像数: {len(available_images)}")
+
         # スライド画像をコピー
         copied_count = 0
-        for i, image_path in enumerate(slide_images):
-            if Path(image_path).exists():
-                dest = slides_dir / f"slide_{i+1:02d}.png"
-                shutil.copy(image_path, dest)
-                result["slide_files"].append(str(dest))
-                copied_count += 1
-            else:
-                logger.warning(f"  画像が見つかりません: {image_path}")
+        for i, image_path in enumerate(available_images):
+            try:
+                source = Path(image_path)
+                if source.exists():
+                    dest = slides_dir / f"slide_{i+1:02d}.png"
+                    shutil.copy(str(source), str(dest))
+                    result["slide_files"].append(str(dest))
+                    copied_count += 1
+                    logger.info(f"  コピー: {source.name} → {dest.name} ({source.stat().st_size:,} bytes)")
+                else:
+                    logger.warning(f"  画像が見つかりません: {image_path}")
+            except Exception as e:
+                logger.error(f"  画像コピー失敗: {image_path} - {e}")
 
-        logger.info(f"  コピーした画像数: {copied_count}/{len(slide_images)}")
+        logger.info(f"  コピーした画像数: {copied_count}/{len(available_images)}")
 
         # 音声ファイルを保存
         if audio_data:
@@ -268,22 +310,89 @@ class SlideVideoGenerator:
             try:
                 with open(audio_path, "wb") as f:
                     f.write(audio_data)
-                result["audio_file"] = "narration.wav"
-                result["has_audio"] = True
                 logger.info(f"  音声ファイル保存: {audio_path} ({len(audio_data):,} bytes)")
 
                 # WAVファイルの検証
-                if audio_path.stat().st_size < 1000:
-                    logger.warning(f"  警告: 音声ファイルが小さすぎます")
+                file_size = audio_path.stat().st_size
+                is_valid_audio = False
+
+                if file_size < 10000:  # 10KB以下
+                    logger.warning(f"  警告: 音声ファイルが小さすぎます ({file_size} bytes)")
+                else:
+                    # WAVヘッダーを確認
+                    with open(audio_path, "rb") as f:
+                        header = f.read(12)
+                        if header[:4] == b'RIFF' and header[8:12] == b'WAVE':
+                            logger.info(f"  WAVファイル検証: 有効なWAVフォーマット ({file_size:,} bytes)")
+                            is_valid_audio = True
+                        else:
+                            logger.warning(f"  警告: WAVヘッダーが不正です (header: {header[:4]}...{header[8:12]})")
+
+                if is_valid_audio:
+                    result["audio_file"] = "narration.wav"
+                    result["has_audio"] = True
+                    logger.info(f"  音声ファイル: 有効 ✓")
+                else:
+                    # 無効な音声ファイルを削除
+                    audio_path.unlink(missing_ok=True)
+                    result["audio_file"] = None
                     result["has_audio"] = False
+                    logger.warning(f"  音声ファイル: 無効（削除しました）")
 
             except Exception as e:
                 logger.error(f"  音声ファイル保存失敗: {e}")
+                result["audio_file"] = None
                 result["has_audio"] = False
         else:
             logger.warning("  音声データなし（無音動画になります）")
+            result["audio_file"] = None
+            result["has_audio"] = False
 
         return result
+
+    def _normalize_slides_for_remotion(self, slides: List[Dict]) -> List[Dict]:
+        """
+        スライドデータをRemotionのSlideVideoコンポーネント用に正規化
+
+        SlideVideo.tsxが期待する形式:
+        - heading: string
+        - subheading?: string
+        - points?: string[]
+        - type: "title" | "content" | "ending"
+        - imageUrl?: string (自動生成されるのでオプション)
+        - narrationText?: string
+        """
+        normalized = []
+        for i, slide in enumerate(slides):
+            # typeの正規化（title, content, ending のいずれかに）
+            original_type = slide.get("type", "content")
+            if i == 0:
+                # 最初のスライドは必ずtitle
+                slide_type = "title"
+            elif i == len(slides) - 1:
+                # 最後のスライドは必ずending
+                slide_type = "ending"
+            elif original_type in ["title", "ending"]:
+                # 中間スライドでtitleやendingが指定されていたらcontentに
+                slide_type = "content"
+            else:
+                slide_type = "content"
+
+            normalized_slide = {
+                "heading": slide.get("heading", f"スライド {i+1}"),
+                "subheading": slide.get("subheading", ""),
+                "points": slide.get("points", []),
+                "type": slide_type
+            }
+
+            # narrationTextがあれば追加
+            if slide.get("narrationText"):
+                normalized_slide["narrationText"] = slide["narrationText"]
+
+            normalized.append(normalized_slide)
+            logger.info(f"  スライド{i+1}: type='{original_type}' → '{slide_type}', heading='{normalized_slide['heading'][:30]}...'")
+
+        return normalized
 
     async def _step4_render_video(
         self,
@@ -310,10 +419,14 @@ class SlideVideoGenerator:
         logger.info("STEP 4: 動画レンダリング（Remotion）")
         logger.info("=" * 60)
 
+        # スライドデータをRemotionの期待する形式に正規化
+        logger.info("スライドデータを正規化中...")
+        normalized_slides = self._normalize_slides_for_remotion(slides)
+
         # propsを準備
         props = {
-            "title": slides[0].get("heading", "Presentation") if slides else "Presentation",
-            "slides": slides,
+            "title": normalized_slides[0].get("heading", "Presentation") if normalized_slides else "Presentation",
+            "slides": normalized_slides,
             "topic": topic,
             "authorName": "if(塾) Blog",
             "audioUrl": audio_file,
@@ -493,7 +606,11 @@ class SlideVideoGenerator:
             # ========================================
             # Step 3: ファイル配置
             # ========================================
-            public_files = await self._step3_prepare_files(slide_images, audio_data)
+            public_files = await self._step3_prepare_files(
+                slide_images,
+                audio_data,
+                slides_result  # バックアップ画像パス用
+            )
 
             # ========================================
             # Step 4: 動画レンダリング

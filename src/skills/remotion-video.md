@@ -68,6 +68,8 @@ Remotionは、Reactコンポーネントを使ってプログラマティック�
 ```
 
 ## Props インターフェース
+
+### BlogVideoProps
 ```typescript
 interface BlogVideoProps {
   title: string;           // 記事タイトル
@@ -77,10 +79,40 @@ interface BlogVideoProps {
   date: string;            // 日付
   authorName?: string;     // 著者名（デフォルト: "if(塾) Blog"）
   isShort?: boolean;       // ショート動画フラグ
-  heroImageUrl?: string;   // ヒーロー画像URL（NEW）
-  audioUrl?: string;       // ナレーション音声URL（NEW）
+  heroImageUrl?: string;   // ヒーロー画像URL
+  audioUrl?: string;       // ナレーション音声URL
 }
 ```
+
+### SlideVideoProps（スライドベース動画用）
+```typescript
+interface SlideVideoProps {
+  title: string;           // 動画タイトル
+  slides: SlideData[];     // スライドデータ配列
+  topic: string;           // トピックID
+  authorName?: string;     // 著者名
+  audioUrl?: string | null; // ナレーション音声（public/内のパス）
+  slideImagePrefix?: string; // 画像プレフィックス（デフォルト: "slide_"）
+  slideDuration?: number;   // 各スライドの表示時間（秒、デフォルト: 5）
+}
+
+interface SlideData {
+  heading: string;         // 見出し（必須）
+  subheading?: string;     // サブ見出し
+  points?: string[];       // 箇条書きポイント
+  type: "title" | "content" | "ending";  // スライドタイプ（必須）
+  imageUrl?: string;       // 画像URL（自動生成されるため省略可）
+  narrationText?: string;  // ナレーションテキスト
+}
+```
+
+### スライドタイプの正規化（重要）
+Pythonから渡す前にスライドデータを正規化する必要があります:
+- **スライド1**: `type: "title"` に強制
+- **中間スライド**: `type: "content"` に強制
+- **最終スライド**: `type: "ending"` に強制
+
+**注意**: generate_slide_video.pyの`_normalize_slides_for_remotion()`メソッドで自動正規化されます。
 
 ## TTS音声統合
 

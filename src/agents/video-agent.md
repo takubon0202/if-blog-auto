@@ -79,6 +79,19 @@ Gemini TTS音声とRemotionを統合し、視聴者に価値を届ける動画�
 4. Gemini 2.5 Flash TTSで音声合成
 5. PCM→WAV形式に変換（24kHz, 16bit, mono）
 
+### 音声データの検証（3段階）
+1. **PCMデータ検証** (`gemini_client.py`)
+   - 最低5KB以上のPCMデータが必要
+   - WAV変換後のサイズを検証
+2. **WAVファイル検証** (`generate_slide_video.py` Step 3)
+   - 最低10KB以上のファイルサイズ
+   - WAVヘッダー（RIFF/WAVE）の確認
+   - 無効な場合はファイルを削除
+3. **Remotion前検証** (`render.mjs`)
+   - ファイルの存在確認
+   - WAVヘッダーの再確認
+   - 無効な場合は`audioUrl`をnullに設定
+
 ### TTS API呼び出し
 ```python
 # src/lib/gemini_client.py
@@ -94,6 +107,31 @@ config = types.GenerateContentConfig(
 )
 ```
 
+## スライドデータの正規化（重要）
+
+Remotionに渡す前にスライドデータを正規化します:
+
+### typeフィールドの正規化
+- **スライド1**: 必ず `type: "title"` に設定
+- **中間スライド**: 必ず `type: "content"` に設定
+- **最終スライド**: 必ず `type: "ending"` に設定
+
+### SlideVideo.tsxが期待するデータ形式
+```typescript
+interface SlideData {
+  heading: string;      // 必須: 見出し
+  subheading?: string;  // オプション: サブ見出し
+  points?: string[];    // オプション: 箇条書きポイント
+  type: "title" | "content" | "ending";  // 必須: 3種類のみ
+  imageUrl?: string;    // 自動生成されるため不要
+  narrationText?: string;  // オプション
+}
+```
+
+### 画像パスの自動設定
+- `imageUrl`はRemotionが自動生成: `slides/slide_01.png`, `slides/slide_02.png`...
+- 画像は`remotion/public/slides/`ディレクトリに配置
+
 ## 動画生成ポリシー
 
 ### 重要: 品質評価なし
@@ -107,6 +145,7 @@ config = types.GenerateContentConfig(
 
 ### 必須要件
 - [ ] スライド構成が正しい（タイトル、コンテンツ、エンディング）
+- [ ] スライドタイプが正規化されている（title/content/ending）
 - [ ] 解像度 1920x1080
 - [ ] MP4形式で出力
 
