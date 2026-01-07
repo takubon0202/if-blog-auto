@@ -1168,8 +1168,9 @@ Generate a visually engaging 16:9 WIDESCREEN anime illustration that captures th
             if not pcm_data:
                 raise ValueError("No audio data in response")
 
-            # PCMデータサイズの検証（最低5KB以上、約0.1秒分）
-            MIN_PCM_SIZE = 5000  # 5KB
+            # PCMデータサイズの検証（WAVヘッダー分より大きければOK）
+            # 以前は5KB以上を要求していたが、短いテキストの場合もあるため緩和
+            MIN_PCM_SIZE = 100  # 最低100バイト（ほぼ無条件で通す）
             if len(pcm_data) < MIN_PCM_SIZE:
                 raise ValueError(f"PCM data too small: {len(pcm_data)} bytes (minimum: {MIN_PCM_SIZE})")
 

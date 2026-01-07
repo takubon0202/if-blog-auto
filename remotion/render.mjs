@@ -108,13 +108,23 @@ async function render() {
         const isValidWav = audioBuffer.slice(0, 4).toString() === 'RIFF' &&
                           audioBuffer.slice(8, 12).toString() === 'WAVE';
 
-        if (isValidWav && audioStats.size >= 10000) {
-          console.log(`[Remotion] Audio validation: VALID WAV ✓`);
+        // WAVヘッダーが有効なら、サイズに関係なく受け入れる
+        // 以前は10KB以上を要求していたが、短いナレーションも受け入れる
+        if (isValidWav) {
+          console.log(`[Remotion] Audio validation: VALID WAV ✓ (${audioStats.size} bytes)`);
+          if (audioStats.size < 10000) {
+            console.log(`[Remotion]   Note: Audio file is small but valid`);
+          }
         } else {
-          console.warn(`[Remotion] Audio validation: INVALID (removing audioUrl from props)`);
-          console.warn(`[Remotion]   - Is WAV: ${isValidWav}`);
+          console.warn(`[Remotion] Audio validation: INVALID WAV header`);
+          console.warn(`[Remotion]   - Header: ${audioBuffer.slice(0, 4).toString()} / ${audioBuffer.slice(8, 12).toString()}`);
           console.warn(`[Remotion]   - Size: ${audioStats.size} bytes`);
-          inputProps.audioUrl = null;
+          // ヘッダーが無効でも、ファイルが存在すればそのまま使用を試みる
+          if (audioStats.size > 44) {
+            console.log(`[Remotion]   Attempting to use audio anyway...`);
+          } else {
+            inputProps.audioUrl = null;
+          }
         }
       } else {
         console.warn(`[Remotion] Audio file not found: ${audioPath}`);

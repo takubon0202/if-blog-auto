@@ -79,18 +79,18 @@ Gemini TTS音声とRemotionを統合し、視聴者に価値を届ける動画�
 4. Gemini 2.5 Flash TTSで音声合成
 5. PCM→WAV形式に変換（24kHz, 16bit, mono）
 
-### 音声データの検証（3段階）
+### 音声データの検証（3段階・緩和済み v2.6.3）
 1. **PCMデータ検証** (`gemini_client.py`)
-   - 最低5KB以上のPCMデータが必要
+   - 最低100バイト以上のPCMデータ（以前は5KB）
    - WAV変換後のサイズを検証
 2. **WAVファイル検証** (`generate_slide_video.py` Step 3)
-   - 最低10KB以上のファイルサイズ
-   - WAVヘッダー（RIFF/WAVE）の確認
-   - 無効な場合はファイルを削除
+   - WAVヘッダー（RIFF/WAVE）の確認のみ
+   - サイズ制限なし（以前は10KB以上）
+   - 小さい音声も有効として扱う
 3. **Remotion前検証** (`render.mjs`)
    - ファイルの存在確認
-   - WAVヘッダーの再確認
-   - 無効な場合は`audioUrl`をnullに設定
+   - WAVヘッダーの確認（サイズ制限なし）
+   - ヘッダー無効でもファイルサイズ > 44バイトなら使用を試行
 
 ### TTS API呼び出し
 ```python

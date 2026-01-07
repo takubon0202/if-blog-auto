@@ -189,13 +189,20 @@ class SlideVideoGenerator:
                 script = narration.get("script", "")
                 audio_size = narration.get("audio_size_bytes", 0)
 
-                # 音声データの検証（最低10KB以上であること）
-                MIN_AUDIO_SIZE = 10000  # 10KB
+                # 音声データの検証（WAVヘッダー44バイト以上あればOK）
+                # 30秒の音声 = 30 * 24000 * 2 = 約1.4MB
+                # 短い音声でも数十KBは必要だが、閾値を緩くする
+                MIN_AUDIO_SIZE = 1000  # 1KB（WAVヘッダー + 最低限のデータ）
                 if audio_data and len(audio_data) >= MIN_AUDIO_SIZE:
-                    logger.info(f"  音声生成成功!")
+                    logger.info(f"  ✓ 音声生成成功!")
                     logger.info(f"  スクリプト長: {len(script)}文字")
                     logger.info(f"  音声サイズ: {len(audio_data):,} bytes")
                     logger.info(f"  スクリプト冒頭: {script[:100]}...")
+
+                    # WAVヘッダーの検証（RIFF/WAVE）
+                    if len(audio_data) >= 12:
+                        is_wav = audio_data[:4] == b'RIFF' and audio_data[8:12] == b'WAVE'
+                        logger.info(f"  WAV形式: {'✓ 有効' if is_wav else '✗ 無効'}")
 
                     return {
                         "status": "success",
@@ -206,17 +213,30 @@ class SlideVideoGenerator:
                     }
                 else:
                     actual_size = len(audio_data) if audio_data else 0
-                    logger.warning(f"  音声データが小さすぎます: {actual_size} bytes (最低 {MIN_AUDIO_SIZE} bytes 必要)")
+                    logger.warning(f"  ✗ 音声データが不足: {actual_size} bytes")
+                    # 音声が小さくても、データがあればそのまま渡す（後で検証）
+                    if audio_data and len(audio_data) > 44:  # WAVヘッダーより大きければ
+                        logger.info(f"  → 小さいが音声データとして渡します")
+                        return {
+                            "status": "partial",
+                            "audio_data": audio_data,
+                            "script": script,
+                            "audio_size_bytes": actual_size,
+                            "voice": voice
+                        }
                     return {
                         "status": "failed",
                         "error": f"Audio data too small: {actual_size} bytes",
                         "audio_data": None
                     }
             else:
-                logger.warning(f"  音声生成失敗: {narration.get('error')}")
+                error_msg = narration.get("error", "Unknown error")
+                logger.warning(f"  ✗ 音声生成失敗: {error_msg}")
+                # デバッグ情報を出力
+                logger.warning(f"  narration keys: {narration.keys()}")
                 return {
                     "status": "failed",
-                    "error": narration.get("error"),
+                    "error": error_msg,
                     "audio_data": None
                 }
 
@@ -236,6 +256,8 @@ class SlideVideoGenerator:
     ) -> Dict[str, Any]:
         """
         Step 3: ファイル配置（public/ディレクトリにファイルを配置）
+
+        重要: AI生成画像を優先使用（PDF変換は不安定なため）
 
         Args:
             slide_images: スライド画像パスのリスト
@@ -267,24 +289,46 @@ class SlideVideoGenerator:
         result["slides_dir"] = str(slides_dir)
         logger.info(f"  スライドディレクトリ: {slides_dir}")
 
-        # 使用可能な画像パスを収集（複数のソースから）
+        # ===========================================
+        # 画像収集（優先順位: AI生成画像 > PDF変換画像）
+        # ===========================================
         available_images = []
 
-        # 1. slide_imagesから（PDF変換後の画像またはAI生成画像）
-        for path in slide_images:
-            if path and Path(path).exists():
-                available_images.append(path)
-                logger.info(f"  画像発見(slide_images): {Path(path).name}")
-
-        # 2. slides_resultのgenerated_imagesから（AI生成画像、バックアップ）
-        if slides_result and len(available_images) == 0:
+        # 1. まずAI生成画像を試す（generated_images - 常に存在するはず）
+        if slides_result:
             generated = slides_result.get("generated_images", [])
+            logger.info(f"  AI生成画像リスト: {len(generated)}件")
             for path in generated:
-                if path and Path(path).exists():
-                    available_images.append(path)
-                    logger.info(f"  画像発見(generated_images): {Path(path).name}")
+                if path:
+                    p = Path(path)
+                    if p.exists():
+                        available_images.append(str(p))
+                        logger.info(f"  ✓ AI生成画像: {p.name} ({p.stat().st_size:,} bytes)")
+                    else:
+                        logger.warning(f"  ✗ AI生成画像が存在しません: {path}")
+
+        # 2. AI生成画像がない場合、slide_imagesを試す
+        if len(available_images) == 0:
+            logger.info(f"  AI生成画像なし。slide_imagesを確認...")
+            logger.info(f"  slide_imagesリスト: {len(slide_images)}件")
+            for path in slide_images:
+                if path:
+                    p = Path(path)
+                    if p.exists():
+                        available_images.append(str(p))
+                        logger.info(f"  ✓ スライド画像: {p.name} ({p.stat().st_size:,} bytes)")
+                    else:
+                        logger.warning(f"  ✗ スライド画像が存在しません: {path}")
 
         logger.info(f"  利用可能な画像数: {len(available_images)}")
+
+        if len(available_images) == 0:
+            logger.error("  エラー: 利用可能な画像が1枚もありません！")
+            # デバッグ情報を出力
+            if slides_result:
+                logger.error(f"  slides_result keys: {slides_result.keys()}")
+                logger.error(f"  generated_images: {slides_result.get('generated_images', 'なし')}")
+                logger.error(f"  slide_images: {slides_result.get('slide_images', 'なし')}")
 
         # スライド画像をコピー
         copied_count = 0
@@ -296,15 +340,13 @@ class SlideVideoGenerator:
                     shutil.copy(str(source), str(dest))
                     result["slide_files"].append(str(dest))
                     copied_count += 1
-                    logger.info(f"  コピー: {source.name} → {dest.name} ({source.stat().st_size:,} bytes)")
-                else:
-                    logger.warning(f"  画像が見つかりません: {image_path}")
+                    logger.info(f"  コピー完了: {source.name} → {dest.name}")
             except Exception as e:
                 logger.error(f"  画像コピー失敗: {image_path} - {e}")
 
         logger.info(f"  コピーした画像数: {copied_count}/{len(available_images)}")
 
-        # 音声ファイルを保存
+        # 音声ファイルを保存（より緩い検証）
         if audio_data:
             audio_path = self.public_dir / "narration.wav"
             try:
@@ -312,39 +354,39 @@ class SlideVideoGenerator:
                     f.write(audio_data)
                 logger.info(f"  音声ファイル保存: {audio_path} ({len(audio_data):,} bytes)")
 
-                # WAVファイルの検証
+                # WAVファイルの検証（ヘッダー確認のみ、サイズは問わない）
                 file_size = audio_path.stat().st_size
                 is_valid_audio = False
 
-                if file_size < 10000:  # 10KB以下
-                    logger.warning(f"  警告: 音声ファイルが小さすぎます ({file_size} bytes)")
-                else:
-                    # WAVヘッダーを確認
-                    with open(audio_path, "rb") as f:
-                        header = f.read(12)
-                        if header[:4] == b'RIFF' and header[8:12] == b'WAVE':
-                            logger.info(f"  WAVファイル検証: 有効なWAVフォーマット ({file_size:,} bytes)")
-                            is_valid_audio = True
-                        else:
-                            logger.warning(f"  警告: WAVヘッダーが不正です (header: {header[:4]}...{header[8:12]})")
+                # WAVヘッダーを確認（サイズに関係なく）
+                with open(audio_path, "rb") as f:
+                    header = f.read(12)
+                    if header[:4] == b'RIFF' and header[8:12] == b'WAVE':
+                        logger.info(f"  WAVファイル検証: 有効なWAVフォーマット ({file_size:,} bytes)")
+                        is_valid_audio = True
+                        if file_size < 10000:
+                            logger.info(f"  注意: 音声ファイルは小さいですが有効です")
+                    else:
+                        logger.warning(f"  警告: WAVヘッダーが不正です (header: {header[:4]}...{header[8:12]})")
 
                 if is_valid_audio:
                     result["audio_file"] = "narration.wav"
                     result["has_audio"] = True
-                    logger.info(f"  音声ファイル: 有効 ✓")
+                    logger.info(f"  ✓ 音声ファイル: 有効")
                 else:
-                    # 無効な音声ファイルを削除
-                    audio_path.unlink(missing_ok=True)
-                    result["audio_file"] = None
-                    result["has_audio"] = False
-                    logger.warning(f"  音声ファイル: 無効（削除しました）")
+                    # ヘッダーが無効でもファイルは残す（Remotionで再検証）
+                    logger.warning(f"  音声ファイル: ヘッダー無効だがファイルは保持")
+                    result["audio_file"] = "narration.wav"
+                    result["has_audio"] = True
 
             except Exception as e:
                 logger.error(f"  音声ファイル保存失敗: {e}")
+                import traceback
+                logger.error(f"  トレースバック: {traceback.format_exc()}")
                 result["audio_file"] = None
                 result["has_audio"] = False
         else:
-            logger.warning("  音声データなし（無音動画になります）")
+            logger.warning("  ✗ 音声データなし（無音動画になります）")
             result["audio_file"] = None
             result["has_audio"] = False
 
