@@ -28,7 +28,7 @@ Gemini TTS音声とRemotionを統合し、視聴者に価値を届ける動画�
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  STEP 3: ファイル配置                                       │
+│  STEP 3: ファイル配置（フォールバック用）                   │
 │  ├── スライド画像をpublic/slides/にコピー                   │
 │  │   - slide_01.png, slide_02.png, ...                     │
 │  └── 音声ファイルをpublic/narration.wavに保存              │
@@ -36,10 +36,16 @@ Gemini TTS音声とRemotionを統合し、視聴者に価値を届ける動画�
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  STEP 4: 動画レンダリング（Remotion）                       │
+│  STEP 4: 動画レンダリング（Remotion）v2.7.0                 │
+│  ├── 【重要】Base64データURL変換（DailyInstagram方式）      │
+│  │   - 画像: PNG → data:image/png;base64,...               │
+│  │   - 音声: WAV → data:audio/wav;base64,...               │
+│  │   - file://プロトコル問題を回避                         │
 │  ├── propsをJSONファイルに保存                              │
 │  │   - slides: スライドデータ                              │
-│  │   - audioUrl: "narration.wav"                           │
+│  │   - slideImages: Base64画像配列（優先）                 │
+│  │   - audioDataUrl: Base64音声（優先）                    │
+│  │   - audioUrl: ファイルパス（フォールバック）             │
 │  │   - slideDuration: 5秒/スライド                         │
 │  ├── node render.mjs SlideVideo を実行                     │
 │  └── MP4動画を出力（1920x1080）                            │

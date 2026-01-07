@@ -436,23 +436,74 @@ class SlideVideoGenerator:
 
         return normalized
 
+    def _file_to_data_url(self, file_path: Path, mime_type: str = None) -> Optional[str]:
+        """
+        ファイルをBase64データURLに変換（DailyInstagramの方式）
+
+        Args:
+            file_path: ファイルパス
+            mime_type: MIMEタイプ（指定なしの場合は拡張子から推測）
+
+        Returns:
+            Base64データURL または None
+        """
+        try:
+            if not file_path.exists():
+                logger.warning(f"ファイルが存在しません: {file_path}")
+                return None
+
+            # MIMEタイプを推測
+            if mime_type is None:
+                ext = file_path.suffix.lower()
+                mime_types = {
+                    ".png": "image/png",
+                    ".jpg": "image/jpeg",
+                    ".jpeg": "image/jpeg",
+                    ".gif": "image/gif",
+                    ".wav": "audio/wav",
+                    ".mp3": "audio/mpeg",
+                }
+                mime_type = mime_types.get(ext, "application/octet-stream")
+
+            # Base64エンコード
+            import base64
+            with open(file_path, "rb") as f:
+                data = f.read()
+
+            base64_data = base64.b64encode(data).decode("utf-8")
+            data_url = f"data:{mime_type};base64,{base64_data}"
+
+            logger.info(f"  Base64変換: {file_path.name} ({len(data):,} bytes → {len(data_url):,} chars)")
+            return data_url
+
+        except Exception as e:
+            logger.error(f"  Base64変換エラー: {file_path} - {e}")
+            return None
+
     async def _step4_render_video(
         self,
         slides: List[Dict],
         output_path: str,
         topic: str,
         audio_file: Optional[str],
-        slide_duration: int
+        slide_duration: int,
+        slide_image_paths: List[str] = None,
+        audio_data: bytes = None
     ) -> bool:
         """
         Step 4: Remotionでスライド動画をレンダリング
+
+        DailyInstagramと同様にBase64データURLを使用して
+        ファイルシステムの問題を回避する
 
         Args:
             slides: スライドデータ
             output_path: 出力パス
             topic: トピックID
-            audio_file: 音声ファイル名（publicディレクトリ内）
+            audio_file: 音声ファイル名（publicディレクトリ内）- フォールバック用
             slide_duration: 各スライドの表示時間
+            slide_image_paths: スライド画像のパスリスト（Base64変換用）
+            audio_data: 音声バイナリデータ（Base64変換用）
 
         Returns:
             成功かどうか
@@ -465,21 +516,56 @@ class SlideVideoGenerator:
         logger.info("スライドデータを正規化中...")
         normalized_slides = self._normalize_slides_for_remotion(slides)
 
-        # propsを準備
+        # ===================================================
+        # Base64データURL変換（DailyInstagramの方式）
+        # ===================================================
+        logger.info("Base64データURL変換中...")
+
+        # スライド画像をBase64に変換
+        slide_images_base64 = []
+        if slide_image_paths:
+            for img_path in slide_image_paths:
+                if img_path:
+                    data_url = self._file_to_data_url(Path(img_path))
+                    if data_url:
+                        slide_images_base64.append(data_url)
+                    else:
+                        slide_images_base64.append(None)
+                else:
+                    slide_images_base64.append(None)
+
+        # 音声をBase64に変換
+        audio_data_url = None
+        if audio_data:
+            import base64
+            base64_audio = base64.b64encode(audio_data).decode("utf-8")
+            audio_data_url = f"data:audio/wav;base64,{base64_audio}"
+            logger.info(f"  音声Base64変換: {len(audio_data):,} bytes → {len(audio_data_url):,} chars")
+        elif audio_file:
+            # フォールバック: publicディレクトリのファイルを変換
+            audio_path = self.public_dir / audio_file
+            audio_data_url = self._file_to_data_url(audio_path, "audio/wav")
+
+        logger.info(f"  Base64画像数: {len([x for x in slide_images_base64 if x])}/{len(slide_images_base64)}")
+        logger.info(f"  Base64音声: {'あり' if audio_data_url else 'なし'}")
+
+        # propsを準備（Base64データURLを含む）
         props = {
             "title": normalized_slides[0].get("heading", "Presentation") if normalized_slides else "Presentation",
             "slides": normalized_slides,
             "topic": topic,
             "authorName": "if(塾) Blog",
-            "audioUrl": audio_file,
+            "audioUrl": audio_file,  # フォールバック用
+            "audioDataUrl": audio_data_url,  # Base64音声（優先）
             "slideImagePrefix": "slide_",
-            "slideDuration": slide_duration
+            "slideDuration": slide_duration,
+            "slideImages": slide_images_base64  # Base64画像（優先）
         }
 
         logger.info(f"  タイトル: {props['title']}")
         logger.info(f"  スライド数: {len(slides)}")
         logger.info(f"  各スライド: {slide_duration}秒")
-        logger.info(f"  音声ファイル: {audio_file or 'なし'}")
+        logger.info(f"  音声: {'Base64' if audio_data_url else (audio_file or 'なし')}")
         logger.info(f"  出力先: {output_path}")
 
         # propsをJSONファイルに保存
@@ -661,12 +747,24 @@ class SlideVideoGenerator:
             videos_dir.mkdir(parents=True, exist_ok=True)
             video_path = videos_dir / f"slide_video_{timestamp}_{topic}.mp4"
 
+            # スライド画像パスを取得（Base64変換用）
+            # 優先順位: generated_images > slide_files > slide_images
+            slide_image_paths = []
+            if slides_result.get("generated_images"):
+                slide_image_paths = slides_result.get("generated_images", [])
+            elif public_files.get("slide_files"):
+                slide_image_paths = public_files.get("slide_files", [])
+            else:
+                slide_image_paths = slide_images
+
             render_success = await self._step4_render_video(
                 slides=slides,
                 output_path=str(video_path),
                 topic=topic,
                 audio_file=public_files.get("audio_file"),
-                slide_duration=slide_duration
+                slide_duration=slide_duration,
+                slide_image_paths=slide_image_paths,  # Base64変換用
+                audio_data=audio_data  # Base64変換用
             )
 
             # 結果の設定

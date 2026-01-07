@@ -29,8 +29,10 @@ export interface SlideVideoProps {
   topic: string;
   authorName?: string;
   audioUrl?: string | null;
+  audioDataUrl?: string | null;  // Base64データURL形式の音声（優先）
   slideImagePrefix?: string;  // スライド画像のプレフィックス
   slideDuration?: number;     // 各スライドの表示時間（秒）
+  slideImages?: string[];     // Base64データURL形式の画像配列（優先）
 }
 
 interface SlideData {
@@ -120,7 +122,7 @@ const SlideScene: React.FC<{
           }}
         >
           <Img
-            src={staticFile(slide.imageUrl)}
+            src={slide.imageUrl}
             style={{
               width: "100%",
               height: "100%",
@@ -285,8 +287,10 @@ export const SlideVideo: React.FC<SlideVideoProps> = ({
   topic,
   authorName = "if(塾) Blog",
   audioUrl = null,
+  audioDataUrl = null,
   slideImagePrefix = "slide_",
-  slideDuration = 5
+  slideDuration = 5,
+  slideImages = []
 }) => {
   const { fps } = useVideoConfig();
   const colors = TOPIC_COLORS[topic] || TOPIC_COLORS.ai_tools;
@@ -299,12 +303,13 @@ export const SlideVideo: React.FC<SlideVideoProps> = ({
 
   const sequences: JSX.Element[] = [];
 
-  // オーディオトラック
-  if (audioUrl) {
+  // オーディオトラック（Base64データURL優先、次にstaticFile）
+  const audioSource = audioDataUrl || (audioUrl ? staticFile(audioUrl) : null);
+  if (audioSource) {
     sequences.push(
       <Audio
         key="audio"
-        src={staticFile(audioUrl)}
+        src={audioSource}
         volume={1}
       />
     );
@@ -315,10 +320,25 @@ export const SlideVideo: React.FC<SlideVideoProps> = ({
   slides.forEach((slide, index) => {
     const transition = transitions[index % transitions.length];
 
-    // スライド用の画像URL設定
+    // スライド用の画像URL設定（Base64データURL優先）
+    // 1. slideImagesにBase64があればそれを使用
+    // 2. slide.imageUrlがあればそれを使用
+    // 3. フォールバック: staticFile形式のパス
+    let imageUrl: string;
+    if (slideImages && slideImages[index]) {
+      // Base64データURLを直接使用
+      imageUrl = slideImages[index];
+    } else if (slide.imageUrl) {
+      // スライドに設定された画像URL
+      imageUrl = slide.imageUrl.startsWith('data:') ? slide.imageUrl : staticFile(slide.imageUrl);
+    } else {
+      // フォールバック: public/slides/のファイル
+      imageUrl = staticFile(`slides/${slideImagePrefix}${String(index + 1).padStart(2, "0")}.png`);
+    }
+
     const slideWithImage: SlideData = {
       ...slide,
-      imageUrl: slide.imageUrl || `slides/${slideImagePrefix}${String(index + 1).padStart(2, "0")}.png`
+      imageUrl
     };
 
     sequences.push(
