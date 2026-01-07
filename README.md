@@ -1,8 +1,16 @@
-# if(塾) Blog Automation System v2.7.0
+# if(塾) Blog Automation System v2.8.0
 
 Gemini API を活用した、最新トレンド情報を自動収集して画像・**スライド動画**付き**高品質ブログ記事（20,000文字以上）**を生成・GitHub Pagesに自動投稿するシステム。
 
 ## 最新アップデート（2026年1月7日）
+
+### v2.8.0: 動画レンダリング修正 & セットアップ簡素化
+- **青い画面問題修正**: 最後のスライドがフェードアウトしない（DailyInstagram方式）
+- **SlideVideo.tsx完全書き直し**: シンプルで安定したレンダリングロジック
+- **セットアップスクリプト追加**: `setup.py`で環境構築を自動化
+- **テストスクリプト追加**: `test_full_pipeline.py`で動作確認
+- **dotenv対応**: ローカル開発で`.env`ファイルを自動読み込み
+- **デバッグログ強化**: 動画生成の各ステップを詳細にログ出力
 
 ### v2.7.0: Base64 Data URL方式 & VOICEPEAK TTS統合
 - **Base64 Data URL方式**: DailyInstagram参考実装、file://プロトコル問題を完全解決
@@ -217,9 +225,11 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 ### 前提条件
 - Python 3.11以上
 - Git
+- Node.js 20以上（動画生成に必要）
 - Google AI API Key（[Google AI Studio](https://aistudio.google.com/)から取得）
+- VOICEPEAK（オプション：高品質音声用）
 
-### 1. セットアップ（初回のみ）
+### 1. 簡単セットアップ（推奨）
 
 ```bash
 # リポジトリをクローン
@@ -234,6 +244,19 @@ venv\Scripts\activate          # Windows
 # 依存関係をインストール
 pip install -r requirements.txt
 
+# 対話式セットアップを実行（推奨）
+python setup.py
+```
+
+`setup.py`は以下を自動で行います:
+- python-dotenvのインストール確認
+- `.env`ファイルの作成（APIキー入力）
+- VOICEPEAKの検出
+- Node.js / Remotionの確認・インストール
+
+### 2. 手動セットアップ（上級者向け）
+
+```bash
 # 環境変数を設定
 copy .env.example .env         # Windows
 # cp .env.example .env         # Mac/Linux
@@ -242,9 +265,30 @@ copy .env.example .env         # Windows
 `.env`ファイルを編集してAPIキーを設定：
 ```
 GOOGLE_AI_API_KEY=your_actual_api_key_here
+
+# オプション: VOICEPEAKのパスを指定
+VOICEPEAK_PATH=C:\Program Files\VOICEPEAK\voicepeak.exe
 ```
 
-### 2. 記事を生成
+### 3. 動作確認テスト
+
+```bash
+# 環境確認テスト（動画生成なし）
+python src/scripts/test_full_pipeline.py --skip-video
+
+# 音声テスト付き
+python src/scripts/test_full_pipeline.py --with-audio
+
+# フルテスト（動画生成含む）
+python src/scripts/test_full_pipeline.py --with-audio
+```
+
+テスト結果で各コンポーネントの状態を確認できます:
+- `[OK]` = 正常
+- `[NG]` = 要設定/要インストール
+- `[SKIP]` = スキップ
+
+### 4. 記事を生成
 
 ```bash
 cd src/scripts
@@ -265,7 +309,7 @@ python main.py --topic startup --skip-images --publish
 python main.py --topic education --skip-video --publish
 ```
 
-### 3. コマンドラインオプション
+### 5. コマンドラインオプション
 
 | オプション | 説明 | デフォルト |
 |-----------|------|-----------|
@@ -658,7 +702,16 @@ Error: Image generation failed
 - **解決**: 最新のコードでは自動設定されています
 - **回避**: `--skip-images`オプションで画像生成をスキップ
 
-### 動画生成エラー（v2.6.1で修正）
+### 動画生成エラー（v2.8.0で修正）
+
+#### 動画が途中で青くなる（v2.8.0修正）
+```
+Video turns blue mid-way through playback
+```
+
+- **原因**: 最後のスライドがフェードアウトして、背景色のみが表示されていた
+- **解決**: v2.8.0で最後のスライドはフェードアウトしないように修正（DailyInstagram方式）
+- **確認**: SlideVideo.tsxの`isLast`プロパティで最後のスライドを判定
 
 #### 動画が途中で真っ暗になる
 ```
@@ -683,10 +736,39 @@ Video shows "AIツールの最新動向2025" instead of actual content
 Video has no audio
 ```
 
-- **原因**: WAVファイルが正しく生成/保存されていない
-- **解決**: v2.6.1でWAVヘッダー検証を追加
-- **確認**: ログで「WAVファイル検証: 有効なWAVフォーマット」を確認
-- **注意**: TTS API失敗時は無音動画が生成される（正常動作）
+- **原因**: WAVファイルが正しく生成/保存されていない、またはTTSが未設定
+- **解決**: 以下のいずれかを設定
+  1. `.env`に`GOOGLE_AI_API_KEY`を設定（Gemini TTS使用）
+  2. VOICEPEAKをインストール（高品質日本語音声）
+- **確認**: `python src/scripts/test_full_pipeline.py --with-audio`で音声生成をテスト
+- **注意**: TTS未設定時は無音動画が生成される（正常動作）
+
+### セットアップ関連エラー
+
+#### test_full_pipeline.pyでAPI キー未設定
+```
+[NG] GOOGLE_AI_API_KEY: 未設定
+```
+
+- **解決**: `python setup.py`を実行してAPIキーを設定、または手動で`.env`ファイルを作成
+- **取得方法**: [Google AI Studio](https://aistudio.google.com/app/apikey)からAPIキーを取得
+
+#### VOICEPEAK未インストール
+```
+[NG] VOICEPEAK: 未インストール
+```
+
+- **解決**: VOICEPEAKダウンローダーを実行してインストール
+- **場所**: `voicepeak_6nare_dl\VOICEPEAK...\Windows\voicepeak-downloader.exe`
+- **代替**: Gemini TTSを使用（APIキー設定で自動的に使用）
+
+#### Remotion未インストール
+```
+[NG] Remotion: 未インストール
+```
+
+- **解決**: `cd remotion && npm install`を実行
+- **注意**: Node.js 20以上が必要
 
 ### フォールバック動作
 

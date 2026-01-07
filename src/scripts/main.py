@@ -25,6 +25,16 @@ import logging
 import sys
 from pathlib import Path
 
+# Load .env file for local development
+try:
+    from dotenv import load_dotenv
+    env_path = Path(__file__).parent.parent.parent / ".env"
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"[Main] Loaded environment from: {env_path}")
+except ImportError:
+    pass  # dotenv not installed, use environment variables directly
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from lib.timezone import format_date
 

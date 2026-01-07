@@ -1,14 +1,11 @@
 /**
- * Remotion Render Script
- * ブログ動画・スライド動画をプログラマティックにレンダリング
+ * Remotion Render Script v2.8.0
+ * DailyInstagramの方式を参考に、Base64データURLを確実に処理
  *
- * 対応コンポジション:
- * - BlogVideo: 30秒の概要動画
- * - BlogVideoShort: 15秒のショート動画
- * - SlideVideo: スライドベースの解説動画（可変長）
- * - SlideVideoShort: スライドベースのショート動画
- *
- * CI環境対応: 適切なChromium設定とGL設定
+ * 重要な変更点:
+ * - Base64画像・音声データの詳細なログ
+ * - propsの検証と正規化
+ * - エラー時の詳細な診断情報
  */
 
 import { bundle } from "@remotion/bundler";
@@ -23,116 +20,157 @@ const __dirname = path.dirname(__filename);
 // CI環境かどうかを判定
 const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
 
-// GL mode selection (swiftshader is most reliable for CI)
-// Priority: swiftshader > swangle > angle
+// GL mode selection
 const getGlMode = () => {
   if (process.env.REMOTION_GL) {
     return process.env.REMOTION_GL;
   }
-  // For CI, use swiftshader (software rendering, most compatible)
   return isCI ? 'swiftshader' : 'angle';
 };
 
-// CI環境用のChromiumオプション (Remotion 4.0 API)
+// Chromiumオプション
 const chromiumOptions = {
-  // CI環境ではソフトウェアレンダリングを使用
   gl: getGlMode(),
-  // Linux環境ではマルチプロセスを有効化
   enableMultiProcessOnLinux: true,
-  // ヘッドレスモード
   headless: true,
-  // CI環境での追加安定化設定
   ...(isCI && {
     disableWebSecurity: true,
     ignoreCertificateErrors: true,
   }),
 };
 
-// コンポジション別のデフォルト設定
-const COMPOSITION_DEFAULTS = {
-  BlogVideo: { fps: 30, width: 1920, height: 1080, durationInFrames: 900 },
-  BlogVideoShort: { fps: 30, width: 1080, height: 1920, durationInFrames: 450 },
-  SlideVideo: { fps: 30, width: 1920, height: 1080, durationInFrames: 1800 },
-  SlideVideoShort: { fps: 30, width: 1080, height: 1920, durationInFrames: 900 },
-};
+/**
+ * Base64データURLの検証
+ */
+function validateBase64DataUrl(dataUrl, type = 'unknown') {
+  if (!dataUrl) {
+    return { valid: false, reason: 'null or undefined' };
+  }
+  if (typeof dataUrl !== 'string') {
+    return { valid: false, reason: `not a string: ${typeof dataUrl}` };
+  }
+  if (!dataUrl.startsWith('data:')) {
+    return { valid: false, reason: 'does not start with data:' };
+  }
+
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) {
+    return { valid: false, reason: 'invalid data URL format' };
+  }
+
+  const mimeType = match[1];
+  const base64Data = match[2];
+  const estimatedSize = Math.round(base64Data.length * 0.75);
+
+  return {
+    valid: true,
+    mimeType,
+    base64Length: base64Data.length,
+    estimatedBytes: estimatedSize,
+    preview: dataUrl.substring(0, 50) + '...'
+  };
+}
+
+/**
+ * propsを検証してログ出力
+ */
+function validateAndLogProps(inputProps) {
+  console.log('\n[Remotion] ========== PROPS VALIDATION ==========');
+
+  // 基本情報
+  console.log(`[Remotion] title: ${inputProps.title || 'N/A'}`);
+  console.log(`[Remotion] topic: ${inputProps.topic || 'N/A'}`);
+  console.log(`[Remotion] slideDuration: ${inputProps.slideDuration || 5}s`);
+
+  // スライドデータ
+  const slides = inputProps.slides || [];
+  console.log(`[Remotion] slides count: ${slides.length}`);
+  slides.forEach((slide, i) => {
+    console.log(`[Remotion]   slide[${i}]: type=${slide.type}, heading="${(slide.heading || '').substring(0, 30)}..."`);
+  });
+
+  // Base64画像
+  const slideImages = inputProps.slideImages || [];
+  console.log(`\n[Remotion] slideImages count: ${slideImages.length}`);
+  slideImages.forEach((img, i) => {
+    const validation = validateBase64DataUrl(img, `image[${i}]`);
+    if (validation.valid) {
+      console.log(`[Remotion]   image[${i}]: VALID (${validation.mimeType}, ~${Math.round(validation.estimatedBytes/1024)}KB)`);
+    } else {
+      console.log(`[Remotion]   image[${i}]: INVALID - ${validation.reason}`);
+    }
+  });
+
+  // Base64音声
+  console.log(`\n[Remotion] audioDataUrl: ${inputProps.audioDataUrl ? 'present' : 'absent'}`);
+  if (inputProps.audioDataUrl) {
+    const audioValidation = validateBase64DataUrl(inputProps.audioDataUrl, 'audio');
+    if (audioValidation.valid) {
+      console.log(`[Remotion]   audio: VALID (${audioValidation.mimeType}, ~${Math.round(audioValidation.estimatedBytes/1024)}KB)`);
+    } else {
+      console.log(`[Remotion]   audio: INVALID - ${audioValidation.reason}`);
+    }
+  }
+
+  // フォールバック音声
+  console.log(`[Remotion] audioUrl (fallback): ${inputProps.audioUrl || 'none'}`);
+  if (inputProps.audioUrl) {
+    const audioPath = path.join(__dirname, "public", inputProps.audioUrl);
+    if (fs.existsSync(audioPath)) {
+      const stats = fs.statSync(audioPath);
+      console.log(`[Remotion]   file exists: ${stats.size} bytes`);
+    } else {
+      console.log(`[Remotion]   file NOT FOUND`);
+    }
+  }
+
+  console.log('[Remotion] ========== END VALIDATION ==========\n');
+
+  // 警告を出力
+  if (slideImages.length === 0 && slides.length > 0) {
+    console.warn('[Remotion] WARNING: No Base64 images provided! Video may show fallback images.');
+  }
+
+  if (slideImages.length > 0 && slideImages.length !== slides.length) {
+    console.warn(`[Remotion] WARNING: Image count (${slideImages.length}) does not match slide count (${slides.length})`);
+  }
+}
 
 async function render() {
-  // コマンドライン引数を取得
   const args = process.argv.slice(2);
   const compositionId = args[0] || "BlogVideo";
   const outputPath = args[1] || path.join(__dirname, "out", "video.mp4");
   const propsFile = args[2];
 
   console.log(`[Remotion] ========================================`);
-  console.log(`[Remotion] Starting render...`);
+  console.log(`[Remotion] Remotion Render v2.8.0`);
+  console.log(`[Remotion] ========================================`);
   console.log(`[Remotion] Composition: ${compositionId}`);
   console.log(`[Remotion] Output: ${outputPath}`);
+  console.log(`[Remotion] Props file: ${propsFile || 'none'}`);
   console.log(`[Remotion] CI Environment: ${isCI}`);
   console.log(`[Remotion] GL mode: ${chromiumOptions.gl}`);
-  console.log(`[Remotion] DISPLAY: ${process.env.DISPLAY || 'not set'}`);
-  console.log(`[Remotion] ========================================`);
 
   // propsを読み込む
   let inputProps = {};
   if (propsFile && fs.existsSync(propsFile)) {
-    const propsContent = fs.readFileSync(propsFile, "utf-8");
-    inputProps = JSON.parse(propsContent);
-    console.log(`[Remotion] Props loaded from: ${propsFile}`);
-    console.log(`[Remotion] Title: ${inputProps.title || 'N/A'}`);
+    try {
+      const propsContent = fs.readFileSync(propsFile, "utf-8");
+      console.log(`[Remotion] Props file size: ${propsContent.length} chars`);
 
-    // SlideVideoの場合、スライド数を表示
-    if (compositionId.includes('Slide') && inputProps.slides) {
-      console.log(`[Remotion] Slides: ${inputProps.slides.length}`);
-      console.log(`[Remotion] Slide Duration: ${inputProps.slideDuration || 5}s each`);
-      // 動画の総時間を計算
-      const fps = 30;
-      const slideDuration = inputProps.slideDuration || 5;
-      const totalFrames = inputProps.slides.length * slideDuration * fps;
-      const totalSeconds = totalFrames / fps;
-      console.log(`[Remotion] Calculated Duration: ${totalSeconds}s (${totalFrames} frames)`);
+      inputProps = JSON.parse(propsContent);
+      console.log(`[Remotion] Props parsed successfully`);
+
+      // 詳細な検証
+      validateAndLogProps(inputProps);
+
+    } catch (parseError) {
+      console.error(`[Remotion] ERROR parsing props file: ${parseError.message}`);
+      console.error(`[Remotion] This might be due to invalid JSON or encoding issues`);
+      process.exit(1);
     }
-
-    // audioUrl の検証
-    if (inputProps.audioUrl) {
-      const audioPath = path.join(__dirname, "public", inputProps.audioUrl);
-      if (fs.existsSync(audioPath)) {
-        const audioStats = fs.statSync(audioPath);
-        console.log(`[Remotion] Audio file: ${inputProps.audioUrl} (${audioStats.size} bytes)`);
-
-        // WAVヘッダーの検証
-        const audioBuffer = Buffer.alloc(12);
-        const fd = fs.openSync(audioPath, 'r');
-        fs.readSync(fd, audioBuffer, 0, 12, 0);
-        fs.closeSync(fd);
-
-        const isValidWav = audioBuffer.slice(0, 4).toString() === 'RIFF' &&
-                          audioBuffer.slice(8, 12).toString() === 'WAVE';
-
-        // WAVヘッダーが有効なら、サイズに関係なく受け入れる
-        // 以前は10KB以上を要求していたが、短いナレーションも受け入れる
-        if (isValidWav) {
-          console.log(`[Remotion] Audio validation: VALID WAV ✓ (${audioStats.size} bytes)`);
-          if (audioStats.size < 10000) {
-            console.log(`[Remotion]   Note: Audio file is small but valid`);
-          }
-        } else {
-          console.warn(`[Remotion] Audio validation: INVALID WAV header`);
-          console.warn(`[Remotion]   - Header: ${audioBuffer.slice(0, 4).toString()} / ${audioBuffer.slice(8, 12).toString()}`);
-          console.warn(`[Remotion]   - Size: ${audioStats.size} bytes`);
-          // ヘッダーが無効でも、ファイルが存在すればそのまま使用を試みる
-          if (audioStats.size > 44) {
-            console.log(`[Remotion]   Attempting to use audio anyway...`);
-          } else {
-            inputProps.audioUrl = null;
-          }
-        }
-      } else {
-        console.warn(`[Remotion] Audio file not found: ${audioPath}`);
-        inputProps.audioUrl = null;
-      }
-    } else {
-      console.log(`[Remotion] Audio: None (silent video)`);
-    }
+  } else {
+    console.log(`[Remotion] No props file provided, using defaults`);
   }
 
   // 出力ディレクトリを作成
@@ -141,13 +179,13 @@ async function render() {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  // GL modes to try in order of preference for CI
+  // GL modes to try
   const glModesToTry = isCI ? ['swiftshader', 'swangle', 'angle'] : ['angle'];
   let lastError = null;
   let bundled = null;
 
-  // Webpackでバンドル (only once)
-  console.log("[Remotion] Bundling...");
+  // Webpackでバンドル
+  console.log("\n[Remotion] Bundling...");
   try {
     bundled = await bundle({
       entryPoint: path.join(__dirname, "src", "index.tsx"),
@@ -159,7 +197,7 @@ async function render() {
     process.exit(1);
   }
 
-  // Try each GL mode until one succeeds
+  // 各GL modeを試行
   for (const glMode of glModesToTry) {
     console.log(`\n[Remotion] ========================================`);
     console.log(`[Remotion] Attempting render with GL mode: ${glMode}`);
@@ -180,7 +218,7 @@ async function render() {
         chromiumOptions: currentChromiumOptions,
       });
 
-      console.log(`[Remotion] Composition: ${composition.id}`);
+      console.log(`[Remotion] Composition selected: ${composition.id}`);
       console.log(`[Remotion] Duration: ${composition.durationInFrames} frames @ ${composition.fps}fps`);
       console.log(`[Remotion] Size: ${composition.width}x${composition.height}`);
 
@@ -195,13 +233,10 @@ async function render() {
         outputLocation: outputPath,
         inputProps,
         chromiumOptions: currentChromiumOptions,
-        // CRF値を調整（品質とファイルサイズのバランス）
         crf: 23,
-        // ピクセルフォーマット
         pixelFormat: "yuv420p",
         onProgress: ({ progress }) => {
           const percent = Math.round(progress * 100);
-          // 10%ごとにログを出力
           if (percent % 10 === 0) {
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
             console.log(`[Remotion] Progress: ${percent}% (${elapsed}s elapsed)`);
@@ -211,17 +246,17 @@ async function render() {
 
       const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`[Remotion] Render complete in ${totalTime}s`);
-      console.log(`[Remotion] Output: ${outputPath}`);
 
       // ファイルサイズを確認
       const stats = fs.statSync(outputPath);
       const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
+      console.log(`[Remotion] Output: ${outputPath}`);
       console.log(`[Remotion] File size: ${sizeMB} MB (${stats.size} bytes)`);
 
       if (stats.size < 10000) {
-        console.error(`[Remotion] ERROR: File size is too small (${stats.size} bytes)`);
+        console.error(`[Remotion] ERROR: File size too small (${stats.size} bytes)`);
         lastError = new Error(`File size too small: ${stats.size} bytes`);
-        continue; // Try next GL mode
+        continue;
       }
 
       console.log(`[Remotion] SUCCESS with GL mode: ${glMode}`);
@@ -230,7 +265,6 @@ async function render() {
       console.error(`[Remotion] GL mode '${glMode}' failed: ${error.message}`);
       lastError = error;
 
-      // If not the last mode, try the next one
       const modeIndex = glModesToTry.indexOf(glMode);
       if (modeIndex < glModesToTry.length - 1) {
         console.log(`[Remotion] Trying next GL mode...`);
@@ -239,49 +273,13 @@ async function render() {
     }
   }
 
-  // All GL modes failed
+  // 全て失敗
   const error = lastError || new Error("All GL modes failed");
-  {
-    console.error(`[Remotion] ERROR: ${error.message}`);
-
-    // 詳細なエラー情報
-    if (error.stack) {
-      console.error(`[Remotion] Stack trace:\n${error.stack}`);
-    }
-
-    // エラー解析と解決策の提案
-    const errorMsg = error.message.toLowerCase();
-    console.error("\n[Remotion] === Error Analysis ===");
-
-    if (errorMsg.includes('target closed')) {
-      console.error("Cause: Chromium browser crashed");
-      console.error("Solutions:");
-      console.error("  1. Ensure all Chrome dependencies are installed");
-      console.error("  2. Try using gl: 'swiftshader' instead of 'swangle'");
-      console.error("  3. Increase available memory");
-      console.error("  4. Check DISPLAY environment variable is set");
-    } else if (errorMsg.includes('enoent')) {
-      console.error("Cause: Required file or directory not found");
-      console.error("Solutions:");
-      console.error("  1. Run 'npm install' in the remotion directory");
-      console.error("  2. Check that all source files exist");
-    } else if (errorMsg.includes('timeout')) {
-      console.error("Cause: Operation timed out");
-      console.error("Solutions:");
-      console.error("  1. Increase timeout value");
-      console.error("  2. Reduce video complexity or duration");
-    } else if (errorMsg.includes('gl') || errorMsg.includes('gpu') || errorMsg.includes('angle')) {
-      console.error("Cause: Graphics/GPU related error");
-      console.error("Solutions:");
-      console.error("  1. Try gl: 'swiftshader' for software rendering");
-      console.error("  2. Ensure Mesa/LLVM libraries are installed");
-    } else {
-      console.error("Cause: Unknown error");
-      console.error("Check the full stack trace above for more details");
-    }
-
-    process.exit(1);
+  console.error(`[Remotion] FATAL ERROR: ${error.message}`);
+  if (error.stack) {
+    console.error(`[Remotion] Stack trace:\n${error.stack}`);
   }
+  process.exit(1);
 }
 
 render();

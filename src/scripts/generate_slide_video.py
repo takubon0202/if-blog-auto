@@ -36,6 +36,15 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 import sys
 
+# Load .env file for local development
+try:
+    from dotenv import load_dotenv
+    env_path = Path(__file__).parent.parent.parent / ".env"
+    if env_path.exists():
+        load_dotenv(env_path)
+except ImportError:
+    pass
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from lib.timezone import get_timestamp_jst, format_date
