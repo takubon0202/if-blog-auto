@@ -145,6 +145,65 @@ class SlideVideoGenerator:
 
         return slides_result
 
+    async def _generate_narration_script(
+        self,
+        slides: List[Dict],
+        title: str,
+        topic: str,
+        slide_duration: int
+    ) -> str:
+        """
+        スライド内容からナレーションスクリプトを生成
+
+        Args:
+            slides: スライドデータ
+            title: 記事タイトル
+            topic: トピックID
+            slide_duration: 各スライドの表示時間
+
+        Returns:
+            ナレーションスクリプト
+        """
+        client = self._get_gemini_client()
+
+        # スライド情報を整理
+        slides_info = "\n".join([
+            f"スライド{i+1} ({s.get('type', 'content')}): {s.get('heading', '')} - {', '.join(s.get('points', []))}"
+            for i, s in enumerate(slides)
+        ])
+
+        total_duration = len(slides) * slide_duration
+        target_chars = total_duration * 4  # 1秒あたり約4文字
+
+        prompt = f"""以下のプレゼンテーションスライドを解説するナレーションスクリプトを作成してください。
+
+【タイトル】
+{title}
+
+【スライド構成】
+{slides_info}
+
+【スクリプト作成ルール】
+1. 合計{total_duration}秒（約{target_chars}文字）で、各スライドを{slide_duration}秒程度で解説
+2. 自然な話し言葉で、プレゼンテーション解説者のように
+3. 構成:
+   - タイトルスライド: 導入と期待感を醸成
+   - コンテンツスライド: 各ポイントを簡潔に説明
+   - エンディング: まとめと次のアクションを促す
+4. スライド間の接続詞を適切に使用
+5. 絵文字や記号は使用しない
+6. 専門的だが親しみやすいトーンで
+
+【出力形式】
+ナレーションスクリプト全文のみを出力してください。"""
+
+        result = await client.generate_content(
+            prompt=prompt,
+            model=client.MODEL_FLASH,
+            temperature=0.7
+        )
+        return result.text.strip()
+
     async def _step2_generate_audio(
         self,
         slides: List[Dict],
@@ -154,7 +213,11 @@ class SlideVideoGenerator:
         slide_duration: int
     ) -> Dict[str, Any]:
         """
-        Step 2: 音声生成（スライド内容を元にTTS音声を生成）
+        Step 2: 音声生成（VOICEPEAK優先、Gemini TTSフォールバック）
+
+        優先順位:
+        1. VOICEPEAK（ローカル環境で利用可能な場合）
+        2. Gemini 2.5 Flash TTS（GitHub Actions等）
 
         Args:
             slides: スライドデータ
@@ -169,83 +232,98 @@ class SlideVideoGenerator:
         logger.info("=" * 60)
         logger.info("STEP 2: 音声生成（スライド内容からナレーション）")
         logger.info("=" * 60)
-        logger.info(f"  音声タイプ: {voice}")
         logger.info(f"  スライド数: {len(slides)}枚")
         logger.info(f"  目標時間: {len(slides) * slide_duration}秒")
 
-        client = self._get_gemini_client()
-
+        # まずナレーションスクリプトを生成
         try:
-            narration = await client.generate_slide_narration(
+            script = await self._generate_narration_script(
                 slides=slides,
                 title=title,
                 topic=topic,
-                voice=voice,
                 slide_duration=slide_duration
             )
-
-            if narration.get("status") == "success":
-                audio_data = narration.get("audio_data")
-                script = narration.get("script", "")
-                audio_size = narration.get("audio_size_bytes", 0)
-
-                # 音声データの検証（WAVヘッダー44バイト以上あればOK）
-                # 30秒の音声 = 30 * 24000 * 2 = 約1.4MB
-                # 短い音声でも数十KBは必要だが、閾値を緩くする
-                MIN_AUDIO_SIZE = 1000  # 1KB（WAVヘッダー + 最低限のデータ）
-                if audio_data and len(audio_data) >= MIN_AUDIO_SIZE:
-                    logger.info(f"  ✓ 音声生成成功!")
-                    logger.info(f"  スクリプト長: {len(script)}文字")
-                    logger.info(f"  音声サイズ: {len(audio_data):,} bytes")
-                    logger.info(f"  スクリプト冒頭: {script[:100]}...")
-
-                    # WAVヘッダーの検証（RIFF/WAVE）
-                    if len(audio_data) >= 12:
-                        is_wav = audio_data[:4] == b'RIFF' and audio_data[8:12] == b'WAVE'
-                        logger.info(f"  WAV形式: {'✓ 有効' if is_wav else '✗ 無効'}")
-
-                    return {
-                        "status": "success",
-                        "audio_data": audio_data,
-                        "script": script,
-                        "audio_size_bytes": len(audio_data),
-                        "voice": voice
-                    }
-                else:
-                    actual_size = len(audio_data) if audio_data else 0
-                    logger.warning(f"  ✗ 音声データが不足: {actual_size} bytes")
-                    # 音声が小さくても、データがあればそのまま渡す（後で検証）
-                    if audio_data and len(audio_data) > 44:  # WAVヘッダーより大きければ
-                        logger.info(f"  → 小さいが音声データとして渡します")
-                        return {
-                            "status": "partial",
-                            "audio_data": audio_data,
-                            "script": script,
-                            "audio_size_bytes": actual_size,
-                            "voice": voice
-                        }
-                    return {
-                        "status": "failed",
-                        "error": f"Audio data too small: {actual_size} bytes",
-                        "audio_data": None
-                    }
-            else:
-                error_msg = narration.get("error", "Unknown error")
-                logger.warning(f"  ✗ 音声生成失敗: {error_msg}")
-                # デバッグ情報を出力
-                logger.warning(f"  narration keys: {narration.keys()}")
-                return {
-                    "status": "failed",
-                    "error": error_msg,
-                    "audio_data": None
-                }
-
+            logger.info(f"  スクリプト生成完了: {len(script)}文字")
+            logger.info(f"  スクリプト冒頭: {script[:100]}...")
         except Exception as e:
-            logger.error(f"  音声生成エラー: {e}")
+            logger.error(f"  スクリプト生成失敗: {e}")
             return {
                 "status": "error",
-                "error": str(e),
+                "error": f"Script generation failed: {e}",
                 "audio_data": None
+            }
+
+        # ===================================================
+        # 音声生成（VOICEPEAK優先）
+        # ===================================================
+        audio_data = None
+        tts_source = None
+
+        # 1. VOICEPEAKを試行（ローカル環境）
+        try:
+            from lib.voicepeak_client import VoicepeakClient
+            voicepeak = VoicepeakClient()
+
+            if voicepeak.is_available:
+                logger.info("  TTS: VOICEPEAKを使用")
+                result = await voicepeak.generate_narration(
+                    script=script,
+                    topic=topic,
+                    speed=110  # 少し速め
+                )
+                if result and result.audio_data:
+                    audio_data = result.audio_data
+                    tts_source = "voicepeak"
+                    logger.info(f"  ✓ VOICEPEAK音声生成成功: {len(audio_data):,} bytes")
+        except ImportError:
+            logger.info("  VOICEPEAK client not available")
+        except Exception as e:
+            logger.warning(f"  VOICEPEAK失敗: {e}")
+
+        # 2. Gemini TTSにフォールバック
+        if audio_data is None:
+            logger.info("  TTS: Gemini 2.5 Flash TTSを使用（フォールバック）")
+            client = self._get_gemini_client()
+            try:
+                audio_result = await client.generate_audio(
+                    text=script,
+                    voice=voice
+                )
+                if audio_result and audio_result.audio_data:
+                    audio_data = audio_result.audio_data
+                    tts_source = "gemini"
+                    logger.info(f"  ✓ Gemini TTS音声生成成功: {len(audio_data):,} bytes")
+            except Exception as e:
+                logger.warning(f"  Gemini TTS失敗: {e}")
+
+        # ===================================================
+        # 結果の返却
+        # ===================================================
+        if audio_data:
+            # WAVヘッダーの検証
+            is_wav = False
+            if len(audio_data) >= 12:
+                is_wav = audio_data[:4] == b'RIFF' and audio_data[8:12] == b'WAVE'
+
+            logger.info(f"  ✓ 音声生成完了 ({tts_source or 'unknown'})")
+            logger.info(f"  音声サイズ: {len(audio_data):,} bytes")
+            logger.info(f"  WAV形式: {'✓ 有効' if is_wav else '✗ 無効'}")
+
+            return {
+                "status": "success",
+                "audio_data": audio_data,
+                "script": script,
+                "audio_size_bytes": len(audio_data),
+                "voice": voice,
+                "tts_source": tts_source
+            }
+        else:
+            logger.warning("  ✗ 音声生成失敗（全TTSソース失敗）")
+            return {
+                "status": "failed",
+                "error": "All TTS sources failed",
+                "audio_data": None,
+                "script": script
             }
 
     async def _step3_prepare_files(

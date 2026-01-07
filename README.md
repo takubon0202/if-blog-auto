@@ -1,8 +1,20 @@
-# if(塾) Blog Automation System v2.6.2
+# if(塾) Blog Automation System v2.7.0
 
 Gemini API を活用した、最新トレンド情報を自動収集して画像・**スライド動画**付き**高品質ブログ記事（20,000文字以上）**を生成・GitHub Pagesに自動投稿するシステム。
 
 ## 最新アップデート（2026年1月7日）
+
+### v2.7.0: Base64 Data URL方式 & VOICEPEAK TTS統合
+- **Base64 Data URL方式**: DailyInstagram参考実装、file://プロトコル問題を完全解決
+- **VOICEPEAK TTS統合**: 高品質日本語音声合成（商用可能 6ナレーターセット対応）
+- **デュアルTTSシステム**: VOICEPEAK（ローカル優先）+ Gemini TTS（クラウドフォールバック）
+- **トピック別ナレーター**: 各トピックに最適な声を自動選択
+- **画像・音声のBase64変換**: Remotionへのデータ受け渡しを確実に
+- **プロパティ拡張**: `slideImages[]`, `audioDataUrl` props追加
+
+### v2.6.3: 音声検証の緩和
+- **最小サイズ制限撤廃**: 短い音声でも有効として扱う
+- **WAVヘッダーのみ検証**: サイズではなくフォーマットで判定
 
 ### v2.6.2: 音声生成の確実性向上
 - **多層音声検証**: PCMデータ、WAVファイル、Remotion前の3段階で検証
@@ -114,14 +126,18 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 │  │      Gemini 2.5 Flash image → 各スライド画像             │   │
 │  ├──────────────────────────────────────────────────────────┤   │
 │  │ 4-2. 音声生成（スライド内容を元に）         [約30秒]     │   │
-│  │      Gemini 2.5 Flash TTS → narration.wav                │   │
-│  │      形式: WAV (24kHz, 16bit, mono)                      │   │
+│  │      【ローカル】VOICEPEAK TTS → narration.wav（優先）   │   │
+│  │      【クラウド】Gemini TTS（フォールバック）            │   │
+│  │      形式: WAV (24kHz/44.1kHz, 16bit, mono)              │   │
 │  ├──────────────────────────────────────────────────────────┤   │
 │  │ 4-3. ファイル配置                           [数秒]       │   │
 │  │      スライド画像 → public/slides/                       │   │
 │  │      音声ファイル → public/narration.wav                 │   │
 │  ├──────────────────────────────────────────────────────────┤   │
 │  │ 4-4. Remotion レンダリング                  [約2-3分]    │   │
+│  │      【v2.7.0】Base64 Data URL方式                       │   │
+│  │      - 画像: PNG → data:image/png;base64,...             │   │
+│  │      - 音声: WAV → data:audio/wav;base64,...             │   │
 │  │      SlideVideo → 1920x1080 MP4                          │   │
 │  │      6スライド × 5秒 = **30秒動画**（最大）              │   │
 │  │      **品質評価なし** → 即座に成功                       │   │
@@ -171,7 +187,7 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 | 記事生成 | `gemini-3-pro-preview` | 全曜日 | 約1-2分 |
 | 画像生成 | `gemini-2.5-flash-image` (16:9) | 全曜日 | 約30秒-1分 |
 | スライド生成 | `gemini-3-pro-preview` + `gemini-2.5-flash-image` | 全曜日 | 約1-2分 |
-| ナレーション | `gemini-2.5-flash-preview-tts` (WAV) | 全曜日 | 約30秒 |
+| ナレーション | VOICEPEAK（ローカル優先）/ Gemini TTS（フォールバック） | 全曜日 | 約30秒 |
 | 動画レンダリング | Remotion 4.0 SlideVideo | 全曜日 | 約2-3分 |
 | SEO最適化 | `gemini-3-flash-preview`（思考オフ） | 全曜日 | 約5-10秒 |
 | 品質レビュー | `gemini-3-flash-preview`（思考オフ） | 全曜日 | 約10-20秒 |
@@ -497,8 +513,9 @@ if-blog-auto/
 │   │   └── settings.json    # システム設定
 │   │
 │   ├── lib/
-│   │   ├── gemini_client.py # Gemini APIクライアント
-│   │   └── timezone.py      # タイムゾーンユーティリティ (JST)
+│   │   ├── gemini_client.py   # Gemini APIクライアント
+│   │   ├── voicepeak_client.py # VOICEPEAK TTSクライアント（v2.7.0）
+│   │   └── timezone.py        # タイムゾーンユーティリティ (JST)
 │   │
 │   ├── scripts/
 │   │   ├── main.py              # メインスクリプト
@@ -747,11 +764,16 @@ Deep Research失敗時は自動的にMulti-Search（3回検索）にフォール
 
 ---
 
-## 動画生成（Remotion v2.6）
+## 動画生成（Remotion v2.7.0）
 
 ブログ記事の内容から自動でスライド解説動画を生成します。
 
-### 重要: 動画生成フロー（v2.6更新）
+### 重要: 動画生成フロー（v2.7.0更新）
+
+**v2.7.0の主な改善点:**
+- **Base64 Data URL方式**: ファイルパスではなくBase64エンコードでデータを渡す
+- **VOICEPEAK TTS統合**: 高品質日本語音声（ローカル優先）
+- **デュアルTTSシステム**: VOICEPEAK + Gemini TTSのフォールバック構成
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -812,8 +834,80 @@ Slide 6: エンディングスライド
   - ブログ名「if(塾) Blog」
   - CTA「ブログで詳しく読む」
 
-+ TTS音声（Gemini 2.5 Flash TTS）
-  形式: WAV (24kHz, 16bit, mono)
++ TTS音声（デュアルTTSシステム）
+  【ローカル優先】VOICEPEAK 商用可能 6ナレーターセット
+  【クラウド】Gemini 2.5 Flash TTS（フォールバック）
+  形式: WAV (44.1kHz/24kHz, 16bit, mono)
+```
+
+### VOICEPEAK TTS システム（v2.7.0新機能）
+
+ローカル環境ではVOICEPEAKを優先使用し、高品質な日本語音声を生成します。
+
+#### ナレーター設定
+
+| ID | ナレーター名 | 特徴 |
+|----|-------------|------|
+| `female1` | Japanese Female 1 | 落ち着いた女性の声（デフォルト） |
+| `female2` | Japanese Female 2 | 優しい女性の声 |
+| `female3` | Japanese Female 3 | 明るい女性の声 |
+| `male1` | Japanese Male 1 | エネルギッシュな男性の声 |
+| `male2` | Japanese Male 2 | 信頼感のある男性の声 |
+| `male3` | Japanese Male 3 | 落ち着いた男性の声 |
+
+#### トピック別ナレーター自動選択
+
+| トピック | 使用ナレーター | 理由 |
+|---------|---------------|------|
+| psychology | female1 | 落ち着いた声で安心感を演出 |
+| education | female1 | 教育的な場面に適した声 |
+| startup | male1 | エネルギッシュな雰囲気 |
+| investment | male2 | 信頼感のある声 |
+| ai_tools | male1 | テクノロジー系に適した声 |
+| inclusive_education | female2 | 優しく寄り添う声 |
+| weekly_summary | female1 | 落ち着いた解説向き |
+
+#### VOICEPEAK インストールパス
+
+```
+# デフォルト検索パス（自動検出）
+C:\Program Files\VOICEPEAK\voicepeak.exe
+C:\Program Files (x86)\VOICEPEAK\voicepeak.exe
+C:\Users\琢己の自作PC\Downloads\voicepeak_6nare_dl\VOICEPEAK 商用可能 6ナレーターセット ダウンロード版\voicepeak.exe
+
+# 環境変数で設定（優先）
+VOICEPEAK_PATH=C:\path\to\voicepeak.exe
+```
+
+#### フォールバック動作
+
+```
+┌─────────────────────────────────────────┐
+│ VOICEPEAK で音声生成を試行              │
+└─────────────────┬───────────────────────┘
+                  │
+        ┌─────────▼─────────┐
+        │   VOICEPEAKが     │
+        │   利用可能？       │
+        └─────────┬─────────┘
+                  │
+       ┌──────────┴──────────┐
+       │                     │
+   ┌───▼───┐            ┌────▼────┐
+   │ 成功  │            │ 失敗/   │
+   │       │            │ 未インストール │
+   └───┬───┘            └────┬────┘
+       │                     │
+       │              ┌──────▼──────────────┐
+       │              │ Gemini 2.5 Flash TTS│
+       │              │ にフォールバック     │
+       │              └──────┬──────────────┘
+       │                     │
+   ┌───▼─────────────────────▼───┐
+   │      WAV音声を出力          │
+   │  tts_source: "voicepeak"    │
+   │  または "gemini_tts"        │
+   └─────────────────────────────┘
 ```
 
 ### 従来動画のシーン構成
@@ -935,15 +1029,16 @@ else:
 
 | カテゴリ | 技術 |
 |---------|------|
-| **AI モデル** | Gemini 3 Pro, Gemini 3 Flash, Deep Research, Gemini 2.5 Flash image/TTS |
-| **動画生成** | Remotion 4.0 (SlideVideo/BlogVideo) |
+| **AI モデル** | Gemini 3 Pro, Gemini 3 Flash, Deep Research, Gemini 2.5 Flash image |
+| **音声合成（TTS）** | VOICEPEAK（ローカル優先）、Gemini 2.5 Flash TTS（フォールバック） |
+| **動画生成** | Remotion 4.0 (SlideVideo/BlogVideo) + Base64 Data URL方式 |
 | **スライド生成** | Marp CLI (Markdown → PDF → PNG) |
 | **言語** | Python 3.11+, JavaScript (Node.js 20+), TypeScript |
 | **ライブラリ** | `google-genai>=1.56.0`, `pdf2image`, `python-pptx` |
 | **検索** | Google Search Tool (Gemini Built-in) |
 | **静的サイト** | Jekyll (GitHub Pages) |
 | **CI/CD** | GitHub Actions |
-| **品質管理** | 独自評価システム（95%合格ライン） |
+| **品質管理** | 独自評価システム（97%合格ライン） |
 
 ---
 
