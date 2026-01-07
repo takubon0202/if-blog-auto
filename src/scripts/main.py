@@ -46,8 +46,8 @@ async def main():
     parser.add_argument('--skip-video', action='store_true', help='Skip video generation')
     parser.add_argument('--use-slide-video', action='store_true', default=True,
                         help='Use slide-based video generation (default: True, recommended)')
-    parser.add_argument('--slide-count', type=int, default=12,
-                        help='Target slide count for slide-based video (default: 12)')
+    parser.add_argument('--slide-count', type=int, default=6,
+                        help='Target slide count for slide-based video (default: 6, max 6 for 30s video)')
     parser.add_argument('--slide-duration', type=int, default=5,
                         help='Duration per slide in seconds (default: 5)')
     parser.add_argument('--publish', action='store_true', default=True,
@@ -139,8 +139,7 @@ async def main():
                     "status": slide_video_result.get("status", "error"),
                     "videos": {"standard": slide_video_result.get("video", {})},
                     "narration": slide_video_result.get("narration", {}),
-                    "slides": slides_data,
-                    "quality": slide_video_result.get("quality", {})
+                    "slides": slides_data
                 }
                 result["steps"]["videos"] = videos
                 result["steps"]["slides"] = {
@@ -149,8 +148,8 @@ async def main():
                 }
 
                 if slide_video_result.get("status") == "success":
-                    quality_pct = slide_video_result.get("quality", {}).get("overall", {}).get("percentage", 0)
-                    logger.info(f"Slide video generated! Quality: {quality_pct}%")
+                    video_duration = slide_video_result.get("video", {}).get("duration", 0)
+                    logger.info(f"Slide video generated! Duration: {video_duration}s (no quality check for videos)")
                 else:
                     logger.warning(f"Slide video generation issue: {slide_video_result.get('status')}")
             else:
