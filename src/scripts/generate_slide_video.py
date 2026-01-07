@@ -3,14 +3,25 @@
 スライドベース動画生成スクリプト - 統合ワークフロー
 
 ブログ記事から高品質なスライド解説動画を自動生成:
-1. スライド生成（Gemini 3 Pro + 2.5 Flash image）
-2. Marp PDF エクスポート
-3. PDF → 画像変換
-4. Remotion 動画生成
-5. Gemini 2.5 Flash TTS 音声生成
 
-注意: 動画生成では品質評価をスキップ（記事のみ品質評価対象）
-動画は30秒以内に制限（6スライド x 5秒 = 30秒）
+【重要: 処理フロー（この順序で実行）】
+Step 1: スライド生成（Gemini 3 Pro + 2.5 Flash image）
+        - 記事からスライド構成を生成
+        - 各スライドの画像を生成
+Step 2: 音声生成（Gemini 2.5 Flash TTS）
+        - スライド内容を元にナレーションスクリプトを生成
+        - TTS音声を生成（WAV形式）
+Step 3: ファイル配置
+        - スライド画像をpublic/slides/にコピー
+        - 音声ファイルをpublic/narration.wavに保存
+Step 4: 動画レンダリング（Remotion）
+        - スライド画像と音声を統合
+        - MP4動画を出力
+
+注意:
+- 動画は30秒以内に制限（6スライド x 5秒）
+- 品質評価は行わない（記事のみ品質評価対象）
+- 音声生成に失敗した場合も動画は生成される（無音）
 
 使用方法:
     python generate_slide_video.py --article-file "output/posts/article.json"
@@ -96,39 +107,160 @@ class SlideVideoGenerator:
 
         return deps
 
-    async def _prepare_public_files(
+    async def _step1_generate_slides(
+        self,
+        article: Dict,
+        target_slides: int
+    ) -> Dict[str, Any]:
+        """
+        Step 1: スライド生成
+
+        Args:
+            article: 記事データ
+            target_slides: 目標スライド枚数
+
+        Returns:
+            スライド生成結果
+        """
+        logger.info("=" * 60)
+        logger.info("STEP 1: スライド生成")
+        logger.info("=" * 60)
+        logger.info(f"  目標スライド数: {target_slides}枚")
+
+        slides_result = await generate_slides(article, target_slides)
+
+        if slides_result.get("status") == "error":
+            logger.error(f"  スライド生成失敗: {slides_result.get('error')}")
+            return slides_result
+
+        slides = slides_result.get("slides", [])
+        slide_images = slides_result.get("slide_images", [])
+
+        logger.info(f"  生成スライド数: {len(slides)}枚")
+        logger.info(f"  生成画像数: {len(slide_images)}枚")
+
+        # 各スライドの内容をログ
+        for i, slide in enumerate(slides):
+            logger.info(f"  スライド{i+1}: {slide.get('type', 'content')} - {slide.get('heading', '')[:30]}...")
+
+        return slides_result
+
+    async def _step2_generate_audio(
+        self,
+        slides: List[Dict],
+        title: str,
+        topic: str,
+        voice: str,
+        slide_duration: int
+    ) -> Dict[str, Any]:
+        """
+        Step 2: 音声生成（スライド内容を元にTTS音声を生成）
+
+        Args:
+            slides: スライドデータ
+            title: 記事タイトル
+            topic: トピックID
+            voice: 音声タイプ
+            slide_duration: 各スライドの表示時間
+
+        Returns:
+            音声生成結果（audio_dataを含む）
+        """
+        logger.info("=" * 60)
+        logger.info("STEP 2: 音声生成（スライド内容からナレーション）")
+        logger.info("=" * 60)
+        logger.info(f"  音声タイプ: {voice}")
+        logger.info(f"  スライド数: {len(slides)}枚")
+        logger.info(f"  目標時間: {len(slides) * slide_duration}秒")
+
+        client = self._get_gemini_client()
+
+        try:
+            narration = await client.generate_slide_narration(
+                slides=slides,
+                title=title,
+                topic=topic,
+                voice=voice,
+                slide_duration=slide_duration
+            )
+
+            if narration.get("status") == "success":
+                audio_data = narration.get("audio_data")
+                script = narration.get("script", "")
+                audio_size = narration.get("audio_size_bytes", 0)
+
+                logger.info(f"  音声生成成功!")
+                logger.info(f"  スクリプト長: {len(script)}文字")
+                logger.info(f"  音声サイズ: {audio_size:,} bytes")
+                logger.info(f"  スクリプト冒頭: {script[:100]}...")
+
+                return {
+                    "status": "success",
+                    "audio_data": audio_data,
+                    "script": script,
+                    "audio_size_bytes": audio_size,
+                    "voice": voice
+                }
+            else:
+                logger.warning(f"  音声生成失敗: {narration.get('error')}")
+                return {
+                    "status": "failed",
+                    "error": narration.get("error"),
+                    "audio_data": None
+                }
+
+        except Exception as e:
+            logger.error(f"  音声生成エラー: {e}")
+            return {
+                "status": "error",
+                "error": str(e),
+                "audio_data": None
+            }
+
+    async def _step3_prepare_files(
         self,
         slide_images: List[str],
         audio_data: Optional[bytes]
     ) -> Dict[str, Any]:
         """
-        public/ディレクトリにファイルを配置
+        Step 3: ファイル配置（public/ディレクトリにファイルを配置）
 
         Args:
             slide_images: スライド画像パスのリスト
-            audio_data: 音声バイナリデータ
+            audio_data: 音声バイナリデータ（WAV形式）
 
         Returns:
             配置されたファイル情報
         """
+        logger.info("=" * 60)
+        logger.info("STEP 3: ファイル配置")
+        logger.info("=" * 60)
+
         result = {
             "audio_file": None,
             "slide_files": [],
-            "slides_dir": None
+            "slides_dir": None,
+            "has_audio": False
         }
 
         # slidesディレクトリを作成
         slides_dir = self.public_dir / "slides"
         slides_dir.mkdir(parents=True, exist_ok=True)
         result["slides_dir"] = str(slides_dir)
+        logger.info(f"  スライドディレクトリ: {slides_dir}")
 
         # スライド画像をコピー
+        copied_count = 0
         for i, image_path in enumerate(slide_images):
             if Path(image_path).exists():
                 dest = slides_dir / f"slide_{i+1:02d}.png"
                 shutil.copy(image_path, dest)
                 result["slide_files"].append(str(dest))
-                logger.info(f"Copied slide image: {dest}")
+                copied_count += 1
+            else:
+                logger.warning(f"  画像が見つかりません: {image_path}")
+
+        logger.info(f"  コピーした画像数: {copied_count}/{len(slide_images)}")
 
         # 音声ファイルを保存
         if audio_data:
@@ -137,39 +269,32 @@ class SlideVideoGenerator:
                 with open(audio_path, "wb") as f:
                     f.write(audio_data)
                 result["audio_file"] = "narration.wav"
-                logger.info(f"Audio saved: {audio_path}")
+                result["has_audio"] = True
+                logger.info(f"  音声ファイル保存: {audio_path} ({len(audio_data):,} bytes)")
+
+                # WAVファイルの検証
+                if audio_path.stat().st_size < 1000:
+                    logger.warning(f"  警告: 音声ファイルが小さすぎます")
+                    result["has_audio"] = False
+
             except Exception as e:
-                logger.error(f"Failed to save audio: {e}")
+                logger.error(f"  音声ファイル保存失敗: {e}")
+                result["has_audio"] = False
+        else:
+            logger.warning("  音声データなし（無音動画になります）")
 
         return result
 
-    def _cleanup_public_files(self):
-        """public/ディレクトリをクリーンアップ"""
-        for item in ["narration.wav"]:
-            path = self.public_dir / item
-            if path.exists():
-                try:
-                    path.unlink()
-                except Exception as e:
-                    logger.warning(f"Cleanup failed: {e}")
-
-        slides_dir = self.public_dir / "slides"
-        if slides_dir.exists():
-            try:
-                shutil.rmtree(slides_dir)
-            except Exception as e:
-                logger.warning(f"Slides cleanup failed: {e}")
-
-    async def _render_slide_video(
+    async def _step4_render_video(
         self,
         slides: List[Dict],
         output_path: str,
         topic: str,
         audio_file: Optional[str],
-        slide_duration: int = 5
+        slide_duration: int
     ) -> bool:
         """
-        Remotionでスライド動画をレンダリング
+        Step 4: Remotionでスライド動画をレンダリング
 
         Args:
             slides: スライドデータ
@@ -181,6 +306,10 @@ class SlideVideoGenerator:
         Returns:
             成功かどうか
         """
+        logger.info("=" * 60)
+        logger.info("STEP 4: 動画レンダリング（Remotion）")
+        logger.info("=" * 60)
+
         # propsを準備
         props = {
             "title": slides[0].get("heading", "Presentation") if slides else "Presentation",
@@ -192,13 +321,17 @@ class SlideVideoGenerator:
             "slideDuration": slide_duration
         }
 
+        logger.info(f"  タイトル: {props['title']}")
+        logger.info(f"  スライド数: {len(slides)}")
+        logger.info(f"  各スライド: {slide_duration}秒")
+        logger.info(f"  音声ファイル: {audio_file or 'なし'}")
+        logger.info(f"  出力先: {output_path}")
+
         # propsをJSONファイルに保存
         props_file = self.remotion_dir / "props_slides.json"
         with open(props_file, "w", encoding="utf-8") as f:
             json.dump(props, f, ensure_ascii=False, indent=2)
-
-        # 動画の長さを計算
-        total_frames = len(slides) * slide_duration * 30  # 30fps
+        logger.info(f"  Props保存: {props_file}")
 
         render_script = self.remotion_dir / "render.mjs"
         cmd = [
@@ -209,7 +342,7 @@ class SlideVideoGenerator:
             str(props_file)
         ]
 
-        logger.info(f"Rendering slide video: {' '.join(cmd)}")
+        logger.info(f"  レンダリングコマンド: {' '.join(cmd)}")
 
         try:
             process = await asyncio.create_subprocess_exec(
@@ -224,21 +357,43 @@ class SlideVideoGenerator:
             if stdout:
                 for line in stdout.decode().split('\n'):
                     if line.strip():
-                        logger.info(f"[Remotion] {line}")
+                        logger.info(f"  [Remotion] {line}")
 
             if process.returncode == 0:
-                logger.info(f"Slide video rendered: {output_path}")
+                logger.info(f"  レンダリング成功!")
                 return True
             else:
-                logger.error(f"Render failed: {stderr.decode()}")
+                logger.error(f"  レンダリング失敗:")
+                for line in stderr.decode().split('\n'):
+                    if line.strip():
+                        logger.error(f"  [Remotion Error] {line}")
                 return False
 
         except Exception as e:
-            logger.error(f"Render error: {e}")
+            logger.error(f"  レンダリングエラー: {e}")
             return False
         finally:
             if props_file.exists():
                 props_file.unlink()
+
+    def _cleanup_public_files(self):
+        """public/ディレクトリをクリーンアップ"""
+        logger.info("クリーンアップ中...")
+
+        for item in ["narration.wav"]:
+            path = self.public_dir / item
+            if path.exists():
+                try:
+                    path.unlink()
+                except Exception as e:
+                    logger.warning(f"  クリーンアップ失敗: {e}")
+
+        slides_dir = self.public_dir / "slides"
+        if slides_dir.exists():
+            try:
+                shutil.rmtree(slides_dir)
+            except Exception as e:
+                logger.warning(f"  Slidesディレクトリ削除失敗: {e}")
 
     async def generate_slide_video(
         self,
@@ -247,7 +402,10 @@ class SlideVideoGenerator:
         slide_duration: int = 5
     ) -> Dict[str, Any]:
         """
-        記事からスライド動画を生成（品質評価なし、30秒以内）
+        記事からスライド動画を生成
+
+        処理フロー:
+        Step 1: スライド生成 → Step 2: 音声生成 → Step 3: ファイル配置 → Step 4: 動画レンダリング
 
         Args:
             article: 記事データ
@@ -260,12 +418,20 @@ class SlideVideoGenerator:
         timestamp = get_timestamp_jst()
         topic = article.get("topic_id") or article.get("topic", "ai_tools")
         title = article.get("title", "Untitled")
-        content = article.get("content", "")
 
         # 30秒以内に制限（最大6スライド x 5秒 = 30秒）
         MAX_VIDEO_DURATION = 30
         max_slides = MAX_VIDEO_DURATION // slide_duration
         target_slides = min(target_slides, max_slides)
+
+        logger.info("=" * 60)
+        logger.info("スライドベース動画生成開始")
+        logger.info("=" * 60)
+        logger.info(f"タイトル: {title}")
+        logger.info(f"トピック: {topic}")
+        logger.info(f"目標スライド数: {target_slides}枚")
+        logger.info(f"各スライド表示時間: {slide_duration}秒")
+        logger.info(f"最大動画長: {MAX_VIDEO_DURATION}秒")
 
         result = {
             "status": "in_progress",
@@ -276,21 +442,19 @@ class SlideVideoGenerator:
 
         # 依存関係チェック
         deps = self._check_dependencies()
-        logger.info(f"Dependencies: {deps}")
+        logger.info(f"依存関係: {deps}")
         if not deps.get("node"):
             result["status"] = "error"
             result["error"] = "Node.js is not available"
             return result
 
         try:
+            # ========================================
             # Step 1: スライド生成
-            logger.info("=" * 50)
-            logger.info(f"Step 1: Generating {target_slides} slides (max {MAX_VIDEO_DURATION}s)...")
-            logger.info("=" * 50)
-            slides_result = await generate_slides(article, target_slides)
+            # ========================================
+            slides_result = await self._step1_generate_slides(article, target_slides)
 
             if slides_result.get("status") == "error":
-                logger.error(f"Slide generation failed: {slides_result.get('error')}")
                 result["status"] = "error"
                 result["error"] = slides_result.get("error")
                 return result
@@ -300,20 +464,17 @@ class SlideVideoGenerator:
 
             # スライド数を30秒以内に制限
             if len(slides) > max_slides:
-                logger.info(f"Limiting slides from {len(slides)} to {max_slides} for 30s video")
+                logger.info(f"スライドを{len(slides)}枚から{max_slides}枚に制限")
                 slides = slides[:max_slides]
                 slide_images = slide_images[:max_slides]
 
             result["slides"] = slides_result
 
-            # Step 2: 音声生成
-            logger.info("=" * 50)
-            logger.info("Step 2: Generating narration...")
-            logger.info("=" * 50)
-            client = self._get_gemini_client()
+            # ========================================
+            # Step 2: 音声生成（スライド内容を元に）
+            # ========================================
             voice = TOPIC_VOICES.get(topic, "default")
-
-            narration = await client.generate_slide_narration(
+            audio_result = await self._step2_generate_audio(
                 slides=slides,
                 title=title,
                 topic=topic,
@@ -321,35 +482,27 @@ class SlideVideoGenerator:
                 slide_duration=slide_duration
             )
 
-            audio_data = None
-            if narration.get("status") == "success":
-                audio_data = narration.get("audio_data")
-                result["narration"] = {
-                    "status": "success",
-                    "script": narration.get("script"),
-                    "audio_size_bytes": narration.get("audio_size_bytes"),
-                    "voice": voice
-                }
-                logger.info(f"Narration generated: {narration.get('audio_size_bytes')} bytes")
-            else:
-                logger.warning(f"Narration failed: {narration.get('error')}")
-                result["narration"] = {"status": "skipped"}
+            audio_data = audio_result.get("audio_data")
+            result["narration"] = {
+                "status": audio_result.get("status"),
+                "script": audio_result.get("script"),
+                "audio_size_bytes": audio_result.get("audio_size_bytes"),
+                "voice": voice
+            }
 
-            # Step 3: public/にファイル配置
-            logger.info("=" * 50)
-            logger.info("Step 3: Preparing public files...")
-            logger.info("=" * 50)
-            public_files = await self._prepare_public_files(slide_images, audio_data)
+            # ========================================
+            # Step 3: ファイル配置
+            # ========================================
+            public_files = await self._step3_prepare_files(slide_images, audio_data)
 
-            # Step 4: Remotion動画レンダリング
-            logger.info("=" * 50)
-            logger.info("Step 4: Rendering video...")
-            logger.info("=" * 50)
+            # ========================================
+            # Step 4: 動画レンダリング
+            # ========================================
             videos_dir = self.output_dir / "videos"
             videos_dir.mkdir(parents=True, exist_ok=True)
             video_path = videos_dir / f"slide_video_{timestamp}_{topic}.mp4"
 
-            render_success = await self._render_slide_video(
+            render_success = await self._step4_render_video(
                 slides=slides,
                 output_path=str(video_path),
                 topic=topic,
@@ -357,6 +510,7 @@ class SlideVideoGenerator:
                 slide_duration=slide_duration
             )
 
+            # 結果の設定
             if render_success and video_path.exists():
                 actual_duration = len(slides) * slide_duration
                 result["video"] = {
@@ -365,18 +519,26 @@ class SlideVideoGenerator:
                     "resolution": "1920x1080",
                     "duration": actual_duration,
                     "size_bytes": video_path.stat().st_size,
-                    "has_audio": audio_data is not None,
+                    "has_audio": public_files.get("has_audio", False),
                     "slide_count": len(slides)
                 }
                 result["status"] = "success"
-                logger.info(f"Video generated successfully: {actual_duration}s, {len(slides)} slides")
+
+                logger.info("=" * 60)
+                logger.info("動画生成完了!")
+                logger.info("=" * 60)
+                logger.info(f"  動画パス: {video_path}")
+                logger.info(f"  動画長: {actual_duration}秒")
+                logger.info(f"  スライド数: {len(slides)}枚")
+                logger.info(f"  音声: {'あり' if public_files.get('has_audio') else 'なし'}")
+                logger.info(f"  ファイルサイズ: {video_path.stat().st_size:,} bytes")
             else:
                 result["video"] = {"status": "error", "error": "Render failed"}
                 result["status"] = "error"
-                logger.error("Video render failed")
+                logger.error("動画レンダリング失敗")
 
         except Exception as e:
-            logger.error(f"Video generation failed: {e}")
+            logger.error(f"動画生成エラー: {e}")
             result["status"] = "error"
             result["error"] = str(e)
 
@@ -393,7 +555,13 @@ async def generate_slide_video(
     slide_duration: int = 5
 ) -> Dict[str, Any]:
     """
-    スライド動画生成のエントリーポイント（品質評価なし、30秒以内）
+    スライド動画生成のエントリーポイント
+
+    処理フロー:
+    1. スライド生成（記事からスライド構成 + 画像を生成）
+    2. 音声生成（スライド内容からTTSナレーション）
+    3. ファイル配置（スライド画像 + 音声をpublic/に配置）
+    4. 動画レンダリング（Remotionで統合）
 
     Args:
         article: 記事データ

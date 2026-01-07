@@ -1,19 +1,32 @@
 # Remotion Video Skill
 
 ## 概要
-Remotionフレームワークを使用したブログ動画生成スキル。
-記事の内容を視覚的な動画に自動変換し、**TTS音声ナレーション**と**ヒーロー画像**を統合します。
+Remotionフレームワークを使用したスライドベース動画生成スキル。
+ブログ記事からスライドを生成し、**TTS音声ナレーション**を統合して動画を作成します。
 
 ### 重要な制約
 - **動画長**: 最大30秒（6スライド x 5秒）
 - **品質評価**: なし（動画生成は品質評価をスキップ）
 - **リトライ**: なし（1回の試行のみ）
 
+## 処理フロー（この順序で実行）
+
+```
+STEP 1: スライド生成
+    ↓
+STEP 2: 音声生成（スライド内容を元に）
+    ↓
+STEP 3: ファイル配置（public/に配置）
+    ↓
+STEP 4: Remotionレンダリング（音声統合）
+```
+
 ## 使用技術
 - **Framework**: Remotion 4.0
 - **Language**: TypeScript/React
-- **TTS**: Gemini 2.5 Flash TTS
+- **TTS**: Gemini 2.5 Flash TTS (gemini-2.5-flash-preview-tts)
 - **Output**: MP4 (H.264 + AAC)
+- **Audio Format**: WAV (24kHz, 16bit, mono)
 
 ## Remotion概要
 Remotionは、Reactコンポーネントを使ってプログラマティックに動画を作成できるフレームワークです。
