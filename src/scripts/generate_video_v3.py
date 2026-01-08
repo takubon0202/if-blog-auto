@@ -141,7 +141,7 @@ TOPIC_COLORS = {
 class MarpSlideGenerator:
     """Marp Markdown形式のスライド生成"""
 
-    MODEL = "gemini-2.0-flash"
+    MODEL = "gemini-3-flash-preview"  # Gemini 3 Flash with thinking off
 
     def __init__(self):
         api_key = os.getenv("GOOGLE_AI_API_KEY")
@@ -239,7 +239,8 @@ Marp Markdownのみを出力してください。"""
         try:
             config = types.GenerateContentConfig(
                 temperature=0.7,
-                max_output_tokens=4096
+                max_output_tokens=4096,
+                thinking_config=types.ThinkingConfig(thinking_level="minimal")  # 思考モードオフ
             )
 
             response = await asyncio.to_thread(
@@ -501,7 +502,7 @@ class MarpToPngConverter:
 class NarrationGenerator:
     """スライドごとのナレーションスクリプト生成"""
 
-    MODEL = "gemini-2.0-flash"
+    MODEL = "gemini-3-flash-preview"  # Gemini 3 Flash with thinking off
 
     def __init__(self):
         api_key = os.getenv("GOOGLE_AI_API_KEY")
@@ -550,7 +551,8 @@ JSONのみを出力してください。"""
             config = types.GenerateContentConfig(
                 temperature=0.7,
                 max_output_tokens=4096,
-                response_mime_type="application/json"
+                response_mime_type="application/json",
+                thinking_config=types.ThinkingConfig(thinking_level="minimal")  # 思考モードオフ
             )
 
             response = await asyncio.to_thread(

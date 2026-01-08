@@ -103,7 +103,7 @@ TOPIC_COLORS = {
 class VideoScriptGenerator:
     """動画専用スクリプト生成 - video-script-agent の実装"""
 
-    MODEL = "gemini-2.0-flash"
+    MODEL = "gemini-3-flash-preview"  # Updated: Gemini 3 Flash (thinking off)
 
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("GOOGLE_AI_API_KEY")

@@ -119,7 +119,7 @@ Multi-Search（3回検索、メイン）とDeep Research API（日曜のみ・�
 | 品質レビュー | `gemini-3-flash-preview`（思考オフ） | 全曜日 |
 | 画像生成 | `gemini-2.5-flash-image` | 全曜日 |
 | 動画生成 | Remotion 4.0 (React) | 全曜日 |
-| 軽量タスク | `gemini-2.0-flash` | 全曜日 |
+| 軽量タスク | `gemini-3-flash-preview`（思考オフ） | 全曜日 |
 
 ### API呼び出しパターン
 ```python

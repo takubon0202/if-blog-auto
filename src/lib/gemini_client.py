@@ -71,8 +71,8 @@ class GeminiClient:
 
     # モデル定数
     MODEL_PRO = "gemini-3-pro-preview"
-    MODEL_FLASH = "gemini-2.0-flash"
-    MODEL_FLASH_3 = "gemini-3-flash-preview"  # SEO/Review用
+    MODEL_FLASH = "gemini-3-flash-preview"  # Updated: Gemini 3 Flash (thinking off)
+    MODEL_FLASH_3 = "gemini-3-flash-preview"  # SEO/Review用 (alias)
     MODEL_IMAGE = "gemini-2.5-flash-image"
     MODEL_TTS = "gemini-2.5-flash-preview-tts"  # TTS用
     AGENT_DEEP_RESEARCH = "deep-research-pro-preview-12-2025"
