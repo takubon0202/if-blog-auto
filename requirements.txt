@@ -18,6 +18,7 @@ textstat>=0.7.0
 
 # Image Processing
 Pillow>=10.0.0
+numpy>=1.24.0
 
 # CMS Integration
 python-wordpress-xmlrpc>=2.3

@@ -55,9 +55,14 @@ except ImportError:
 
 try:
     from PIL import Image, ImageDraw, ImageFont, ImageFilter
-    import numpy as np
 except ImportError:
     print("Error: Pillow not installed")
+    sys.exit(1)
+
+try:
+    import numpy as np
+except ImportError:
+    print("Error: numpy not installed")
     sys.exit(1)
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
