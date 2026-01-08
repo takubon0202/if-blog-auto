@@ -73,6 +73,7 @@ async def main():
     from generate_image import generate_images
     from generate_video import generate_video
     from generate_slide_video import generate_slide_video
+    from generate_video_v2 import VideoGeneratorV2  # 新しい動画生成ワークフロー
     from seo_optimize import optimize_seo
     from review import review_article
     from publish import publish_to_github_pages
@@ -134,34 +135,46 @@ async def main():
             logger.info("=" * 50)
 
             if args.use_slide_video:
-                # 新ワークフロー: スライドベース動画生成
+                # 新ワークフローV2: リサーチデータから動画専用コンテンツを生成
                 logger.info(f"  - Target slides: {args.slide_count}")
-                logger.info(f"  - Slide duration: {args.slide_duration}s")
+                logger.info(f"  - Using Video Generator V2 (research-based)")
 
-                slide_video_result = await generate_slide_video(
-                    article=article,
-                    target_slides=args.slide_count,
-                    slide_duration=args.slide_duration
+                # トピック情報を取得
+                import json
+                topics_path = Path(__file__).parent.parent / "config" / "topics.json"
+                with open(topics_path, 'r', encoding='utf-8') as f:
+                    topics_config = json.load(f)
+                topic_info = topics_config.get("topics", {}).get(args.topic, {})
+
+                # リサーチデータから動画を生成（ブログ記事とは別）
+                video_gen = VideoGeneratorV2()
+                slide_video_result = await video_gen.generate(
+                    research_data=research_data.get("content", ""),
+                    topic=args.topic,
+                    topic_info=topic_info,
+                    num_slides=args.slide_count
                 )
 
-                slides_data = slide_video_result.get("slides")
+                slides_data = {"slide_count": slide_video_result.get("slides_count", 0)}
                 videos = {
                     "status": slide_video_result.get("status", "error"),
-                    "videos": {"standard": slide_video_result.get("video", {})},
-                    "narration": slide_video_result.get("narration", {}),
-                    "slides": slides_data
+                    "videos": {"standard": {
+                        "path": slide_video_result.get("video_path"),
+                        "duration": slide_video_result.get("duration", 0)
+                    }},
+                    "title": slide_video_result.get("title", "")
                 }
                 result["steps"]["videos"] = videos
                 result["steps"]["slides"] = {
-                    "status": "completed" if slides_data else "skipped",
-                    "slide_count": slide_video_result.get("slides", {}).get("slide_count", 0)
+                    "status": "completed" if slide_video_result.get("status") == "success" else "error",
+                    "slide_count": slide_video_result.get("slides_count", 0)
                 }
 
                 if slide_video_result.get("status") == "success":
-                    video_duration = slide_video_result.get("video", {}).get("duration", 0)
-                    logger.info(f"Slide video generated! Duration: {video_duration}s (no quality check for videos)")
+                    video_duration = slide_video_result.get("duration", 0)
+                    logger.info(f"Video V2 generated! Duration: {video_duration:.1f}s, Slides: {slide_video_result.get('slides_count', 0)}")
                 else:
-                    logger.warning(f"Slide video generation issue: {slide_video_result.get('status')}")
+                    logger.warning(f"Video V2 generation issue: {slide_video_result.get('error', 'Unknown')}")
             else:
                 # 従来ワークフロー: Remotion + TTS
                 # ヒーロー画像パスを取得（動画に統合）
