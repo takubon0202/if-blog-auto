@@ -1,6 +1,7 @@
 import { Composition } from "remotion";
 import { BlogVideo, BlogVideoProps } from "./compositions/BlogVideo";
 import { SlideVideo, SlideVideoProps } from "./compositions/SlideVideo";
+import { SlideVideoV3, SlideVideoV3Props } from "./compositions/SlideVideoV3";
 
 // デフォルトのブログデータ（プレビュー用）
 const defaultBlogData: BlogVideoProps = {
@@ -113,6 +114,32 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           ...defaultSlideData,
           slideDuration: 3  // ショート版は各スライド3秒
+        }}
+      />
+
+      {/* SlideVideoV3 - タイミングベース動画（SlideMovie_WorkFlow方式） */}
+      <Composition
+        id="SlideVideoV3"
+        component={SlideVideoV3}
+        durationInFrames={1800}  // デフォルト60秒、propsで上書き
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          title: "タイトル",
+          topic: "ai_tools",
+          fps: 30,
+          totalFrames: 1800,
+          slides: [],
+          slideImages: []
+        }}
+        calculateMetadata={({ props }) => {
+          // totalFramesからdurationInFramesを計算
+          const totalFrames = props.totalFrames || 1800;
+          return {
+            durationInFrames: totalFrames,
+            fps: props.fps || 30
+          };
         }}
       />
     </>

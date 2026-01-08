@@ -73,7 +73,7 @@ async def main():
     from generate_image import generate_images
     from generate_video import generate_video
     from generate_slide_video import generate_slide_video
-    from generate_video_v2 import VideoGeneratorV2  # 新しい動画生成ワークフロー
+    from generate_video_v3 import VideoGeneratorV3  # SlideMovie_WorkFlow方式の動画生成
     from seo_optimize import optimize_seo
     from review import review_article
     from publish import publish_to_github_pages
@@ -135,9 +135,9 @@ async def main():
             logger.info("=" * 50)
 
             if args.use_slide_video:
-                # 新ワークフローV2: リサーチデータから動画専用コンテンツを生成
+                # 新ワークフローV3: SlideMovie_WorkFlow方式（音声同期・タイミングベース）
                 logger.info(f"  - Target slides: {args.slide_count}")
-                logger.info(f"  - Using Video Generator V2 (research-based)")
+                logger.info(f"  - Using Video Generator V3 (SlideMovie_WorkFlow style)")
 
                 # トピック情報を取得
                 import json
@@ -149,7 +149,7 @@ async def main():
                 topic_info = next((t for t in topics_list if t.get("id") == args.topic), {})
 
                 # リサーチデータから動画を生成（ブログ記事とは別）
-                video_gen = VideoGeneratorV2()
+                video_gen = VideoGeneratorV3()
                 slide_video_result = await video_gen.generate(
                     research_data=research_data.get("content", ""),
                     topic=args.topic,
@@ -174,9 +174,9 @@ async def main():
 
                 if slide_video_result.get("status") == "success":
                     video_duration = slide_video_result.get("duration", 0)
-                    logger.info(f"Video V2 generated! Duration: {video_duration:.1f}s, Slides: {slide_video_result.get('slides_count', 0)}")
+                    logger.info(f"Video V3 generated! Duration: {video_duration:.1f}s, Slides: {slide_video_result.get('slides_count', 0)}")
                 else:
-                    logger.warning(f"Video V2 generation issue: {slide_video_result.get('error', 'Unknown')}")
+                    logger.warning(f"Video V3 generation issue: {slide_video_result.get('error', 'Unknown')}")
             else:
                 # 従来ワークフロー: Remotion + TTS
                 # ヒーロー画像パスを取得（動画に統合）
