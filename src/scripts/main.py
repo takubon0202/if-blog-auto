@@ -144,7 +144,9 @@ async def main():
                 topics_path = Path(__file__).parent.parent / "config" / "topics.json"
                 with open(topics_path, 'r', encoding='utf-8') as f:
                     topics_config = json.load(f)
-                topic_info = topics_config.get("topics", {}).get(args.topic, {})
+                # topicsはリストなので、idでフィルタリング
+                topics_list = topics_config.get("topics", [])
+                topic_info = next((t for t in topics_list if t.get("id") == args.topic), {})
 
                 # リサーチデータから動画を生成（ブログ記事とは別）
                 video_gen = VideoGeneratorV2()
