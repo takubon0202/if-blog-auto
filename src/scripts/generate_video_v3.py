@@ -953,16 +953,11 @@ class RemotionRenderer:
 
             if result.returncode != 0:
                 logger.error(f"Render error: {result.stderr}")
-                # フォールバック: SlideVideoを使用
-                cmd[2] = "SlideVideo"
-                logger.info("Trying fallback: SlideVideo")
-                result = subprocess.run(
-                    cmd,
-                    cwd=str(self.remotion_dir),
-                    capture_output=True,
-                    text=True,
-                    timeout=600
-                )
+                logger.error(f"Render stdout: {result.stdout}")
+                # SlideVideoV3用のprops形式はSlideVideoと互換性がないためフォールバックしない
+                # SlideVideoV3: startFrame, endFrame, totalFrames形式
+                # SlideVideo: slideDuration形式
+                raise RuntimeError(f"SlideVideoV3 render failed: {result.stderr}")
 
             if output_path.exists():
                 size = output_path.stat().st_size
