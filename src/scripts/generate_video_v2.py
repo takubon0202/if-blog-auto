@@ -776,8 +776,8 @@ class VideoAssemblerV2:
             "node",
             str(render_script),
             "SlideVideo",
-            str(props_path),
-            str(output_path)
+            str(output_path),  # render.mjs expects: outputPath as args[1]
+            str(props_path)    # render.mjs expects: propsFile as args[2]
         ]
 
         logger.info(f"Rendering: {' '.join(cmd)}")

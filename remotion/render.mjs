@@ -138,7 +138,7 @@ function validateAndLogProps(inputProps) {
 
 async function render() {
   const args = process.argv.slice(2);
-  const compositionId = args[0] || "BlogVideo";
+  const compositionId = args[0] || "SlideVideoV3";
   const outputPath = args[1] || path.join(__dirname, "out", "video.mp4");
   const propsFile = args[2];
 
