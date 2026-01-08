@@ -379,55 +379,64 @@ class MarpToPngConverter:
         # 出力パス（Marpは自動で番号付け）
         output_base = output_dir / "slide.png"
 
-        cmd = [
-            "npx", "@marp-team/marp-cli",
-            str(markdown_path),
-            "--images", "png",
-            "--allow-local-files",
-            "-o", str(output_base)
+        # Marpコマンドを複数パターンで試行
+        marp_commands = [
+            ["marp", str(markdown_path), "--images", "png", "--allow-local-files", "-o", str(output_base)],
+            ["npx", "@marp-team/marp-cli", str(markdown_path), "--images", "png", "--allow-local-files", "-o", str(output_base)],
+            ["npx", "marp", str(markdown_path), "--images", "png", "--allow-local-files", "-o", str(output_base)],
         ]
 
-        logger.info(f"Running Marp CLI: {' '.join(cmd)}")
+        for cmd in marp_commands:
+            logger.info(f"Trying Marp CLI: {' '.join(cmd)}")
 
-        try:
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=str(markdown_path.parent)
-            )
+            try:
+                process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=str(markdown_path.parent)
+                )
 
-            stdout, stderr = await process.communicate()
+                stdout, stderr = await process.communicate()
 
-            if process.returncode != 0:
-                logger.error(f"Marp CLI error: {stderr.decode()}")
-                return []
+                if process.returncode == 0:
+                    logger.info(f"Marp CLI succeeded with: {cmd[0]}")
 
-            # 生成された画像を検索
-            # Marpは slide.001.png, slide.002.png 形式で出力
-            image_files = sorted(output_dir.glob("slide.*.png"))
+                    # 生成された画像を検索
+                    # Marpは slide.001.png, slide.002.png 形式で出力
+                    image_files = sorted(output_dir.glob("slide.*.png"))
 
-            if not image_files:
-                # 別のパターンも試す
-                image_files = sorted(output_dir.glob("slide*.png"))
+                    if not image_files:
+                        # 別のパターンも試す
+                        image_files = sorted(output_dir.glob("slide*.png"))
 
-            image_paths = [str(f) for f in image_files]
+                    if image_files:
+                        image_paths = [str(f) for f in image_files]
+                        logger.info(f"Converted {len(image_paths)} slides to PNG")
 
-            logger.info(f"Converted {len(image_paths)} slides to PNG")
+                        # 標準化した名前に変換 (slide_01.png, slide_02.png)
+                        standardized_paths = []
+                        for i, src_path in enumerate(image_paths):
+                            dst_path = output_dir / f"slide_{i+1:02d}.png"
+                            if Path(src_path) != dst_path:
+                                shutil.copy2(src_path, dst_path)
+                            standardized_paths.append(str(dst_path))
 
-            # 標準化した名前に変換 (slide_01.png, slide_02.png)
-            standardized_paths = []
-            for i, src_path in enumerate(image_paths):
-                dst_path = output_dir / f"slide_{i+1:02d}.png"
-                if Path(src_path) != dst_path:
-                    shutil.copy2(src_path, dst_path)
-                standardized_paths.append(str(dst_path))
+                        return standardized_paths
+                    else:
+                        logger.warning("Marp succeeded but no images found")
+                else:
+                    logger.warning(f"Marp CLI failed: {stderr.decode()[:500]}")
 
-            return standardized_paths
+            except FileNotFoundError:
+                logger.warning(f"Command not found: {cmd[0]}")
+                continue
+            except Exception as e:
+                logger.warning(f"Marp error with {cmd[0]}: {e}")
+                continue
 
-        except Exception as e:
-            logger.error(f"Marp conversion failed: {e}")
-            return []
+        logger.error("All Marp CLI attempts failed")
+        return []
 
     def create_fallback_images(
         self,
