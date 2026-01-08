@@ -1,8 +1,17 @@
-# if(塾) Blog Automation System v2.8.0
+# if(塾) Blog Automation System v2.9.0
 
 Gemini API を活用した、最新トレンド情報を自動収集して画像・**スライド動画**付き**高品質ブログ記事（20,000文字以上）**を生成・GitHub Pagesに自動投稿するシステム。
 
-## 最新アップデート（2026年1月7日）
+## 最新アップデート（2026年1月8日）
+
+### v2.9.0: Gemini 3 Flash移行 & Remotionレンダリング修正
+- **Gemini 3 Flash移行**: `gemini-2.0-flash` → `gemini-3-flash-preview`（思考モードオフ）
+- **SlideVideoV3対応**: Marpスライド対応＆タイミング制御の新コンポジション
+- **デフォルトコンポジション変更**: `BlogVideo` → `SlideVideoV3`（スライド動画がデフォルト）
+- **render.mjs引数順序修正**: Python→Remotion間の引数順序不一致を修正
+  - 修正前: `compositionId, propsPath, outputPath`（誤り）
+  - 修正後: `compositionId, outputPath, propsPath`（正しい順序）
+- **思考モード無効化**: `thinking_config=ThinkingConfig(thinking_level="minimal")`
 
 ### v2.8.0: 動画レンダリング修正 & セットアップ簡素化
 - **青い画面問題修正**: 最後のスライドがフェードアウトしない（DailyInstagram方式）
@@ -196,7 +205,7 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 | 画像生成 | `gemini-2.5-flash-image` (16:9) | 全曜日 | 約30秒-1分 |
 | スライド生成 | `gemini-3-pro-preview` + `gemini-2.5-flash-image` | 全曜日 | 約1-2分 |
 | ナレーション | VOICEPEAK（ローカル優先）/ Gemini TTS（フォールバック） | 全曜日 | 約30秒 |
-| 動画レンダリング | Remotion 4.0 SlideVideo | 全曜日 | 約2-3分 |
+| 動画レンダリング | Remotion 4.0 SlideVideoV3（デフォルト） | 全曜日 | 約2-3分 |
 | SEO最適化 | `gemini-3-flash-preview`（思考オフ） | 全曜日 | 約5-10秒 |
 | 品質レビュー | `gemini-3-flash-preview`（思考オフ） | 全曜日 | 約10-20秒 |
 
@@ -370,7 +379,7 @@ GitHub Actionsでは自動的に以下の処理が行われます：
 | `engagement-agent` | 読者エンゲージメント強化（NEW） | Gemini 3 Pro | 全曜日 |
 | `image-agent` | アイキャッチ画像生成（スマートプロンプト） | Gemini 2.5 Flash image + 記事分析 | 全曜日 |
 | `slide-agent` | スライド生成（12枚構成） | Gemini 3 Pro + 2.5 Flash image | 全曜日 |
-| `video-agent` | スライド動画生成（60秒） | Remotion 4.0 SlideVideo | 全曜日 |
+| `video-agent` | スライド動画生成 | Remotion 4.0 SlideVideoV3（デフォルト） | 全曜日 |
 | `quality-agent` | 品質評価（95%合格ライン・20,000文字チェック） | 独自評価システム | 全曜日 |
 | `seo-agent` | SEOメタデータ最適化 | Gemini 3 Flash（思考オフ） | 全曜日 |
 | `review-agent` | 品質チェック・ファクトチェック | Gemini 3 Flash（思考オフ） | 全曜日 |
@@ -389,7 +398,7 @@ GitHub Actionsでは自動的に以下の処理が行われます：
 | `gemini-3-flash` | SEO/レビュー高速処理（思考オフ） | Gemini 3 Flash |
 | `image-generation` | ブログ用画像生成（スマートプロンプト対応） | Gemini 2.5 Flash image |
 | `slide-generation` | スライド生成・PDF変換・画像変換 | Gemini + Marp CLI |
-| `remotion-video` | スライド動画生成（60秒解説動画） | Remotion 4.0 SlideVideo |
+| `remotion-video` | スライド動画生成 | Remotion 4.0 SlideVideoV3（デフォルト） |
 | `quality-evaluation` | 品質評価（95%合格ライン・20,000文字チェック） | 独自評価システム |
 | `timezone` | JST日時処理 | Python datetime |
 | `github-pages` | GitHub Pages操作 | Git API |
@@ -520,8 +529,9 @@ if-blog-auto/
 │       ├── index.tsx        # エントリーポイント
 │       ├── Root.tsx         # コンポジション定義
 │       └── compositions/
-│           ├── BlogVideo.tsx    # ブログ動画コンポーネント
-│           └── SlideVideo.tsx   # スライド動画コンポーネント（NEW）
+│           ├── BlogVideo.tsx      # ブログ動画コンポーネント
+│           ├── SlideVideo.tsx     # スライド動画コンポーネント
+│           └── SlideVideoV3.tsx   # Marp対応スライド動画（v2.9.0・デフォルト）
 │
 ├── src/
 │   ├── agents/              # サブエージェント定義（12種類）
@@ -641,7 +651,7 @@ result = await client.generate_blog_image(
 
 ```python
 GeminiClient.MODEL_PRO = "gemini-3-pro-preview"
-GeminiClient.MODEL_FLASH = "gemini-2.0-flash"
+GeminiClient.MODEL_FLASH = "gemini-3-flash-preview"  # v2.9.0で更新（思考モードオフ）
 GeminiClient.MODEL_FLASH_3 = "gemini-3-flash-preview"
 GeminiClient.MODEL_IMAGE = "gemini-2.5-flash-image"
 GeminiClient.AGENT_DEEP_RESEARCH = "deep-research-pro-preview-12-2025"
@@ -730,6 +740,17 @@ Video shows "AIツールの最新動向2025" instead of actual content
 - **原因**: スライドデータ形式がRemotionの期待と不一致
 - **解決**: v2.6.1でスライドタイプを自動正規化（title/content/ending）
 - **確認**: ログで「スライドデータを正規化中」を確認
+
+#### render.mjs引数エラー（v2.9.0で修正）
+```
+Video renders with wrong output path or props not loaded
+```
+
+- **原因**: Python側で引数順序が誤っていた（`propsPath, outputPath` の順番で渡していた）
+- **解決**: v2.9.0で引数順序を修正
+  - 正しい順序: `compositionId, outputPath, propsPath`
+- **影響ファイル**: `generate_video_v2.py`, `generate_video_v3.py`
+- **確認**: ログで「Rendering: node render.mjs SlideVideoV3 output.mp4 props.json」の順序を確認
 
 #### 音声が再生されない
 ```
@@ -892,10 +913,13 @@ Deep Research失敗時は自動的にMulti-Search（3回検索）にフォール
 
 | ID | 説明 | 解像度 | 長さ | 用途 |
 |----|------|--------|------|------|
-| `SlideVideo` | スライドベース動画（推奨） | 1920x1080 | **30秒（最大）** | YouTube、ブログ埋め込み |
+| `SlideVideoV3` | **Marpスライド対応動画（デフォルト・推奨）** | 1920x1080 | 可変（タイミング制御） | YouTube、ブログ埋め込み |
+| `SlideVideo` | スライドベース動画 | 1920x1080 | **30秒（最大）** | YouTube、ブログ埋め込み |
 | `SlideVideoShort` | スライドショート | 1080x1920 | 15秒（可変） | Shorts/Reels |
 | `BlogVideo` | 従来の概要動画 | 1920x1080 | 30秒 | ブログ埋め込み |
 | `BlogVideoShort` | 従来のショート | 1080x1920 | 15秒 | TikTok |
+
+**v2.9.0変更**: デフォルトのコンポジションが `BlogVideo` から `SlideVideoV3` に変更されました。
 
 ### スライド動画のシーン構成（v2.6更新）
 
@@ -1113,7 +1137,7 @@ else:
 |---------|------|
 | **AI モデル** | Gemini 3 Pro, Gemini 3 Flash, Deep Research, Gemini 2.5 Flash image |
 | **音声合成（TTS）** | VOICEPEAK（ローカル優先）、Gemini 2.5 Flash TTS（フォールバック） |
-| **動画生成** | Remotion 4.0 (SlideVideo/BlogVideo) + Base64 Data URL方式 |
+| **動画生成** | Remotion 4.0 (SlideVideoV3/SlideVideo/BlogVideo) + Base64 Data URL方式 |
 | **スライド生成** | Marp CLI (Markdown → PDF → PNG) |
 | **言語** | Python 3.11+, JavaScript (Node.js 20+), TypeScript |
 | **ライブラリ** | `google-genai>=1.56.0`, `pdf2image`, `python-pptx` |
