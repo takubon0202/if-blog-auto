@@ -1,0 +1,60 @@
+{
+  "claude": {
+    "plan": "Max",
+    "price": "$200/月",
+    "model": "claude-opus-4-5"
+  },
+  "codex": {
+    "enabled": true,
+    "method": "codex-cli",
+    "command": "codex",
+    "model": "gpt-5.2-codex",
+    "subscription": "ChatGPT Plus ($20/月)",
+    "approvalPolicy": "never",
+    "autoInvoke": {
+      "onRepeatedError": 3,
+      "keywords": ["Codexで", "GPTで", "OpenAIで"]
+    }
+  },
+  "gemini": {
+    "enabled": true,
+    "method": "gemini-cli",
+    "command": "gemini",
+    "model": "gemini-3-pro-preview",
+    "subscription": "Gemini AI Pro ($19.99/月)",
+    "yolo": true,
+    "autoInvoke": {
+      "keywords": ["Geminiで", "Googleで"]
+    },
+    "skills": {
+      "enabled": true,
+      "directory": ".gemini/skills"
+    },
+    "models": {
+      "primary": {
+        "pro": "gemini-3-pro-preview",
+        "flash": "gemini-3-flash-preview"
+      },
+      "fallback": {
+        "pro": "gemini-2.5-pro",
+        "flash": "gemini-2.5-flash"
+      }
+    }
+  },
+  "projectContext": {
+    "type": "blog-automation",
+    "description": "Gemini APIを活用した最新トレンド情報自動収集・画像/動画付きブログ記事生成・GitHub Pages自動投稿システム",
+    "language": "Python 3.11+, TypeScript, JavaScript",
+    "framework": "Remotion 4.0, Jekyll, GitHub Actions",
+    "contextFiles": ["CODEX.md", "GEMINI.md", "CLAUDE.md"]
+  },
+  "autoSwitch": {
+    "onError": "suggest-alternatives",
+    "alternatives": ["claude", "codex", "gemini"]
+  },
+  "usageLimits": {
+    "enabled": true,
+    "onLimitReached": "stop-and-notify",
+    "preventOverage": true
+  }
+}
