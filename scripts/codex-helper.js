@@ -80,12 +80,22 @@ function runCodexInteractive() {
   codex.on('close', (code) => console.log(`\nCodex CLI 終了 (code: ${code})`));
 }
 
-function runCodexWithPrompt(prompt) {
-  console.log('Codex CLI を実行中...\n');
-  const codex = spawn('codex', [prompt], { stdio: 'inherit', shell: true, cwd: process.cwd() });
-  codex.on('close', (code) => {
-    if (code !== 0) console.error(`\nCodex CLI がエラーで終了しました (code: ${code})`);
-  });
+function runCodexWithPrompt(prompt, interactive = false) {
+  if (interactive) {
+    // 対話モード（ターミナルが必要）
+    console.log('Codex CLI を実行中（対話モード）...\n');
+    const codex = spawn('codex', [prompt], { stdio: 'inherit', shell: true, cwd: process.cwd() });
+    codex.on('close', (code) => {
+      if (code !== 0) console.error(`\nCodex CLI がエラーで終了しました (code: ${code})`);
+    });
+  } else {
+    // 非対話モード（codex exec使用）
+    console.log('Codex CLI を実行中（非対話モード）...\n');
+    const codex = spawn('codex', ['exec', prompt], { stdio: 'inherit', shell: true, cwd: process.cwd() });
+    codex.on('close', (code) => {
+      if (code !== 0) console.error(`\nCodex CLI がエラーで終了しました (code: ${code})`);
+    });
+  }
 }
 
 function writeProjectContext() {
@@ -103,11 +113,13 @@ async function main() {
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
     console.log('Codex Helper - OpenAI Codex CLI連携 (if-blog-auto)\n');
     console.log('使用方法:');
-    console.log('  node scripts/codex-helper.js "タスク内容"');
-    console.log('  node scripts/codex-helper.js --error "エラーメッセージ"');
-    console.log('  node scripts/codex-helper.js --file path/to/file.js "修正内容"');
-    console.log('  node scripts/codex-helper.js --interactive\n');
-    console.log('または直接: codex "タスク内容"');
+    console.log('  node scripts/codex-helper.js "タスク内容"          # 非対話モード (codex exec)');
+    console.log('  node scripts/codex-helper.js --error "エラー"      # エラー解決');
+    console.log('  node scripts/codex-helper.js --file X.js "修正"    # ファイル修正');
+    console.log('  node scripts/codex-helper.js --interactive         # 対話モード\n');
+    console.log('または直接:');
+    console.log('  codex exec "タスク内容"   # 非対話モード');
+    console.log('  codex "タスク内容"        # 対話モード（ターミナル必要）');
     process.exit(0);
   }
 
