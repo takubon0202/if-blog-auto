@@ -134,8 +134,13 @@ export const RemotionRoot: React.FC = () => {
           slideImages: []
         }}
         calculateMetadata={({ props }) => {
-          // totalFramesからdurationInFramesを計算
-          const totalFrames = props.totalFrames || 1800;
+          // totalFramesが無効(0/undefined)なら、最後のスライドendFrameから計算
+          const lastSlideEndFrame = props.slides?.reduce((max, slide) => {
+            return Math.max(max, slide?.endFrame ?? 0);
+          }, 0) ?? 0;
+          const totalFrames = props.totalFrames && props.totalFrames > 0
+            ? props.totalFrames
+            : (lastSlideEndFrame > 0 ? lastSlideEndFrame : 1800);
           return {
             durationInFrames: totalFrames,
             fps: props.fps || 30

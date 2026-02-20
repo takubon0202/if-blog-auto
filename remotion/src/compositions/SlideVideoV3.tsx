@@ -6,7 +6,8 @@ import {
   interpolate,
   Audio,
   Img,
-  Sequence
+  Sequence,
+  staticFile
 } from "remotion";
 
 /**
@@ -44,7 +45,7 @@ export interface SlideVideoV3Props {
   fps: number;
   totalFrames: number;
   slides: SlideData[];
-  slideImages: string[];  // Base64エンコードされた画像
+  slideImages: string[];  // remotion/public からの相対パス
 }
 
 // トピック別カラースキーム
@@ -143,7 +144,7 @@ const SlideScene: React.FC<{
           }}
         >
           <Img
-            src={slideImage}
+            src={staticFile(slideImage)}
             style={{
               width: "100%",
               height: "100%",

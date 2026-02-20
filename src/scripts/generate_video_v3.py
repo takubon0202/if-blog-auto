@@ -160,7 +160,7 @@ TOPIC_COLORS = {
 class MarpSlideGenerator:
     """Marp Markdown形式のスライド生成"""
 
-    MODEL = "gemini-3-flash-preview"  # Gemini 3 Flash with thinking off
+    MODEL = "gemini-3.1-flash-preview"  # Gemini 3.1 Flash with thinking off
 
     def __init__(self):
         api_key = os.getenv("GOOGLE_AI_API_KEY")
@@ -438,26 +438,30 @@ class MarpToPngConverter:
                 if process.returncode == 0:
                     logger.info(f"Marp CLI succeeded with: {cmd[0]}")
 
-                    # 生成された画像を検索（正規表現で柔軟に対応）
-                    # slide.001.png, slide-1.png, slide_01.png などをマッチ
-                    image_files = []
-                    pattern = re.compile(r"slide[-._]*(\d+)\.png", re.IGNORECASE)
+                    # 生成されたPNGをすべて検索（Marp出力形式差異に対応）
+                    # 例: slide.png / slide.001.png / slide-1.png / slide_01.png
+                    png_files = [
+                        f for f in output_dir.iterdir()
+                        if f.is_file() and f.suffix.lower() == ".png"
+                    ]
 
-                    for f in output_dir.iterdir():
-                        if f.is_file():
-                            match = pattern.match(f.name)
-                            if match:
-                                image_files.append((int(match.group(1)), f))
+                    def sort_key(path: Path) -> Tuple[int, int, str]:
+                        name = path.name.lower()
+                        if name == "slide.png":
+                            return (0, 1, name)
+                        match = re.search(r"(\d+)(?=\.png$)", name)
+                        if match:
+                            return (0, int(match.group(1)), name)
+                        return (1, 0, name)
 
-                    # 番号順にソート
-                    image_files.sort(key=lambda x: x[0])
+                    png_files.sort(key=sort_key)
 
-                    if image_files:
-                        logger.info(f"Converted {len(image_files)} slides to PNG")
+                    if png_files:
+                        logger.info(f"Converted {len(png_files)} slides to PNG")
 
                         # 標準化した名前に変換 (slide_01.png, slide_02.png)
                         standardized_paths = []
-                        for i, (num, src_path) in enumerate(image_files):
+                        for i, src_path in enumerate(png_files):
                             dst_path = output_dir / f"slide_{i+1:02d}.png"
                             if src_path != dst_path:
                                 shutil.copy2(src_path, dst_path)
@@ -465,7 +469,7 @@ class MarpToPngConverter:
 
                         return standardized_paths
                     else:
-                        logger.warning("Marp succeeded but no images found matching pattern")
+                        logger.warning("Marp succeeded but no PNG images were found")
                 else:
                     # エラーログを詳細化（最大2000文字）
                     stderr_text = stderr.decode()
@@ -545,7 +549,7 @@ class MarpToPngConverter:
 class NarrationGenerator:
     """スライドごとのナレーションスクリプト生成"""
 
-    MODEL = "gemini-3-flash-preview"  # Gemini 3 Flash with thinking off
+    MODEL = "gemini-3.1-flash-preview"  # Gemini 3.1 Flash with thinking off
 
     def __init__(self):
         api_key = os.getenv("GOOGLE_AI_API_KEY")
@@ -941,17 +945,24 @@ class RemotionRenderer:
 
         slides = []
         slide_images = []
+        public_slides_dir = self.remotion_dir / "public" / "slides_v3"
+        public_slides_dir.mkdir(parents=True, exist_ok=True)
 
         for i, timing in enumerate(timings.get("slides", [])):
-            # 画像をBase64エンコード
+            # 画像をRemotion public配下にコピーして、staticFile参照用パスを保持
+            slide_image_path = ""
             if i < len(image_paths):
-                with open(image_paths[i], 'rb') as f:
-                    image_data = f.read()
-                image_base64 = f"data:image/png;base64,{base64.b64encode(image_data).decode('utf-8')}"
-            else:
-                image_base64 = ""
+                src_path = Path(image_paths[i])
+                if src_path.exists():
+                    dst_filename = f"slide_{i+1:02d}.png"
+                    dst_path = public_slides_dir / dst_filename
+                    if src_path.resolve() != dst_path.resolve():
+                        shutil.copy2(src_path, dst_path)
+                    slide_image_path = f"slides_v3/{dst_filename}"
+                else:
+                    logger.warning(f"Slide image not found: {src_path}")
 
-            slide_images.append(image_base64)
+            slide_images.append(slide_image_path)
 
             slide_data = {
                 "type": "title" if i == 0 else ("ending" if i == len(timings["slides"]) - 1 else "content"),
