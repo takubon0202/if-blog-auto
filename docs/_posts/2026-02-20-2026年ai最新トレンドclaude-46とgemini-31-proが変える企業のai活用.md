@@ -1,3 +1,12 @@
+---
+layout: post
+title: "2026年AI最新トレンド：Claude 4.6とGemini 3.1 Proが変える企業のAI活用"
+description: "2026年2月最新のAI動向を解説。Claude 4.6やGemini 3.1 Proの登場、SansanやMerの事例から見る「AI-Ready」な組織作りとは？企業のAI導入率90%超えの背景と、LLM選定のポイントを専門家が分析します"
+date: 2026-02-20 15:22:48 +0900
+categories: [AIツール・技術動向]
+author: "AI Blog Generator"
+featured_image: "/assets/images/2026年ai最新トレンドclaude-46とgemini-31-proが変える企業のai活用_hero_20260220_151544_0.png"
+---
 # 2026年AI最新トレンド：Claude 4.6とGemini 3.1 Proが変える企業のAI活用
 
 2026年2月、AI業界は大きな転換点を迎えています。Sansanの最新調査では、ビジネスパーソンの90.7%が「AIが社内情報を把握すれば成果が変わる」と強い期待を寄せる一方、GoogleのGemini 3.1 ProやAnthropicのClaude 4.6といった、人間の推論能力に肉薄する次世代モデルが相次いで登場しました。
@@ -56,3 +65,16 @@ AIが処理しやすいデータ形式を整えます。Sansanの調査でも、
 
 **Q: AI-Readyとは具体的に何を指しますか？**  
 **A:** AIが即座に参照・分析できるクリーンなデータ構造（構造化データ）と、AIを業務フローに組み込むための組織体制が整っている状態を指します。
+
+---
+
+## 動画で見る
+
+
+<div class="video-container">
+<video controls width="100%" preload="metadata">
+  <source src="{{ '/assets/videos/2026年ai最新トレンドclaude-46とgemini-31-proが変える企業のai活用_standard_video_20260220_151544_ai_tools.mp4' | relative_url }}" type="video/mp4">
+  お使いのブラウザは動画再生に対応していません。
+</video>
+<p class="video-caption">記事の要約動画（113.73333333333333秒）</p>
+</div>
