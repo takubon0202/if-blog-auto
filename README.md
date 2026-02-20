@@ -1,8 +1,16 @@
-# if(塾) Blog Automation System v2.9.0
+# if(塾) Blog Automation System v2.9.1
 
 Gemini API を活用した、最新トレンド情報を自動収集して画像・**スライド動画**付き**高品質ブログ記事（20,000文字以上）**を生成・GitHub Pagesに自動投稿するシステム。
 
-## 最新アップデート（2026年1月8日）
+## 最新アップデート（2026年1月20日）
+
+### v2.9.1: 動画生成安定性向上 & エラーハンドリング強化
+- **TTSリトライロジック**: tenacityによる指数バックオフリトライ（最大3回、429エラー対応）
+- **Marp画像探索強化**: 正規表現パターンで柔軟なファイル名に対応（`slide[-._]*数字.png`）
+- **タイムアウト設定**: Marp CLI（60秒）、Remotionレンダリング（600秒）
+- **非同期レンダリング**: Remotionを`asyncio.create_subprocess_exec`で実行（イベントループ非ブロッキング）
+- **エラーログ詳細化**: stderr最大5000文字表示、エラーパターン自動検出（ENOMEM、GLエラーなど）
+- **PCMデータ検証**: 音声データサイズの事前検証で破損検出
 
 ### v2.9.0: Gemini 3 Flash移行 & Remotionレンダリング修正
 - **Gemini 3 Flash移行**: `gemini-2.0-flash` → `gemini-3-flash-preview`（思考モードオフ）

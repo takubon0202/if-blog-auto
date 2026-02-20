@@ -3,6 +3,8 @@
  * Codex Helper - OpenAI Codex CLI連携スクリプト
  * if-blog-auto プロジェクト用
  *
+ * v2.0: 非対話モード（codex exec）をデフォルトに変更
+ *
  * 使用方法:
  *   node scripts/codex-helper.js "タスク内容"
  *   node scripts/codex-helper.js --error "エラーメッセージ"
@@ -80,21 +82,93 @@ function runCodexInteractive() {
   codex.on('close', (code) => console.log(`\nCodex CLI 終了 (code: ${code})`));
 }
 
-function runCodexWithPrompt(prompt, interactive = false) {
-  if (interactive) {
-    // 対話モード（ターミナルが必要）
-    console.log('Codex CLI を実行中（対話モード）...\n');
-    const codex = spawn('codex', [prompt], { stdio: 'inherit', shell: true, cwd: process.cwd() });
-    codex.on('close', (code) => {
-      if (code !== 0) console.error(`\nCodex CLI がエラーで終了しました (code: ${code})`);
+/**
+ * 非対話モードでCodexを実行（パイプ環境対応）
+ * @param {string} prompt - 実行するプロンプト
+ * @returns {Promise<{stdout: string, stderr: string, code: number}>}
+ */
+function runCodexNonInteractive(prompt) {
+  return new Promise((resolve, reject) => {
+    console.log('Codex CLI を実行中（非対話モード: codex exec）...\n');
+    console.log('---');
+
+    // codex exec を使用して非対話モードで実行
+    const codex = spawn('codex', ['exec', prompt], {
+      shell: true,
+      cwd: process.cwd(),
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        // 非対話モードを強制
+        CI: 'true',
+        CODEX_NON_INTERACTIVE: 'true'
+      }
     });
-  } else {
-    // 非対話モード（codex exec使用）
-    console.log('Codex CLI を実行中（非対話モード）...\n');
-    const codex = spawn('codex', ['exec', prompt], { stdio: 'inherit', shell: true, cwd: process.cwd() });
-    codex.on('close', (code) => {
-      if (code !== 0) console.error(`\nCodex CLI がエラーで終了しました (code: ${code})`);
+
+    let stdout = '';
+    let stderr = '';
+
+    codex.stdout.on('data', (data) => {
+      const text = data.toString();
+      stdout += text;
+      process.stdout.write(text);
     });
+
+    codex.stderr.on('data', (data) => {
+      const text = data.toString();
+      stderr += text;
+      process.stderr.write(text);
+    });
+
+    codex.on('close', (code) => {
+      console.log('\n---');
+      if (code === 0) {
+        console.log(`\nCodex CLI 完了 (exit code: ${code})`);
+      } else {
+        console.error(`\nCodex CLI エラー (exit code: ${code})`);
+      }
+      resolve({ stdout, stderr, code });
+    });
+
+    codex.on('error', (err) => {
+      console.error(`\nCodex CLI 起動エラー: ${err.message}`);
+      reject(err);
+    });
+  });
+}
+
+/**
+ * 簡易的な非対話モード（execSync使用）
+ * @param {string} prompt - 実行するプロンプト
+ */
+function runCodexSync(prompt) {
+  console.log('Codex CLI を実行中（同期モード）...\n');
+  console.log('---');
+
+  try {
+    // プロンプトをエスケープ
+    const escapedPrompt = prompt.replace(/"/g, '\\"');
+
+    const result = execSync(`codex exec "${escapedPrompt}"`, {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024, // 10MB
+      env: {
+        ...process.env,
+        CI: 'true'
+      }
+    });
+
+    console.log(result);
+    console.log('---');
+    console.log('\nCodex CLI 完了');
+    return result;
+  } catch (err) {
+    if (err.stdout) console.log(err.stdout);
+    if (err.stderr) console.error(err.stderr);
+    console.log('---');
+    console.error(`\nCodex CLI エラー (exit code: ${err.status})`);
+    return null;
   }
 }
 
@@ -111,9 +185,9 @@ async function main() {
   const args = process.argv.slice(2);
 
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
-    console.log('Codex Helper - OpenAI Codex CLI連携 (if-blog-auto)\n');
+    console.log('Codex Helper v2.0 - OpenAI Codex CLI連携 (if-blog-auto)\n');
     console.log('使用方法:');
-    console.log('  node scripts/codex-helper.js "タスク内容"          # 非対話モード (codex exec)');
+    console.log('  node scripts/codex-helper.js "タスク内容"          # 非対話モード (デフォルト)');
     console.log('  node scripts/codex-helper.js --error "エラー"      # エラー解決');
     console.log('  node scripts/codex-helper.js --file X.js "修正"    # ファイル修正');
     console.log('  node scripts/codex-helper.js --interactive         # 対話モード\n');
@@ -154,7 +228,8 @@ async function main() {
     prompt = generatePrompt(args.join(' '), mode);
   }
 
-  runCodexWithPrompt(prompt);
+  // 非対話モードで実行（同期版を使用 - より安定）
+  runCodexSync(prompt);
 }
 
 main();

@@ -60,6 +60,25 @@ except ImportError:
     print("Error: Pillow not installed")
     sys.exit(1)
 
+try:
+    from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
+except ImportError:
+    print("Warning: tenacity not installed, retries disabled")
+    # フォールバック: デコレータを無効化
+    def retry(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+    stop_after_attempt = lambda x: None
+    wait_exponential = lambda **kwargs: None
+    retry_if_exception = lambda x: None
+
+
+def is_retryable_error(exception):
+    """リトライすべきエラー判定 (429 Resource Exhaustedなど)"""
+    err_str = str(exception)
+    return "429" in err_str or "ResourceExhausted" in err_str or "rate" in err_str.lower()
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -368,12 +387,15 @@ style: |
 class MarpToPngConverter:
     """Marp CLIを使用してPNG画像に変換"""
 
+    # タイムアウト設定 (60秒)
+    TIMEOUT = 60
+
     async def convert(
         self,
         markdown_path: Path,
         output_dir: Path
     ) -> List[str]:
-        """Marp MarkdownをPNG画像に変換"""
+        """Marp MarkdownをPNG画像に変換（タイムアウト・柔軟なファイル探索対応）"""
 
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -398,36 +420,57 @@ class MarpToPngConverter:
                     cwd=str(markdown_path.parent)
                 )
 
-                stdout, stderr = await process.communicate()
+                try:
+                    # タイムアウト付きで待機
+                    stdout, stderr = await asyncio.wait_for(
+                        process.communicate(),
+                        timeout=self.TIMEOUT
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(f"Marp CLI timed out after {self.TIMEOUT}s: {cmd[0]}")
+                    try:
+                        process.kill()
+                        await process.wait()
+                    except ProcessLookupError:
+                        pass
+                    continue
 
                 if process.returncode == 0:
                     logger.info(f"Marp CLI succeeded with: {cmd[0]}")
 
-                    # 生成された画像を検索
-                    # Marpは slide.001.png, slide.002.png 形式で出力
-                    image_files = sorted(output_dir.glob("slide.*.png"))
+                    # 生成された画像を検索（正規表現で柔軟に対応）
+                    # slide.001.png, slide-1.png, slide_01.png などをマッチ
+                    image_files = []
+                    pattern = re.compile(r"slide[-._]*(\d+)\.png", re.IGNORECASE)
 
-                    if not image_files:
-                        # 別のパターンも試す
-                        image_files = sorted(output_dir.glob("slide*.png"))
+                    for f in output_dir.iterdir():
+                        if f.is_file():
+                            match = pattern.match(f.name)
+                            if match:
+                                image_files.append((int(match.group(1)), f))
+
+                    # 番号順にソート
+                    image_files.sort(key=lambda x: x[0])
 
                     if image_files:
-                        image_paths = [str(f) for f in image_files]
-                        logger.info(f"Converted {len(image_paths)} slides to PNG")
+                        logger.info(f"Converted {len(image_files)} slides to PNG")
 
                         # 標準化した名前に変換 (slide_01.png, slide_02.png)
                         standardized_paths = []
-                        for i, src_path in enumerate(image_paths):
+                        for i, (num, src_path) in enumerate(image_files):
                             dst_path = output_dir / f"slide_{i+1:02d}.png"
-                            if Path(src_path) != dst_path:
+                            if src_path != dst_path:
                                 shutil.copy2(src_path, dst_path)
                             standardized_paths.append(str(dst_path))
 
                         return standardized_paths
                     else:
-                        logger.warning("Marp succeeded but no images found")
+                        logger.warning("Marp succeeded but no images found matching pattern")
                 else:
-                    logger.warning(f"Marp CLI failed: {stderr.decode()[:500]}")
+                    # エラーログを詳細化（最大2000文字）
+                    stderr_text = stderr.decode()
+                    logger.warning(f"Marp CLI failed (exit code {process.returncode})")
+                    logger.warning(f"Marp stderr: {stderr_text[:2000]}")
 
             except FileNotFoundError:
                 logger.warning(f"Command not found: {cmd[0]}")
@@ -673,8 +716,16 @@ class TTSGenerator:
 
         return results
 
+    @retry(
+        wait=wait_exponential(multiplier=1, min=4, max=60),
+        stop=stop_after_attempt(3),
+        retry=retry_if_exception(is_retryable_error),
+        before_sleep=lambda retry_state: logger.warning(
+            f"TTS retry {retry_state.attempt_number}/3 after error: {retry_state.outcome.exception()}"
+        )
+    )
     async def _synthesize(self, text: str, output_path: Path) -> float:
-        """テキストを音声に変換"""
+        """テキストを音声に変換（リトライ付き: 指数バックオフ、最大3回）"""
 
         config = types.GenerateContentConfig(
             response_modalities=["AUDIO"],
@@ -704,7 +755,11 @@ class TTSGenerator:
                     break
 
         if not pcm_data:
-            raise ValueError("No audio data returned")
+            raise ValueError("No audio data returned from TTS API")
+
+        # PCMデータサイズ検証
+        if len(pcm_data) < 1000:
+            raise ValueError(f"Audio data too small: {len(pcm_data)} bytes")
 
         # WAV保存
         wav_data = self._pcm_to_wav(pcm_data)
@@ -713,6 +768,7 @@ class TTSGenerator:
 
         # 時間計算
         duration = len(pcm_data) / (self.SAMPLE_RATE * 2)
+        logger.debug(f"TTS synthesized: {len(pcm_data)} bytes, {duration:.1f}s")
         return duration
 
     def _pcm_to_wav(self, pcm: bytes, rate: int = 24000) -> bytes:
@@ -925,12 +981,19 @@ class RemotionRenderer:
         return props
 
     async def _execute_render(self, props_path: Path, output_path: Path) -> str:
-        """Remotionレンダリングを実行"""
+        """Remotionレンダリングを実行（詳細ログ付き）"""
 
         render_script = self.remotion_dir / "render.mjs"
 
         if not render_script.exists():
             raise FileNotFoundError(f"render.mjs not found: {render_script}")
+
+        # propsファイルの検証
+        if props_path.exists():
+            props_size = props_path.stat().st_size
+            logger.info(f"Props file size: {props_size:,} bytes ({props_size / 1024:.1f} KB)")
+            if props_size > 50 * 1024 * 1024:  # 50MB以上は警告
+                logger.warning(f"Props file is very large ({props_size / 1024 / 1024:.1f} MB), may cause memory issues")
 
         cmd = [
             "node",
@@ -941,33 +1004,91 @@ class RemotionRenderer:
         ]
 
         logger.info(f"Rendering: {' '.join(cmd)}")
+        logger.info(f"Working directory: {self.remotion_dir}")
 
         try:
-            result = subprocess.run(
-                cmd,
+            import time
+            start_time = time.time()
+
+            # 非同期でsubprocessを実行（イベントループをブロックしない）
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
                 cwd=str(self.remotion_dir),
-                capture_output=True,
-                text=True,
-                timeout=600
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
             )
 
-            if result.returncode != 0:
-                logger.error(f"Render error: {result.stderr}")
-                logger.error(f"Render stdout: {result.stdout}")
-                # SlideVideoV3用のprops形式はSlideVideoと互換性がないためフォールバックしない
-                # SlideVideoV3: startFrame, endFrame, totalFrames形式
-                # SlideVideo: slideDuration形式
-                raise RuntimeError(f"SlideVideoV3 render failed: {result.stderr}")
+            try:
+                stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=600
+                )
+                stdout_text = stdout_bytes.decode('utf-8', errors='replace')
+                stderr_text = stderr_bytes.decode('utf-8', errors='replace')
+                returncode = process.returncode
+            except asyncio.TimeoutError:
+                logger.error("Remotion rendering timed out after 600 seconds")
+                try:
+                    process.kill()
+                    await process.wait()
+                except ProcessLookupError:
+                    pass
+                raise RuntimeError("Rendering timeout (600s)")
+
+            elapsed = time.time() - start_time
+            logger.info(f"Remotion process completed in {elapsed:.1f}s (exit code: {returncode})")
+
+            if returncode != 0:
+                # エラーログを詳細化
+                logger.error("=" * 60)
+                logger.error("REMOTION RENDER FAILED")
+                logger.error("=" * 60)
+                logger.error(f"Exit code: {returncode}")
+                logger.error(f"Elapsed time: {elapsed:.1f}s")
+
+                # stderr を最大5000文字表示
+                if stderr_text:
+                    logger.error(f"STDERR ({len(stderr_text)} chars):")
+                    logger.error(stderr_text[:5000])
+
+                # stdout も確認（エラー情報が含まれることがある）
+                if stdout_text:
+                    logger.error(f"STDOUT ({len(stdout_text)} chars):")
+                    logger.error(stdout_text[:3000])
+
+                logger.error("=" * 60)
+
+                # よくあるエラーパターンを検出
+                error_hints = []
+                if "ENOMEM" in stderr_text or "out of memory" in stderr_text.lower():
+                    error_hints.append("メモリ不足: Base64画像サイズを削減するか、スライド数を減らしてください")
+                if "swiftshader" in stderr_text.lower() or "gl" in stderr_text.lower():
+                    error_hints.append("GL/レンダリングエラー: CI環境ではREMOTION_GL=swiftshader を設定してください")
+                if "timeout" in stderr_text.lower():
+                    error_hints.append("タイムアウト: スライド数を減らすか、解像度を下げてください")
+
+                if error_hints:
+                    logger.error("考えられる原因と対策:")
+                    for hint in error_hints:
+                        logger.error(f"  - {hint}")
+
+                raise RuntimeError(f"SlideVideoV3 render failed (exit code {returncode})")
 
             if output_path.exists():
                 size = output_path.stat().st_size
-                logger.info(f"Video created: {output_path} ({size:,} bytes)")
+                size_mb = size / 1024 / 1024
+                logger.info(f"Video created successfully:")
+                logger.info(f"  Path: {output_path}")
+                logger.info(f"  Size: {size:,} bytes ({size_mb:.2f} MB)")
+                logger.info(f"  Render time: {elapsed:.1f}s")
                 return str(output_path)
             else:
-                raise RuntimeError("Video file not created")
+                raise RuntimeError("Video file not created after successful render")
 
-        except subprocess.TimeoutExpired:
-            raise RuntimeError("Rendering timeout (600s)")
+        except Exception as e:
+            if "timeout" not in str(e).lower():
+                logger.error(f"Unexpected error during rendering: {e}")
+            raise
 
 
 # =============================================================================
