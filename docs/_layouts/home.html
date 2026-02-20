@@ -91,50 +91,48 @@ layout: default
         Recent Articles
       </h2>
 
-      <ul class="post-list">
+      <div class="home-card-grid">
         {% for post in site.posts offset:1 limit:6 %}
-          <li>
-            <a href="{{ post.url | relative_url }}" class="post-card">
-              <div class="post-card-content">
-                <div class="post-card-meta">
-                  <time class="post-card-date" datetime="{{ post.date | date_to_xmlschema }}">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                      <line x1="16" y1="2" x2="16" y2="6"></line>
-                      <line x1="8" y1="2" x2="8" y2="6"></line>
-                      <line x1="3" y1="10" x2="21" y2="10"></line>
-                    </svg>
-                    {{ post.date | date: "%Y.%m.%d" }}
-                  </time>
-                  {% if post.categories.size > 0 %}
-                    <span class="post-card-category">{{ post.categories | first }}</span>
-                  {% endif %}
-                </div>
-                <h3 class="post-card-title">{{ post.title | escape }}</h3>
-                {% if post.description %}
-                  <p class="post-card-excerpt">{{ post.description | truncate: 140 }}</p>
-                {% elsif post.excerpt %}
-                  <p class="post-card-excerpt">{{ post.excerpt | strip_html | truncate: 140 }}</p>
+          <a href="{{ post.url | relative_url }}" class="post-card home-grid-card">
+            {% if post.featured_image %}
+            <div class="post-card-image">
+              <img src="{{ post.featured_image | relative_url }}" alt="{{ post.title }}" loading="lazy">
+            </div>
+            {% endif %}
+            <div class="post-card-content">
+              <div class="post-card-meta">
+                <time class="post-card-date" datetime="{{ post.date | date_to_xmlschema }}">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                  {{ post.date | date: "%Y.%m.%d" }}
+                </time>
+                {% if post.categories.size > 0 %}
+                  <span class="post-card-category">{{ post.categories | first }}</span>
                 {% endif %}
-                <div class="post-card-footer">
-                  <span class="post-card-read-more">
-                    続きを読む
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <line x1="5" y1="12" x2="19" y2="12"></line>
-                      <polyline points="12 5 19 12 12 19"></polyline>
-                    </svg>
-                  </span>
-                </div>
               </div>
-              {% if post.featured_image %}
-              <div class="post-card-image">
-                <img src="{{ post.featured_image | relative_url }}" alt="{{ post.title }}" loading="lazy">
-              </div>
+              <h3 class="post-card-title">{{ post.title | escape }}</h3>
+              {% if post.description %}
+                <p class="post-card-excerpt">{{ post.description | truncate: 140 }}</p>
+              {% elsif post.excerpt %}
+                <p class="post-card-excerpt">{{ post.excerpt | strip_html | truncate: 140 }}</p>
               {% endif %}
-            </a>
-          </li>
+              <div class="post-card-footer">
+                <span class="post-card-read-more">
+                  続きを読む
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                  </svg>
+                </span>
+              </div>
+            </div>
+          </a>
         {% endfor %}
-      </ul>
+      </div>
 
       {% if site.posts.size > 7 %}
       <p class="view-all">

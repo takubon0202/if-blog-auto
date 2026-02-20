@@ -42,8 +42,28 @@
   <footer class="site-footer">
     <div class="wrapper">
       <p>{{ site.time | date: '%Y' }} {{ site.title }}</p>
+      <div class="footer-social" aria-label="SNS Links">
+        <a href="https://x.com/" target="_blank" rel="noopener">X</a>
+        <a href="https://github.com/" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://www.youtube.com/" target="_blank" rel="noopener">YouTube</a>
+      </div>
       <p>Powered by <a href="https://pages.github.com/">GitHub Pages</a></p>
     </div>
   </footer>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const siteHeader = document.querySelector('.site-header');
+      if (!siteHeader) {
+        return;
+      }
+
+      const updateHeaderState = function() {
+        siteHeader.classList.toggle('is-scrolled', window.scrollY > 8);
+      };
+
+      updateHeaderState();
+      window.addEventListener('scroll', updateHeaderState, { passive: true });
+    });
+  </script>
 </body>
 </html>
