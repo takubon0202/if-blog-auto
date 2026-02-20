@@ -11,7 +11,7 @@ Gemini 3 Pro Previewでコンテンツ構成、Gemini 2.5 Flash imageでスラ�
 - **スライド画像**: PDFから個別PNG変換
 
 ## 使用API
-- **コンテンツ生成**: `gemini-3-pro-preview`
+- **コンテンツ生成**: `gemini-3.1-pro-preview`
 - **画像生成**: `gemini-2.5-flash-image`
 - **PDF変換**: Marp CLI (`@marp-team/marp-cli`)
 

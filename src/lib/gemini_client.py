@@ -70,7 +70,7 @@ class GeminiClient:
     """Gemini API統合クライアント"""
 
     # モデル定数
-    MODEL_PRO = "gemini-3-pro-preview"
+    MODEL_PRO = "gemini-3.1-pro-preview"
     MODEL_FLASH = "gemini-3-flash-preview"  # Updated: Gemini 3 Flash (thinking off)
     MODEL_FLASH_3 = "gemini-3-flash-preview"  # SEO/Review用 (alias)
     MODEL_IMAGE = "gemini-2.5-flash-image"

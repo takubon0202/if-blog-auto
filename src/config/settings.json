@@ -1,7 +1,7 @@
 {
   "gemini": {
     "models": {
-      "content_generation": "gemini-3-pro-preview",
+      "content_generation": "gemini-3.1-pro-preview",
       "seo_optimization": "gemini-3-flash-preview",
       "quality_review": "gemini-3-flash-preview",
       "quick_tasks": "gemini-3-flash-preview",

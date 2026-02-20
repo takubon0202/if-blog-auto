@@ -49,7 +49,7 @@ Multi-Search（3回検索）を使用して、**7日以内の最新情報のみ*
 | 推奨用途 | 日常リサーチ（メイン） | 週1回の深層調査 |
 
 ## 使用モデル
-- **Primary**: `gemini-3-pro-preview` + Google Search Tool (3回検索)
+- **Primary**: `gemini-3.1-pro-preview` + Google Search Tool (3回検索)
 
 ## 重要な制約条件
 

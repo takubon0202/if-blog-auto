@@ -388,7 +388,7 @@ sudo apt-get install -y \
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ Step 1: 情報収集                                                │
-│  ├── 月〜土: Google Search 3回検索 (gemini-3-pro-preview)       │
+│  ├── 月〜土: Google Search 3回検索 (gemini-3.1-pro-preview)       │
 │  └── 日曜: Deep Research API (週間総括)                         │
 │  出力: research_data (sources, topic_info)                      │
 └─────────────────────────────────────────────────────────────────┘
@@ -396,7 +396,7 @@ sudo apt-get install -y \
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ Step 2: ブログ記事生成                                          │
-│  モデル: gemini-3-pro-preview                                   │
+│  モデル: gemini-3.1-pro-preview                                   │
 │  出力: article (title, content, word_count)                     │
 │  目標: 4000〜5500文字                                           │
 └─────────────────────────────────────────────────────────────────┘

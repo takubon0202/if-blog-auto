@@ -159,7 +159,7 @@ interface SlideData {
 
 | 用途 | モデル/ツール |
 |------|-------------|
-| スライド構成 | `gemini-3-pro-preview` |
+| スライド構成 | `gemini-3.1-pro-preview` |
 | スライド画像 | `gemini-2.5-flash-image` |
 | ナレーション | `gemini-2.5-flash-preview-tts` |
 | 動画レンダリング | Remotion 4.0 |

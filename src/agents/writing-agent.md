@@ -17,7 +17,7 @@ Deep Research Agentの調査結果を基に、**7日以内の最新情報のみ*
 - URLは完全形式（https://で始まる）で記載
 
 ## 使用モデル
-- **Primary**: `gemini-3-pro-preview`
+- **Primary**: `gemini-3.1-pro-preview`
 - **Quick drafts**: `gemini-2.0-flash`
 
 ## 入力

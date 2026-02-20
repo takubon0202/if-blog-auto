@@ -45,12 +45,12 @@ Multi-Search（3回検索、メイン）とDeep Research API（日曜のみ・�
 ## システムフロー
 ```
 1. 情報収集
-   ├── 【月〜土】Multi-Search 3回検索 + gemini-3-pro-preview
+   ├── 【月〜土】Multi-Search 3回検索 + gemini-3.1-pro-preview
    └── 【日曜日】deep-research-pro-preview-12-2025（週間総括）
    └── 【失敗時】Multi-Searchへ自動フォールバック
 
 2. Gemini 3 Pro (ブログ生成)
-   └── gemini-3-pro-preview で記事を執筆（10,000文字以上）
+   └── gemini-3.1-pro-preview で記事を執筆（10,000文字以上）
 
 3. 画像生成
    └── gemini-2.5-flash-image でアニメ風アイキャッチ画像生成
@@ -111,10 +111,10 @@ Multi-Search（3回検索、メイン）とDeep Research API（日曜のみ・�
 ### モデル選択
 | 用途 | モデル/ツール | 曜日/タイミング |
 |------|-------------|----------------|
-| 情報収集（メイン） | `gemini-3-pro-preview` + Multi-Search 3回 | 月〜土（デフォルト） |
+| 情報収集（メイン） | `gemini-3.1-pro-preview` + Multi-Search 3回 | 月〜土（デフォルト） |
 | 情報収集（週間総括） | `deep-research-pro-preview-12-2025` | 日曜のみ |
-| 情報収集（フォールバック） | `gemini-3-pro-preview` + Multi-Search 3回 | Deep Research失敗時 |
-| コンテンツ生成 | `gemini-3-pro-preview` | 全曜日 |
+| 情報収集（フォールバック） | `gemini-3.1-pro-preview` + Multi-Search 3回 | Deep Research失敗時 |
+| コンテンツ生成 | `gemini-3.1-pro-preview` | 全曜日 |
 | SEO最適化 | `gemini-3-flash-preview`（思考オフ） | 全曜日 |
 | 品質レビュー | `gemini-3-flash-preview`（思考オフ） | 全曜日 |
 | 画像生成 | `gemini-2.5-flash-image` | 全曜日 |
@@ -125,7 +125,7 @@ Multi-Search（3回検索、メイン）とDeep Research API（日曜のみ・�
 ```python
 # 同期的なコンテンツ生成
 response = ai.models.generate_content(
-    model="gemini-3-pro-preview",
+    model="gemini-3.1-pro-preview",
     contents=prompt
 )
 
@@ -152,7 +152,7 @@ response = ai.models.generate_content(
 ```python
 # 検索ツール有効化
 response = ai.models.generate_content(
-    model="gemini-3-pro-preview",
+    model="gemini-3.1-pro-preview",
     contents=prompt,
     config={
         "tools": [{"google_search": {}}]

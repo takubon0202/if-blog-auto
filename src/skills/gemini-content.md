@@ -22,7 +22,7 @@ Gemini 3 Pro Previewを使用したコンテンツ生成スキル。
 ### 高品質コンテンツ生成
 ```python
 response = client.models.generate_content(
-    model="gemini-3-pro-preview",
+    model="gemini-3.1-pro-preview",
     contents=prompt,
     config={
         "temperature": 0.7,

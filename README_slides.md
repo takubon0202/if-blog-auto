@@ -80,9 +80,9 @@ Step 5: GitHub Pages 投稿
 
 | 用途 | モデル | 特徴 |
 |------|--------|------|
-| 情報収集 | gemini-3-pro-preview + Multi-Search | 3回検索で網羅的 |
+| 情報収集 | gemini-3.1-pro-preview + Multi-Search | 3回検索で網羅的 |
 | 深層調査 | deep-research-pro-preview-12-2025 | 日曜のみ |
-| 記事生成 | gemini-3-pro-preview | 高品質な文章生成 |
+| 記事生成 | gemini-3.1-pro-preview | 高品質な文章生成 |
 | 画像生成 | gemini-2.5-flash-image | スマートプロンプト対応 |
 | SEO/レビュー | gemini-3-flash-preview | 思考オフで高速 |
 

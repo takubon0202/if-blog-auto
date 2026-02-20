@@ -7,7 +7,7 @@
  * Claude Code / Codex CLIと同じ仕組みです。
  *
  * モデル優先順位:
- *   1. gemini-3-pro-preview（推奨・デフォルト）
+ *   1. gemini-3.1-pro-preview（推奨・デフォルト）
  *   2. gemini-3-flash-preview（高速処理用）
  *   3. gemini-2.5-pro（フォールバック）
  *   4. gemini-2.5-flash（フォールバック）
@@ -28,7 +28,7 @@ const { spawn, execSync } = require('child_process');
 // モデル設定（Gemini 3系を優先）
 const MODELS = {
   // メイン（常にこちらを使用）
-  PRO: 'gemini-3-pro-preview',      // 推奨・デフォルト
+  PRO: 'gemini-3.1-pro-preview',      // 推奨・デフォルト
   FLASH: 'gemini-3-flash-preview',  // 高速処理用
 
   // フォールバック（エラー時のみ）
@@ -50,7 +50,7 @@ Gemini APIを活用した最新トレンド情報自動収集・画像/動画付
 ## 技術スタック
 - Python 3.11+ (メインスクリプト)
 - TypeScript/JavaScript (Remotion動画生成)
-- Gemini API (gemini-3-pro-preview, gemini-3-flash-preview, gemini-2.5-flash-image)
+- Gemini API (gemini-3.1-pro-preview, gemini-3-flash-preview, gemini-2.5-flash-image)
 - Remotion 4.0 (動画生成 - SlideVideoV3)
 - Marp CLI (スライド生成)
 - Jekyll (GitHub Pages)
@@ -228,7 +228,7 @@ async function main() {
   // GEMINI.md を作成
   writeProjectContext();
 
-  let model = CONFIG.model;  // デフォルト: gemini-3-pro-preview
+  let model = CONFIG.model;  // デフォルト: gemini-3.1-pro-preview
   let yolo = CONFIG.yolo;
 
   // 引数解析

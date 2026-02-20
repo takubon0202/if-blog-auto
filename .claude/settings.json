@@ -20,7 +20,7 @@
     "enabled": true,
     "method": "gemini-cli",
     "command": "gemini",
-    "model": "gemini-3-pro-preview",
+    "model": "gemini-3.1-pro-preview",
     "subscription": "Gemini AI Pro ($19.99/月)",
     "yolo": true,
     "autoInvoke": {
@@ -32,7 +32,7 @@
     },
     "models": {
       "primary": {
-        "pro": "gemini-3-pro-preview",
+        "pro": "gemini-3.1-pro-preview",
         "flash": "gemini-3-flash-preview"
       },
       "fallback": {

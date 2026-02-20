@@ -27,7 +27,7 @@ client = genai.Client(api_key=api_key)
 
 # スライド構成生成
 response = client.models.generate_content(
-    model="gemini-3-pro-preview",
+    model="gemini-3.1-pro-preview",
     contents=slide_prompt,
     config=types.GenerateContentConfig(
         temperature=0.7,

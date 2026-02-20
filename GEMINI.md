@@ -7,7 +7,7 @@ Gemini APIを活用した最新トレンド情報自動収集・画像/動画付
 - **Python 3.11+**: メインスクリプト
 - **TypeScript/JavaScript**: Remotion動画生成
 - **Gemini API**:
-  - `gemini-3-pro-preview` (記事生成、リサーチ)
+  - `gemini-3.1-pro-preview` (記事生成、リサーチ)
   - `gemini-3-flash-preview` (SEO、レビュー - 思考オフ)
   - `gemini-2.5-flash-image` (画像生成)
   - `deep-research-pro-preview-12-2025` (週間総括)
@@ -67,7 +67,7 @@ if-blog-auto/
 
 ```python
 response = ai.models.generate_content(
-    model="gemini-3-pro-preview",
+    model="gemini-3.1-pro-preview",
     contents=prompt
 )
 ```
@@ -99,7 +99,7 @@ response = ai.models.generate_content(
 ## CLI設定
 
 ### 使用モデル（優先順位）
-1. `gemini-3-pro-preview` - 推奨・デフォルト
+1. `gemini-3.1-pro-preview` - 推奨・デフォルト
 2. `gemini-3-flash-preview` - 高速処理用
 3. `gemini-2.5-pro` - フォールバック（エラー時のみ）
 4. `gemini-2.5-flash` - フォールバック（エラー時のみ）
@@ -108,7 +108,7 @@ response = ai.models.generate_content(
 
 ```bash
 # Gemini 3 Pro（推奨）
-gemini -m gemini-3-pro-preview "記事生成プロンプトを最適化"
+gemini -m gemini-3.1-pro-preview "記事生成プロンプトを最適化"
 
 # Gemini 3 Flash（高速）
 gemini -m gemini-3-flash-preview "SEOメタデータを生成"

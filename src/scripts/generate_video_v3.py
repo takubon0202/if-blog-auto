@@ -160,7 +160,7 @@ TOPIC_COLORS = {
 class MarpSlideGenerator:
     """Marp Markdown形式のスライド生成"""
 
-    MODEL = "gemini-3.1-flash-preview"  # Gemini 3.1 Flash with thinking off
+    MODEL = "gemini-3-flash-preview"  # Gemini 3.1 Flash with thinking off
 
     def __init__(self):
         api_key = os.getenv("GOOGLE_AI_API_KEY")
@@ -549,7 +549,7 @@ class MarpToPngConverter:
 class NarrationGenerator:
     """スライドごとのナレーションスクリプト生成"""
 
-    MODEL = "gemini-3.1-flash-preview"  # Gemini 3.1 Flash with thinking off
+    MODEL = "gemini-3-flash-preview"  # Gemini 3.1 Flash with thinking off
 
     def __init__(self):
         api_key = os.getenv("GOOGLE_AI_API_KEY")

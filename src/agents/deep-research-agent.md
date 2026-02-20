@@ -86,7 +86,7 @@ start_date = today - timedelta(days=7)
 
 ## 使用モデル
 - **Primary**: `deep-research-pro-preview-12-2025`
-- **Fallback**: `gemini-3-pro-preview` with Google Search Tool
+- **Fallback**: `gemini-3.1-pro-preview` with Google Search Tool
 
 ## 入力
 ```json
@@ -237,7 +237,7 @@ Deep Research 失敗時のログ出力:
 ============================================================
 【重要】Deep Research APIが失敗しました
 エラー内容: {エラーメッセージ}
-フォールバック: Google Search Tool (gemini-3-pro-preview) を使用します
+フォールバック: Google Search Tool (gemini-3.1-pro-preview) を使用します
 ============================================================
 ```
 

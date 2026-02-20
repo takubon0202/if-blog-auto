@@ -71,7 +71,7 @@ config = {
 
 | モデル | 速度 | 精度 | 用途 |
 |--------|------|------|------|
-| gemini-3-pro-preview | 遅い | 最高 | コンテンツ生成 |
+| gemini-3.1-pro-preview | 遅い | 最高 | コンテンツ生成 |
 | gemini-3-flash-preview | 速い | 高い | SEO/レビュー |
 | gemini-2.0-flash | 最速 | 中 | 簡単なタスク |
 

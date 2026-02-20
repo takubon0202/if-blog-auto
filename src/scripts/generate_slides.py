@@ -218,7 +218,7 @@ JSONのみを出力してください。"""
         try:
             response = await client.generate_content(
                 prompt=prompt,
-                model="gemini-3-pro-preview"
+                model="gemini-3.1-pro-preview"
             )
 
             # GenerationResultはdataclass、.textでテキストを取得

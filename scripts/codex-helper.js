@@ -24,7 +24,7 @@ Gemini APIを活用した最新トレンド情報自動収集・画像/動画付
 ## 技術スタック
 - Python 3.11+ (メインスクリプト)
 - TypeScript/JavaScript (Remotion動画生成)
-- Gemini API (gemini-3-pro-preview, gemini-3-flash-preview, gemini-2.5-flash-image)
+- Gemini API (gemini-3.1-pro-preview, gemini-3-flash-preview, gemini-2.5-flash-image)
 - Remotion 4.0 (動画生成 - SlideVideoV3)
 - Marp CLI (スライド生成)
 - Jekyll (GitHub Pages)

@@ -6,7 +6,7 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 
 ### v3.0.0: 動画生成パイプライン全面修正 & Gemini 3.1移行
 - **Gemini 3.1 Pro移行**: `gemini-3-pro-preview` → `gemini-3.1-pro-preview`（全モジュール）
-- **Gemini 3.1 Flash移行**: `gemini-3-flash-preview` → `gemini-3.1-flash-preview`（スライド生成・ナレーション・SEO・レビュー）
+- **Gemini 3.1 Flash移行**: `gemini-3-flash-preview` → `gemini-3-flash-preview`（スライド生成・ナレーション・SEO・レビュー）
 - **Base64画像廃止**: props.jsonへのBase64埋め込み → `remotion/public/slides_v3/` にファイルコピー＋`staticFile()`参照（メモリ使用量を大幅削減）
 - **Marp PNG検出修正**: 正規表現固定パターン → 全PNGファイル検索方式に変更（`slide.png`番号なしにも対応）
 - **totalFrames算出改善**: `calculateMetadata`でスライドの最大endFrameからフォールバック計算（0/undefined時の不整合を解消）
@@ -21,7 +21,7 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 - **PCMデータ検証**: 音声データサイズの事前検証で破損検出
 
 ### v2.9.0: Gemini 3 Flash移行 & Remotionレンダリング修正
-- **Gemini 3 Flash移行**: `gemini-2.0-flash` → `gemini-3.1-flash-preview`（思考モードオフ）
+- **Gemini 3 Flash移行**: `gemini-2.0-flash` → `gemini-3-flash-preview`（思考モードオフ）
 - **SlideVideoV3対応**: Marpスライド対応＆タイミング制御の新コンポジション
 - **デフォルトコンポジション変更**: `BlogVideo` → `SlideVideoV3`（スライド動画がデフォルト）
 - **render.mjs引数順序修正**: Python→Remotion間の引数順序不一致を修正
@@ -222,8 +222,8 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 | スライド生成 | `gemini-3.1-pro-preview` + `gemini-2.5-flash-image` | 全曜日 | 約1-2分 |
 | ナレーション | VOICEPEAK（ローカル優先）/ Gemini TTS（フォールバック） | 全曜日 | 約30秒 |
 | 動画レンダリング | Remotion 4.0 SlideVideoV3（デフォルト） | 全曜日 | 約2-3分 |
-| SEO最適化 | `gemini-3.1-flash-preview`（思考オフ） | 全曜日 | 約5-10秒 |
-| 品質レビュー | `gemini-3.1-flash-preview`（思考オフ） | 全曜日 | 約10-20秒 |
+| SEO最適化 | `gemini-3-flash-preview`（思考オフ） | 全曜日 | 約5-10秒 |
+| 品質レビュー | `gemini-3-flash-preview`（思考オフ） | 全曜日 | 約10-20秒 |
 
 ### 処理時間の目安（合計）
 
@@ -667,8 +667,8 @@ result = await client.generate_blog_image(
 
 ```python
 GeminiClient.MODEL_PRO = "gemini-3.1-pro-preview"
-GeminiClient.MODEL_FLASH = "gemini-3.1-flash-preview"  # v2.9.0で更新（思考モードオフ）
-GeminiClient.MODEL_FLASH_3 = "gemini-3.1-flash-preview"
+GeminiClient.MODEL_FLASH = "gemini-3-flash-preview"  # v2.9.0で更新（思考モードオフ）
+GeminiClient.MODEL_FLASH_3 = "gemini-3-flash-preview"
 GeminiClient.MODEL_IMAGE = "gemini-2.5-flash-image"
 GeminiClient.AGENT_DEEP_RESEARCH = "deep-research-pro-preview-12-2025"
 ```

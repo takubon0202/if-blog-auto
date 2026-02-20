@@ -14,7 +14,7 @@ Google Gemini CLIを使用してコード生成・エラー解決を行います
 $ARGUMENTS を受け取り、Gemini CLIを実行します：
 
 ```bash
-gemini -m gemini-3-pro-preview "$ARGUMENTS"
+gemini -m gemini-3.1-pro-preview "$ARGUMENTS"
 ```
 
 ## 利用可能なモデル
@@ -23,7 +23,7 @@ gemini -m gemini-3-pro-preview "$ARGUMENTS"
 
 | モデル | 説明 | 用途 |
 |--------|------|------|
-| `gemini-3-pro-preview` | **推奨** - 最高品質の推論・コーディング | 複雑なタスク、設計、分析 |
+| `gemini-3.1-pro-preview` | **推奨** - 最高品質の推論・コーディング | 複雑なタスク、設計、分析 |
 | `gemini-3-flash-preview` | **高速** - 低レイテンシ | 単純なタスク、素早い回答 |
 
 ### フォールバック（エラー時のみ）
@@ -40,7 +40,7 @@ gemini -m gemini-3-pro-preview "$ARGUMENTS"
 ```bash
 # 推奨：Gemini 3 Pro（デフォルト）
 gemini "タスク内容"
-gemini -m gemini-3-pro-preview "複雑なアルゴリズムを実装"
+gemini -m gemini-3.1-pro-preview "複雑なアルゴリズムを実装"
 
 # 高速処理：Gemini 3 Flash
 gemini -m gemini-3-flash-preview "簡単な質問に答えて"
@@ -57,7 +57,7 @@ gemini
 
 ```bash
 # ブログ生成関連
-gemini -m gemini-3-pro-preview "記事生成プロンプトを最適化"
+gemini -m gemini-3.1-pro-preview "記事生成プロンプトを最適化"
 gemini -m gemini-3-flash-preview "SEOメタデータを生成"
 
 # 画像生成

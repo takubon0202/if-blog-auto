@@ -18,7 +18,7 @@
 - 過度な感嘆符
 
 ## 使用モデル
-- **Primary**: `gemini-3-pro-preview`
+- **Primary**: `gemini-3.1-pro-preview`
 - **Quick enhancement**: `gemini-2.0-flash`
 
 ## 入力
