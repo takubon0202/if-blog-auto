@@ -4,6 +4,29 @@ on:
   schedule:
     # 毎日日本時間午前5時に実行（UTC 20:00）
     - cron: '0 20 * * *'
+  workflow_call:
+    inputs:
+      topic:
+        description: '生成するトピック（空白で自動選択）'
+        required: false
+        type: string
+      research_method:
+        description: 'リサーチ方法を選択'
+        required: false
+        type: string
+        default: 'auto'
+      skip_images:
+        description: '画像生成をスキップ'
+        required: false
+        type: boolean
+        default: false
+      skip_video:
+        description: '動画生成をスキップ'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      inherit: true
   workflow_dispatch:
     inputs:
       topic:
