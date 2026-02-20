@@ -1,8 +1,16 @@
-# if(塾) Blog Automation System v2.9.1
+# if(塾) Blog Automation System v3.0.0
 
 Gemini API を活用した、最新トレンド情報を自動収集して画像・**スライド動画**付き**高品質ブログ記事（20,000文字以上）**を生成・GitHub Pagesに自動投稿するシステム。
 
-## 最新アップデート（2026年1月20日）
+## 最新アップデート（2026年2月20日）
+
+### v3.0.0: 動画生成パイプライン全面修正 & Gemini 3.1移行
+- **Gemini 3.1 Pro移行**: `gemini-3-pro-preview` → `gemini-3.1-pro-preview`（全モジュール）
+- **Gemini 3.1 Flash移行**: `gemini-3-flash-preview` → `gemini-3.1-flash-preview`（スライド生成・ナレーション・SEO・レビュー）
+- **Base64画像廃止**: props.jsonへのBase64埋め込み → `remotion/public/slides_v3/` にファイルコピー＋`staticFile()`参照（メモリ使用量を大幅削減）
+- **Marp PNG検出修正**: 正規表現固定パターン → 全PNGファイル検索方式に変更（`slide.png`番号なしにも対応）
+- **totalFrames算出改善**: `calculateMetadata`でスライドの最大endFrameからフォールバック計算（0/undefined時の不整合を解消）
+- **Codex CLI対応**: GPT-5.3 Codex（非対話モード）によるコード修正ワークフロー
 
 ### v2.9.1: 動画生成安定性向上 & エラーハンドリング強化
 - **TTSリトライロジック**: tenacityによる指数バックオフリトライ（最大3回、429エラー対応）
@@ -13,7 +21,7 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 - **PCMデータ検証**: 音声データサイズの事前検証で破損検出
 
 ### v2.9.0: Gemini 3 Flash移行 & Remotionレンダリング修正
-- **Gemini 3 Flash移行**: `gemini-2.0-flash` → `gemini-3-flash-preview`（思考モードオフ）
+- **Gemini 3 Flash移行**: `gemini-2.0-flash` → `gemini-3.1-flash-preview`（思考モードオフ）
 - **SlideVideoV3対応**: Marpスライド対応＆タイミング制御の新コンポジション
 - **デフォルトコンポジション変更**: `BlogVideo` → `SlideVideoV3`（スライド動画がデフォルト）
 - **render.mjs引数順序修正**: Python→Remotion間の引数順序不一致を修正
@@ -120,7 +128,7 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ Step 1: 情報収集                                    [約10-30秒] │
-│  ├── 月〜土: Google Search 3回検索 (gemini-3-pro-preview)       │
+│  ├── 月〜土: Google Search 3回検索 (gemini-3.1-pro-preview)       │
 │  └── 日曜: Deep Research API (週間総括)             [約3-5分]   │
 │  出力: research_data (sources, topic_info)                      │
 └─────────────────────────────────────────────────────────────────┘
@@ -128,7 +136,7 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ Step 2: ブログ記事生成（5倍品質版）                  [約1-2分]  │
-│  モデル: gemini-3-pro-preview                                   │
+│  モデル: gemini-3.1-pro-preview                                   │
 │  出力: article (title, content, word_count)                     │
 │  目標: 20,000文字以上（17セクション構成）                       │
 │  特徴: ストーリーテリング、驚きの事実、Q&A、行動計画            │
@@ -160,10 +168,10 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 │  │      音声ファイル → public/narration.wav                 │   │
 │  ├──────────────────────────────────────────────────────────┤   │
 │  │ 4-4. Remotion レンダリング                  [約2-3分]    │   │
-│  │      【v2.7.0】Base64 Data URL方式                       │   │
-│  │      - 画像: PNG → data:image/png;base64,...             │   │
+│  │      【v3.0.0】staticFile参照方式                        │   │
+│  │      - 画像: public/slides_v3/ → staticFile()           │   │
 │  │      - 音声: WAV → data:audio/wav;base64,...             │   │
-│  │      SlideVideo → 1920x1080 MP4                          │   │
+│  │      SlideVideoV3 → 1920x1080 MP4                        │   │
 │  │      6スライド × 5秒 = **30秒動画**（最大）              │   │
 │  │      **品質評価なし** → 即座に成功                       │   │
 │  └──────────────────────────────────────────────────────────┘   │
@@ -207,15 +215,15 @@ Gemini API を活用した、最新トレンド情報を自動収集して画像
 
 | ステップ | モデル/ツール | 曜日/タイミング | 応答時間 |
 |----------|--------------|----------------|----------|
-| 情報収集（メイン） | `gemini-3-pro-preview` + Multi-Search 3回 | 月〜土 | 約10-30秒 |
+| 情報収集（メイン） | `gemini-3.1-pro-preview` + Multi-Search 3回 | 月〜土 | 約10-30秒 |
 | 情報収集（深層） | `deep-research-pro-preview-12-2025` | 日曜のみ | 約3-5分 |
-| 記事生成 | `gemini-3-pro-preview` | 全曜日 | 約1-2分 |
+| 記事生成 | `gemini-3.1-pro-preview` | 全曜日 | 約1-2分 |
 | 画像生成 | `gemini-2.5-flash-image` (16:9) | 全曜日 | 約30秒-1分 |
-| スライド生成 | `gemini-3-pro-preview` + `gemini-2.5-flash-image` | 全曜日 | 約1-2分 |
+| スライド生成 | `gemini-3.1-pro-preview` + `gemini-2.5-flash-image` | 全曜日 | 約1-2分 |
 | ナレーション | VOICEPEAK（ローカル優先）/ Gemini TTS（フォールバック） | 全曜日 | 約30秒 |
 | 動画レンダリング | Remotion 4.0 SlideVideoV3（デフォルト） | 全曜日 | 約2-3分 |
-| SEO最適化 | `gemini-3-flash-preview`（思考オフ） | 全曜日 | 約5-10秒 |
-| 品質レビュー | `gemini-3-flash-preview`（思考オフ） | 全曜日 | 約10-20秒 |
+| SEO最適化 | `gemini-3.1-flash-preview`（思考オフ） | 全曜日 | 約5-10秒 |
+| 品質レビュー | `gemini-3.1-flash-preview`（思考オフ） | 全曜日 | 約10-20秒 |
 
 ### 処理時間の目安（合計）
 
@@ -621,7 +629,7 @@ client = GeminiClient()
 # コンテンツ生成
 result = await client.generate_content(
     prompt="プロンプト",
-    model="gemini-3-pro-preview",
+    model="gemini-3.1-pro-preview",
     enable_search=False,
     thinking_mode=True
 )
@@ -658,9 +666,9 @@ result = await client.generate_blog_image(
 ### モデル定数
 
 ```python
-GeminiClient.MODEL_PRO = "gemini-3-pro-preview"
-GeminiClient.MODEL_FLASH = "gemini-3-flash-preview"  # v2.9.0で更新（思考モードオフ）
-GeminiClient.MODEL_FLASH_3 = "gemini-3-flash-preview"
+GeminiClient.MODEL_PRO = "gemini-3.1-pro-preview"
+GeminiClient.MODEL_FLASH = "gemini-3.1-flash-preview"  # v2.9.0で更新（思考モードオフ）
+GeminiClient.MODEL_FLASH_3 = "gemini-3.1-flash-preview"
 GeminiClient.MODEL_IMAGE = "gemini-2.5-flash-image"
 GeminiClient.AGENT_DEEP_RESEARCH = "deep-research-pro-preview-12-2025"
 ```
@@ -882,7 +890,7 @@ Deep Research失敗時は自動的にMulti-Search（3回検索）にフォール
 ### 重要: 動画生成フロー（v2.7.0更新）
 
 **v2.7.0の主な改善点:**
-- **Base64 Data URL方式**: ファイルパスではなくBase64エンコードでデータを渡す
+- **staticFile参照方式（v3.0.0）**: 画像はRemotion public配下にコピーし`staticFile()`で参照（Base64廃止）
 - **VOICEPEAK TTS統合**: 高品質日本語音声（ローカル優先）
 - **デュアルTTSシステム**: VOICEPEAK + Gemini TTSのフォールバック構成
 
@@ -1145,7 +1153,7 @@ else:
 |---------|------|
 | **AI モデル** | Gemini 3 Pro, Gemini 3 Flash, Deep Research, Gemini 2.5 Flash image |
 | **音声合成（TTS）** | VOICEPEAK（ローカル優先）、Gemini 2.5 Flash TTS（フォールバック） |
-| **動画生成** | Remotion 4.0 (SlideVideoV3/SlideVideo/BlogVideo) + Base64 Data URL方式 |
+| **動画生成** | Remotion 4.0 (SlideVideoV3/SlideVideo/BlogVideo) + staticFile参照方式 |
 | **スライド生成** | Marp CLI (Markdown → PDF → PNG) |
 | **言語** | Python 3.11+, JavaScript (Node.js 20+), TypeScript |
 | **ライブラリ** | `google-genai>=1.56.0`, `pdf2image`, `python-pptx` |
