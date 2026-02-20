@@ -1,6 +1,15 @@
 ---
 layout: post
 title: "2026年最新AIトレンド解説：Gemini 3・Claude 4.6・LLMOと企業のAI導入戦略"
+description: "2026年2月時点の最新AI動向を網羅。Gemini 3 Deep ThinkやClaude 4.6の性能、新概念「LLMO」やAIレコメンデーション攻撃への対策、企業のAI-Ready化の具体策を専門家が解説します。最新のAI活用で競争力"
+date: 2026-02-20 12:48:21 +0900
+categories: [AIツール・技術動向]
+author: "AI Blog Generator"
+featured_image: "/assets/images/2026年最新aiトレンド解説gemini-3claude-46llmoと企業のai導入戦略_hero_20260220_124049_0.png"
+---
+---
+layout: post
+title: "2026年最新AIトレンド解説：Gemini 3・Claude 4.6・LLMOと企業のAI導入戦略"
 description: "2026年2月時点の最新AI動向を網羅。Gemini 3やClaude 4.6、LLMO対策、企業のAI-Ready化について解説。"
 date: 2026-02-20
 categories: [AI, テクノロジー]
@@ -74,3 +83,16 @@ AIの出力を人間が検証し、フィードバックをループさせる体
 - Google DeepMind: Gemini 3 Deep Think Technical Report
 - Sansan: IT活用実態調査 (2026/02/19)
 - 日経BP: AIビジネス利用動向調査
+
+---
+
+## 動画で見る
+
+
+<div class="video-container">
+<video controls width="100%" preload="metadata">
+  <source src="{{ '/assets/videos/2026年最新aiトレンド解説gemini-3claude-46llmoと企業のai導入戦略_standard_video_20260220_124049_ai_tools.mp4' | relative_url }}" type="video/mp4">
+  お使いのブラウザは動画再生に対応していません。
+</video>
+<p class="video-caption">記事の要約動画（123.4秒）</p>
+</div>
