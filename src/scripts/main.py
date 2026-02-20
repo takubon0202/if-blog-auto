@@ -22,6 +22,7 @@ import asyncio
 import argparse
 import json
 import logging
+import re
 import sys
 from pathlib import Path
 
@@ -44,6 +45,24 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+def strip_leading_front_matter(markdown: str) -> str:
+    """
+    先頭のYAMLフロントマターを除去。
+    layoutキーを含むブロックのみ対象にする。
+    """
+    if not markdown:
+        return markdown
+
+    match = re.match(r'^---\s*\n(.*?)\n---\s*\n?', markdown, re.DOTALL)
+    if not match:
+        return markdown
+
+    if not re.search(r'^\s*layout\s*:', match.group(1), re.MULTILINE):
+        return markdown
+
+    return markdown[match.end():].lstrip()
 
 
 async def main():
@@ -254,6 +273,13 @@ async def main():
             "review_attempts": review_attempts
         }
         logger.info(f"Review completed. Final quality score: {final.get('quality_score', 0)} (after {review_attempts} attempt(s))")
+
+        # 二重フロントマター防止のため、公開前に先頭フロントマターを除去
+        reviewed_content = final.get("content", "")
+        sanitized_content = strip_leading_front_matter(reviewed_content)
+        if sanitized_content != reviewed_content:
+            logger.info("Removed leading front matter from reviewed content to avoid duplication.")
+        final["content"] = sanitized_content
 
         # ローカル保存（日本時間）
         output_dir = Path(__file__).parent.parent.parent / "output" / "posts"

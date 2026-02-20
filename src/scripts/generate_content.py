@@ -15,6 +15,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import Dict, List, Tuple
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from lib.gemini_client import GeminiClient
@@ -285,6 +286,56 @@ def extract_sources_text(sources: list) -> str:
         return "（URLを含む参考文献が見つかりませんでした）"
 
     return "\n".join(sources_list)
+
+
+def _clean_scalar_value(value: str) -> str:
+    """YAMLライクな値から前後の引用符を除去"""
+    return value.strip().strip('"\'')
+
+
+def _parse_list_value(value: str) -> List[str]:
+    """[a, b, c] 形式の値をリストに変換"""
+    if not value:
+        return []
+
+    normalized = value.strip()
+    if normalized.startswith('[') and normalized.endswith(']'):
+        normalized = normalized[1:-1]
+
+    return [
+        item.strip().strip('"\'')
+        for item in normalized.split(',')
+        if item.strip()
+    ]
+
+
+def _extract_leading_front_matter(content: str) -> Tuple[Dict[str, str], str]:
+    """
+    先頭のYAMLフロントマターを抽出して本文を返す。
+    layoutキーを含む場合のみフロントマターとして扱う。
+    """
+    if not content:
+        return {}, content
+
+    normalized = content.lstrip("\ufeff")
+    match = re.match(r'^---\s*\n(.*?)\n---\s*\n?', normalized, re.DOTALL)
+    if not match:
+        return {}, content
+
+    front_matter_block = match.group(1)
+    if not re.search(r'^\s*layout\s*:', front_matter_block, re.MULTILINE):
+        return {}, content
+
+    metadata: Dict[str, str] = {}
+    for raw_line in front_matter_block.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith('#') or ':' not in line:
+            continue
+        key, value = line.split(':', 1)
+        metadata[key.strip().lower()] = value.strip()
+
+    body = normalized[match.end():].lstrip()
+    return metadata, body
 
 
 async def generate_article(topic_id: str, research_data: dict) -> dict:
@@ -652,21 +703,33 @@ author: "AI Blog Generator"
 """
         content = content.rstrip() + sources_section
 
-    # タイトルを抽出
-    title_match = re.search(r'title:\s*["\']?(.+?)["\']?\s*\n', content)
-    title = title_match.group(1) if title_match else f"{topic_info.get('name', topic_id)}に関する最新情報"
+    # 先頭フロントマターを除去（公開時の二重化防止）
+    front_matter, body_content = _extract_leading_front_matter(content)
+    content = body_content if body_content else content
 
-    # descriptionを抽出
-    desc_match = re.search(r'description:\s*["\']?(.+?)["\']?\s*\n', content)
-    description = desc_match.group(1) if desc_match else ""
+    # タイトルを抽出（front matter優先）
+    title = _clean_scalar_value(front_matter.get("title", ""))
+    if not title:
+        heading_match = re.search(r'^\s*#\s+(.+)$', content, re.MULTILINE)
+        title = heading_match.group(1).strip() if heading_match else f"{topic_info.get('name', topic_id)}に関する最新情報"
 
-    # tagsを抽出
-    tags_match = re.search(r'tags:\s*\[([^\]]+)\]', content)
-    tags = []
-    if tags_match:
-        tags_str = tags_match.group(1)
-        # タグを分割してクリーンアップ
-        tags = [tag.strip().strip('"\'') for tag in tags_str.split(',') if tag.strip()]
+    # descriptionを抽出（front matter優先）
+    description = _clean_scalar_value(front_matter.get("description", ""))
+    if not description:
+        desc_match = re.search(r'description:\s*["\']?(.+?)["\']?\s*\n', content)
+        description = desc_match.group(1) if desc_match else ""
+
+    # tagsを抽出（front matter優先）
+    tags = _parse_list_value(front_matter.get("tags", ""))
+    if not tags:
+        tags_match = re.search(r'tags:\s*\[([^\]]+)\]', content)
+        if tags_match:
+            tags = _parse_list_value(tags_match.group(1))
+
+    # categoriesを抽出（front matter優先）
+    categories = _parse_list_value(front_matter.get("categories", ""))
+    if not categories:
+        categories = [topic_info.get('name', topic_id)]
 
     return {
         "topic": topic_id,
@@ -674,7 +737,7 @@ author: "AI Blog Generator"
         "description": description,
         "content": content,
         "word_count": len(content),
-        "categories": [topic_info.get('name', topic_id)],
+        "categories": categories,
         "tags": tags,
         "sources": sources,
         "research_date": research_date,

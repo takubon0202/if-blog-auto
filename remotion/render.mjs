@@ -71,6 +71,29 @@ function validateBase64DataUrl(dataUrl, type = 'unknown') {
   };
 }
 
+function normalizePathString(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.trim();
+}
+
+function normalizeInputProps(rawProps) {
+  const normalized = { ...rawProps };
+
+  normalized.slideImages = (rawProps.slideImages || []).map((img) => normalizePathString(img));
+  normalized.slides = (rawProps.slides || []).map((slide) => ({
+    ...slide,
+    startFrame: Number.isFinite(slide?.startFrame) ? slide.startFrame : 0,
+    endFrame: Number.isFinite(slide?.endFrame) ? slide.endFrame : 0,
+    duration: Number.isFinite(slide?.duration) ? slide.duration : 0,
+    audioSrc: normalizePathString(slide?.audioSrc) || null,
+    audioBase64: normalizePathString(slide?.audioBase64) || null,
+  }));
+
+  return normalized;
+}
+
 /**
  * propsを検証してログ出力
  */
@@ -93,13 +116,63 @@ function validateAndLogProps(inputProps) {
   const slideImages = inputProps.slideImages || [];
   console.log(`\n[Remotion] slideImages count: ${slideImages.length}`);
   slideImages.forEach((img, i) => {
-    const validation = validateBase64DataUrl(img, `image[${i}]`);
-    if (validation.valid) {
-      console.log(`[Remotion]   image[${i}]: VALID (${validation.mimeType}, ~${Math.round(validation.estimatedBytes/1024)}KB)`);
+    if (!img) {
+      console.warn(`[Remotion]   image[${i}]: EMPTY (will be skipped)`);
+      return;
+    }
+
+    if (img.startsWith("data:")) {
+      const validation = validateBase64DataUrl(img, `image[${i}]`);
+      if (validation.valid) {
+        console.log(`[Remotion]   image[${i}]: VALID BASE64 (${validation.mimeType}, ~${Math.round(validation.estimatedBytes/1024)}KB)`);
+      } else {
+        console.log(`[Remotion]   image[${i}]: INVALID BASE64 - ${validation.reason}`);
+      }
+      return;
+    }
+
+    const imagePath = path.join(__dirname, "public", img);
+    if (fs.existsSync(imagePath)) {
+      const stats = fs.statSync(imagePath);
+      console.log(`[Remotion]   image[${i}]: FILE ${img} (${Math.round(stats.size / 1024)}KB)`);
     } else {
-      console.log(`[Remotion]   image[${i}]: INVALID - ${validation.reason}`);
+      console.warn(`[Remotion]   image[${i}]: FILE NOT FOUND (${img})`);
     }
   });
+
+  // スライドごとの音声（SlideVideoV3向け）
+  console.log(`\n[Remotion] slide-level audio check:`);
+  let slideAudioCount = 0;
+  slides.forEach((slide, i) => {
+    const audioSrc = normalizePathString(slide.audioSrc);
+    const audioBase64 = normalizePathString(slide.audioBase64);
+
+    if (audioSrc) {
+      const audioPath = path.join(__dirname, "public", audioSrc);
+      if (fs.existsSync(audioPath)) {
+        const stats = fs.statSync(audioPath);
+        console.log(`[Remotion]   slide[${i}] audioSrc: OK (${audioSrc}, ${Math.round(stats.size / 1024)}KB)`);
+        slideAudioCount += 1;
+      } else {
+        console.warn(`[Remotion]   slide[${i}] audioSrc: FILE NOT FOUND (${audioSrc})`);
+      }
+      return;
+    }
+
+    if (audioBase64) {
+      const validation = validateBase64DataUrl(audioBase64, `slideAudio[${i}]`);
+      if (validation.valid) {
+        console.log(`[Remotion]   slide[${i}] audioBase64: VALID (${validation.mimeType}, ~${Math.round(validation.estimatedBytes/1024)}KB)`);
+        slideAudioCount += 1;
+      } else {
+        console.warn(`[Remotion]   slide[${i}] audioBase64: INVALID - ${validation.reason}`);
+      }
+      return;
+    }
+
+    console.warn(`[Remotion]   slide[${i}] audio: MISSING`);
+  });
+  console.log(`[Remotion] slide audio count: ${slideAudioCount}/${slides.length}`);
 
   // Base64音声
   console.log(`\n[Remotion] audioDataUrl: ${inputProps.audioDataUrl ? 'present' : 'absent'}`);
@@ -128,11 +201,15 @@ function validateAndLogProps(inputProps) {
 
   // 警告を出力
   if (slideImages.length === 0 && slides.length > 0) {
-    console.warn('[Remotion] WARNING: No Base64 images provided! Video may show fallback images.');
+    console.warn('[Remotion] WARNING: No slide images provided.');
   }
 
   if (slideImages.length > 0 && slideImages.length !== slides.length) {
     console.warn(`[Remotion] WARNING: Image count (${slideImages.length}) does not match slide count (${slides.length})`);
+  }
+
+  if (slides.length > 0 && !slides.some((slide) => normalizePathString(slide.audioSrc) || normalizePathString(slide.audioBase64))) {
+    console.warn('[Remotion] WARNING: No slide audio sources found. Output will be silent.');
   }
 }
 
@@ -159,6 +236,7 @@ async function render() {
       console.log(`[Remotion] Props file size: ${propsContent.length} chars`);
 
       inputProps = JSON.parse(propsContent);
+      inputProps = normalizeInputProps(inputProps);
       console.log(`[Remotion] Props parsed successfully`);
 
       // 詳細な検証

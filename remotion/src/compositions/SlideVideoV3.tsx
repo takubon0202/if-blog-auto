@@ -2,7 +2,6 @@ import React, { useMemo } from "react";
 import {
   AbsoluteFill,
   useCurrentFrame,
-  useVideoConfig,
   interpolate,
   Audio,
   Img,
@@ -35,6 +34,7 @@ interface SlideData {
   startFrame: number;
   endFrame: number;
   duration: number;
+  audioSrc?: string | null;
   audioBase64?: string | null;
   subtitles?: Subtitle[];
 }
@@ -78,17 +78,33 @@ function findCurrentSubtitle(subtitles: Subtitle[] | undefined, frame: number): 
   ) || null;
 }
 
+function normalizeAssetPath(value: string | null | undefined): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function resolveAudioSource(slide: SlideData): string | null {
+  const audioSrcPath = normalizeAssetPath(slide.audioSrc);
+  if (audioSrcPath) {
+    return staticFile(audioSrcPath);
+  }
+
+  const audioBase64 = normalizeAssetPath(slide.audioBase64 ?? null);
+  return audioBase64;
+}
+
 // スライドシーンコンポーネント
 const SlideScene: React.FC<{
   slide: SlideData;
   slideIndex: number;
   totalSlides: number;
   colors: { primary: string; secondary: string; bg: string };
-  slideImage: string;
+  slideImage: string | null;
   globalFrame: number;
 }> = ({ slide, slideIndex, totalSlides, colors, slideImage, globalFrame }) => {
-  const { fps } = useVideoConfig();
-
   // スライド内のローカルフレーム
   const localFrame = globalFrame - slide.startFrame;
   const slideDuration = slide.endFrame - slide.startFrame;
@@ -133,18 +149,19 @@ const SlideScene: React.FC<{
 
   // 現在の字幕
   const currentSubtitle = findCurrentSubtitle(slide.subtitles, globalFrame);
+  const safeSlideImage = normalizeAssetPath(slideImage);
 
   return (
     <AbsoluteFill style={{ backgroundColor: colors.bg, opacity }}>
       {/* スライド画像（Marp生成のPNG） */}
-      {slideImage && (
+      {safeSlideImage && (
         <AbsoluteFill
           style={{
             transform: `scale(${kenBurnsScale}) translateX(${kenBurnsX}px)`,
           }}
         >
           <Img
-            src={staticFile(slideImage)}
+            src={staticFile(safeSlideImage)}
             style={{
               width: "100%",
               height: "100%",
@@ -225,16 +242,22 @@ export const SlideVideoV3: React.FC<SlideVideoV3Props> = ({
 }) => {
   const frame = useCurrentFrame();
   const colors = TOPIC_COLORS[topic] || TOPIC_COLORS.ai_tools;
+  const normalizedSlideImages = useMemo(
+    () => (slideImages || []).map((imagePath) => normalizeAssetPath(imagePath) ?? ""),
+    [slideImages]
+  );
 
   // デバッグログ（初回のみ）
   if (frame === 0) {
+    const emptyImageCount = normalizedSlideImages.filter((imagePath) => !imagePath).length;
     console.log('[SlideVideoV3] Rendering:', {
       title,
       topic,
       fps,
       totalFrames,
       slidesCount: slides?.length,
-      imagesCount: slideImages?.length
+      imagesCount: normalizedSlideImages.length,
+      emptyImageCount
     });
   }
 
@@ -266,9 +289,7 @@ export const SlideVideoV3: React.FC<SlideVideoV3Props> = ({
   const displayIndex = currentSlide ? currentSlideIndex : slides.length - 1;
 
   // 背景画像
-  const slideImage = slideImages && slideImages[displayIndex]
-    ? slideImages[displayIndex]
-    : "";
+  const slideImage = normalizeAssetPath(normalizedSlideImages[displayIndex] || "");
 
   return (
     <AbsoluteFill style={{ backgroundColor: colors.bg }}>
@@ -284,16 +305,24 @@ export const SlideVideoV3: React.FC<SlideVideoV3Props> = ({
 
       {/* スライドごとの音声 */}
       {slides.map((slide, index) => {
-        if (!slide.audioBase64) return null;
+        const audioSource = resolveAudioSource(slide);
+        if (!audioSource) {
+          return null;
+        }
+
+        const from = Number.isFinite(slide.startFrame) ? Math.max(0, slide.startFrame) : 0;
+        const rawDuration = Number.isFinite(slide.endFrame) ? slide.endFrame - from : 0;
+        const fallbackDuration = Math.max(1, Math.round((slide.duration || 1) * fps));
+        const durationInFrames = rawDuration > 0 ? rawDuration : fallbackDuration;
 
         return (
           <Sequence
             key={`audio-${index}`}
-            from={slide.startFrame}
-            durationInFrames={slide.endFrame - slide.startFrame}
+            from={from}
+            durationInFrames={durationInFrames}
           >
             <Audio
-              src={slide.audioBase64}
+              src={audioSource}
               volume={1}
             />
           </Sequence>

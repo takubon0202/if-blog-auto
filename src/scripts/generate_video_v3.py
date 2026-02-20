@@ -833,6 +833,7 @@ class TimingCalculator:
                 "startFrame": current_frame,
                 "endFrame": current_frame + duration_frames,
                 "duration": duration,
+                "audioPath": audio.get("audio_path"),
                 "audioBase64": audio.get("audio_base64"),
                 "subtitles": subtitles
             }
@@ -946,7 +947,9 @@ class RemotionRenderer:
         slides = []
         slide_images = []
         public_slides_dir = self.remotion_dir / "public" / "slides_v3"
+        public_audio_dir = self.remotion_dir / "public" / "audio_v3"
         public_slides_dir.mkdir(parents=True, exist_ok=True)
+        public_audio_dir.mkdir(parents=True, exist_ok=True)
 
         for i, timing in enumerate(timings.get("slides", [])):
             # 画像をRemotion public配下にコピーして、staticFile参照用パスを保持
@@ -961,8 +964,24 @@ class RemotionRenderer:
                     slide_image_path = f"slides_v3/{dst_filename}"
                 else:
                     logger.warning(f"Slide image not found: {src_path}")
+            else:
+                logger.warning(f"No slide image provided for slide index: {i}")
 
             slide_images.append(slide_image_path)
+
+            # 音声をRemotion public配下にコピー（Base64の代替として確実に参照できるように）
+            audio_src = None
+            audio_path_value = timing.get("audioPath")
+            if audio_path_value:
+                src_audio_path = Path(audio_path_value)
+                if src_audio_path.exists():
+                    dst_audio_filename = f"slide_{i+1:02d}.wav"
+                    dst_audio_path = public_audio_dir / dst_audio_filename
+                    if src_audio_path.resolve() != dst_audio_path.resolve():
+                        shutil.copy2(src_audio_path, dst_audio_path)
+                    audio_src = f"audio_v3/{dst_audio_filename}"
+                else:
+                    logger.warning(f"Slide audio not found: {src_audio_path}")
 
             slide_data = {
                 "type": "title" if i == 0 else ("ending" if i == len(timings["slides"]) - 1 else "content"),
@@ -972,6 +991,7 @@ class RemotionRenderer:
                 "startFrame": timing.get("startFrame", i * 150),
                 "endFrame": timing.get("endFrame", (i + 1) * 150),
                 "duration": timing.get("duration", 5.0),
+                "audioSrc": audio_src,
                 "audioBase64": timing.get("audioBase64"),
                 "subtitles": timing.get("subtitles", [])
             }
