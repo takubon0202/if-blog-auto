@@ -406,6 +406,15 @@ strong {
 
 .home-grid-card .post-card-image {
   height: 200px;
+  min-height: 200px;
+  flex-shrink: 0;
+}
+
+.home-grid-card .post-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
 }
 
 .home-grid-card .post-card-content {
@@ -547,7 +556,7 @@ strong {
    ======================================== */
 .post-hero {
   background: var(--gradient-hero);
-  color: var(--color-text-inverse);
+  color: #ffffff;
   padding: var(--space-16) var(--space-6);
   margin: calc(var(--space-6) * -1);
   margin-bottom: var(--space-12);
@@ -1403,28 +1412,58 @@ strong {
    ======================================== */
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-text: #e2e8f0;
-    --color-text-secondary: #cbd5e1;
-    --color-text-light: #94a3b8;
-    --color-text-muted: #64748b;
-    --color-bg: #0b1120;
-    --color-bg-warm: #020617;
-    --color-bg-cool: #111827;
-    --color-bg-card: #111827;
-    --color-bg-elevated: #1e293b;
-    --color-border: #334155;
-    --color-border-light: #1e293b;
+    --color-text: #f1f5f9;
+    --color-text-secondary: #e2e8f0;
+    --color-text-light: #cbd5e1;
+    --color-text-muted: #94a3b8;
+    --color-text-inverse: #0f172a;
+    --color-bg: #0f172a;
+    --color-bg-warm: #0f172a;
+    --color-bg-cool: #1e293b;
+    --color-bg-card: #1e293b;
+    --color-bg-elevated: #334155;
+    --color-border: #475569;
+    --color-border-light: #334155;
+    --color-primary: #e2e8f0;
+    --color-primary-light: #cbd5e1;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.3);
   }
 
   body {
-    background: radial-gradient(circle at top, rgba(15, 23, 42, 0.75), #020617 64%);
+    background: #0f172a;
+    color: #f1f5f9;
   }
 
   .site-header {
-    background: rgba(2, 6, 23, 0.82);
-    border-bottom-color: rgba(100, 116, 139, 0.35);
+    background: rgba(15, 23, 42, 0.95);
+    border-bottom-color: #334155;
   }
 
+  .site-title {
+    color: #f1f5f9;
+  }
+
+  .site-nav a {
+    color: #cbd5e1;
+  }
+
+  .site-nav a:hover {
+    color: #64ffda;
+  }
+
+  /* ホームページ */
+  .home-hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  }
+
+  .section-title {
+    color: #f1f5f9;
+  }
+
+  /* カード */
   .post-card,
   .related-card,
   .post-footer,
@@ -1432,25 +1471,248 @@ strong {
   .share-buttons,
   .sources-section,
   .category-card {
-    background: #111827;
-    border-color: #1f2937;
+    background: #1e293b;
+    border-color: #334155;
+    color: #f1f5f9;
+  }
+
+  .post-card-title {
+    color: #f1f5f9;
+  }
+
+  .post-card-excerpt {
+    color: #cbd5e1;
+  }
+
+  .post-card-meta,
+  .post-card-date {
+    color: #94a3b8;
+  }
+
+  .post-card-read-more {
+    color: #64ffda;
+  }
+
+  .post-card-category {
+    background: rgba(100, 255, 218, 0.15);
+    color: #64ffda;
+    border-color: rgba(100, 255, 218, 0.3);
+  }
+
+  /* 記事ページ */
+  .post-hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  }
+
+  .post-title {
+    color: #f1f5f9;
+  }
+
+  .post-description {
+    color: #cbd5e1;
+  }
+
+  .post-content {
+    color: #e2e8f0;
+  }
+
+  .post-content p {
+    color: #e2e8f0;
+  }
+
+  .post-content h1,
+  .post-content h2,
+  .post-content h3,
+  .post-content h4 {
+    color: #f1f5f9;
   }
 
   .post-content h2 {
-    background: linear-gradient(90deg, rgba(100, 255, 218, 0.2), rgba(17, 24, 39, 0.2));
+    background: linear-gradient(90deg, rgba(100, 255, 218, 0.15), transparent);
+    border-left-color: #64ffda;
+  }
+
+  .post-content h3 {
+    color: #e2e8f0;
+  }
+
+  .post-content a {
+    color: #64ffda;
+  }
+
+  .post-content strong {
+    color: #f1f5f9;
+  }
+
+  .post-content blockquote {
+    background: linear-gradient(90deg, rgba(100, 255, 218, 0.08), rgba(30, 41, 59, 0.8));
+    border-left-color: #64ffda;
+  }
+
+  .post-content blockquote p {
+    color: #cbd5e1;
   }
 
   .post-content code {
-    background: #1e293b;
+    background: #334155;
     color: #fbbf24;
   }
 
+  .post-content li {
+    color: #e2e8f0;
+  }
+
+  .post-content li::marker {
+    color: #64ffda;
+  }
+
+  .post-content th {
+    background: #334155;
+    color: #f1f5f9;
+  }
+
+  .post-content td {
+    color: #e2e8f0;
+    border-color: #334155;
+  }
+
   .post-content tbody tr:nth-child(even) td {
-    background: rgba(148, 163, 184, 0.08);
+    background: rgba(148, 163, 184, 0.06);
   }
 
   .post-content tr:hover td {
-    background: rgba(45, 212, 191, 0.14);
+    background: rgba(100, 255, 218, 0.08);
+  }
+
+  /* 目次 */
+  .toc-container {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  .toc-title {
+    color: #f1f5f9;
+  }
+
+  .toc a {
+    color: #cbd5e1;
+  }
+
+  .toc a:hover {
+    color: #64ffda;
+    background: rgba(100, 255, 218, 0.08);
+  }
+
+  .toc a.is-active {
+    color: #64ffda;
+    background: rgba(100, 255, 218, 0.12);
+  }
+
+  /* タグ・シェア */
+  .post-tags .tag {
+    color: #94a3b8;
+    background: #334155;
+  }
+
+  .share-buttons {
+    background: #1e293b;
+  }
+
+  .share-btn {
+    color: #cbd5e1;
+    border-color: #475569;
+  }
+
+  .share-btn:hover {
+    color: #64ffda;
+    border-color: #64ffda;
+  }
+
+  /* フッター */
+  .post-footer {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  .author-name {
+    color: #f1f5f9;
+  }
+
+  .author-bio {
+    color: #94a3b8;
+  }
+
+  .post-disclaimer {
+    color: #94a3b8;
+  }
+
+  .post-disclaimer p {
+    color: #94a3b8;
+  }
+
+  /* ナビゲーション */
+  .post-navigation a {
+    color: #cbd5e1;
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  .post-navigation a:hover {
+    border-color: #64ffda;
+  }
+
+  .nav-title {
+    color: #f1f5f9;
+  }
+
+  /* 関連記事 */
+  .related-posts {
+    background: #0f172a;
+  }
+
+  .related-card {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  .related-card h3 {
+    color: #f1f5f9;
+  }
+
+  .related-card time {
+    color: #94a3b8;
+  }
+
+  /* サイトフッター */
+  .site-footer {
+    background: #020617;
+    color: #94a3b8;
+  }
+
+  .site-footer p {
+    color: #94a3b8;
+  }
+
+  .site-footer a {
+    color: #cbd5e1;
+  }
+
+  /* 読了プログレスバー */
+  .reading-progress {
+    background: rgba(30, 41, 59, 0.5);
+  }
+
+  /* カテゴリバッジ */
+  .post-category {
+    color: #64ffda;
+  }
+
+  .reading-time {
+    color: #94a3b8;
+  }
+
+  .post-meta time {
+    color: #94a3b8;
   }
 }
 
