@@ -3,6 +3,7 @@
 GitHub Pages (Jekyll) 公開スクリプト
 
 ブログ記事をGitHub Pagesに投稿します。
+動画の生成・埋め込みは行いません。
 """
 import os
 import re
@@ -23,6 +24,112 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def sanitize_video_content(content: str) -> str:
+    """Remove video sections, tags, and references from markdown content.
+
+    Strips the following patterns so that even if upstream LLM text includes
+    video-related blocks they never reach the published post:
+
+    - ``## 動画で見る`` heading (and everything until the next ``##`` or EOF)
+    - ``<video>...</video>`` HTML elements (any attributes)
+    - ``<source ... /assets/videos/ ...>`` lines
+    - ``<div class="video-container">...</div>`` wrappers
+    - ``<p class="video-caption">...</p>`` captions
+    - Liquid ``{{ ... /assets/videos/ ... }}`` references
+    - Standalone lines containing only "ショート動画" (with optional markup)
+    - Front-matter ``tags:`` entries referencing video keywords
+    """
+    # 1. Remove '## 動画で見る' heading and everything until the next '## ' or EOF
+    content = re.sub(
+        r'\n*##\s*動画で見る[^\n]*\n.*?(?=\n## |\Z)',
+        '',
+        content,
+        flags=re.DOTALL,
+    )
+    # 2. Remove <div class="video-container...">...</div> blocks
+    content = re.sub(
+        r'<div\s+class="video-container[^"]*">.*?</div>',
+        '',
+        content,
+        flags=re.DOTALL,
+    )
+    # 3. Remove <video ...>...</video> tags (any attributes, multiline)
+    content = re.sub(
+        r'<video[^>]*>.*?</video>',
+        '',
+        content,
+        flags=re.DOTALL,
+    )
+    # 4. Remove standalone <video ... /> self-closing tags
+    content = re.sub(
+        r'<video[^>]*/\s*>',
+        '',
+        content,
+    )
+    # 5. Remove <source> tags referencing /assets/videos/
+    content = re.sub(
+        r'<source\s+[^>]*/assets/videos/[^>]*/?>\s*',
+        '',
+        content,
+    )
+    # 6. Remove <source> tags with video MIME types
+    content = re.sub(
+        r'<source\s+[^>]*type="video/[^"]*"[^>]*/?>',
+        '',
+        content,
+    )
+    # 7. Remove Liquid/Jekyll references to assets/videos/
+    content = re.sub(
+        r"\{\{.*?/assets/videos/.*?\}\}",
+        '',
+        content,
+        flags=re.DOTALL,
+    )
+    # 8. Remove <p class="video-caption">...</p> captions
+    content = re.sub(
+        r'<p\s+class="video-caption">[^<]*</p>',
+        '',
+        content,
+    )
+    # 9. Remove standalone lines that are just "ショート動画" (with optional tags)
+    content = re.sub(
+        r'^[*_]*ショート動画[*_]*\s*$',
+        '',
+        content,
+        flags=re.MULTILINE,
+    )
+    # 10. Strip video-related keywords from front-matter tags line
+    content = re.sub(
+        r'(tags:\s*\[)([^\]]*)\]',
+        lambda m: m.group(1) + ', '.join(
+            t.strip() for t in m.group(2).split(',')
+            if t.strip() and 'ショート動画' not in t and '動画' not in t.split('/')[-1:]
+        ) + ']',
+        content,
+    )
+    # Collapse runs of 3+ blank lines into 2
+    content = re.sub(r'\n{3,}', '\n\n', content)
+    return content
+
+
+def strip_video_from_file(filepath: str) -> bool:
+    """Read a markdown file, strip video content, write back if changed.
+
+    Returns True if the file was modified, False otherwise.
+    """
+    path = Path(filepath)
+    if not path.exists():
+        logger.warning(f"File not found: {filepath}")
+        return False
+    original = path.read_text(encoding='utf-8')
+    cleaned = sanitize_video_content(original)
+    if cleaned != original:
+        path.write_text(cleaned, encoding='utf-8')
+        logger.info(f"Cleaned video content from: {filepath}")
+        return True
+    return False
+
+
 class GitHubPagesPublisher:
     """GitHub Pages投稿クラス"""
 
@@ -31,13 +138,11 @@ class GitHubPagesPublisher:
         self.docs_dir = self.repo_root / "docs"
         self.posts_dir = self.docs_dir / "_posts"
         self.images_dir = self.docs_dir / "assets" / "images"
-        self.videos_dir = self.docs_dir / "assets" / "videos"
         self.base_url = "https://takubon0202.github.io/if-blog-auto"
 
         # ディレクトリ作成
         self.posts_dir.mkdir(parents=True, exist_ok=True)
         self.images_dir.mkdir(parents=True, exist_ok=True)
-        self.videos_dir.mkdir(parents=True, exist_ok=True)
 
     def slugify(self, text: str) -> str:
         """URLスラッグを生成"""
@@ -127,144 +232,6 @@ class GitHubPagesPublisher:
         # Jekyll用の相対パス（relative_urlフィルタで変換されるためbaseurl不要）
         return f"/assets/images/{filename}"
 
-    def find_existing_videos(self, topic: str = None) -> Optional[Dict]:
-        """
-        output/videos/から既存の動画を探す（フォールバック用）
-
-        Args:
-            topic: トピックID（指定された場合はそのトピックの動画を優先）
-
-        Returns:
-            見つかった動画の情報
-        """
-        output_videos_dir = self.repo_root / "output" / "videos"
-        if not output_videos_dir.exists():
-            return None
-
-        # 最新の動画ファイルを探す
-        video_files = list(output_videos_dir.glob("blog_video_*.mp4"))
-        if not video_files:
-            video_files = list(output_videos_dir.glob("slide_video_*.mp4"))
-        if not video_files:
-            return None
-
-        # トピック指定がある場合はフィルタリング
-        if topic:
-            topic_videos = [v for v in video_files if topic in v.name]
-            if topic_videos:
-                video_files = topic_videos
-
-        # 最新のものを選択（更新日時でソート）
-        video_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-
-        found_videos = {}
-        for video_file in video_files:
-            if "short" in video_file.name and "short" not in found_videos:
-                found_videos["short"] = {
-                    "path": str(video_file),
-                    "duration": 15,
-                    "resolution": "1080x1920"
-                }
-            elif "short" not in video_file.name and "standard" not in found_videos:
-                found_videos["standard"] = {
-                    "path": str(video_file),
-                    "duration": 30,
-                    "resolution": "1920x1080"
-                }
-
-            if "standard" in found_videos:
-                break  # 標準動画が見つかれば十分
-
-        if found_videos:
-            logger.info(f"Found existing videos: {list(found_videos.keys())}")
-
-        return found_videos if found_videos else None
-
-    def copy_videos(self, article: Dict, slug: str) -> Optional[Dict]:
-        """動画をdocs/assets/videosにコピー（フォールバック付き）"""
-        videos = article.get("videos", {})
-
-        # 動画が渡されなかった場合、既存の動画を探す
-        if not videos:
-            logger.info("No videos in article data, searching for existing videos...")
-            topic = article.get("topic") or article.get("topic_id")
-            videos = self.find_existing_videos(topic)
-            if videos:
-                logger.info(f"Using existing videos for topic '{topic}': {list(videos.keys())}")
-
-        if not videos:
-            logger.info("No videos available (even after fallback)")
-            return None
-
-        copied_videos = {}
-
-        for video_type, video_info in videos.items():
-            src_path = Path(video_info.get("path", ""))
-
-            if not src_path.exists():
-                logger.warning(f"Video not found: {src_path}")
-                continue
-
-            # ファイルサイズ検証（最低100KB以上）
-            MIN_VIDEO_SIZE = 100 * 1024  # 100KB
-            file_size = src_path.stat().st_size
-            if file_size < MIN_VIDEO_SIZE:
-                logger.warning(f"Video too small ({file_size} bytes): {src_path}")
-                continue
-
-            # コピー先
-            filename = f"{slug}_{video_type}_{src_path.name}"
-            dest_path = self.videos_dir / filename
-
-            shutil.copy(src_path, dest_path)
-            logger.info(f"Copied video ({file_size} bytes): {dest_path}")
-
-            copied_videos[video_type] = {
-                "path": f"/assets/videos/{filename}",
-                "duration": video_info.get("duration", 30),
-                "resolution": video_info.get("resolution", "1920x1080")
-            }
-
-        return copied_videos if copied_videos else None
-
-    def embed_video_section(self, videos: Dict) -> str:
-        """動画セクションのHTMLを生成"""
-        if not videos:
-            return ""
-
-        sections = []
-        sections.append("\n\n---\n\n## 動画で見る\n")
-
-        # 標準動画
-        if "standard" in videos:
-            video = videos["standard"]
-            video_path = video["path"]
-            sections.append(f"""
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{{{ '{video_path}' | relative_url }}}}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（{video["duration"]}秒）</p>
-</div>
-""")
-
-        # ショート動画
-        if "short" in videos:
-            video = videos["short"]
-            video_path = video["path"]
-            sections.append(f"""
-<div class="video-container video-short">
-<video controls width="320" preload="metadata">
-  <source src="{{{{ '{video_path}' | relative_url }}}}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">ショート動画（{video["duration"]}秒・縦型）</p>
-</div>
-""")
-
-        return "\n".join(sections)
-
     def create_post_file(
         self,
         title: str,
@@ -273,7 +240,6 @@ class GitHubPagesPublisher:
         categories: List[str],
         tags: Optional[List[str]] = None,
         featured_image: Optional[str] = None,
-        video_section: Optional[str] = None
     ) -> Path:
         """記事ファイルを作成（日本時間）"""
         slug = self.slugify(title)
@@ -289,10 +255,11 @@ class GitHubPagesPublisher:
             featured_image=featured_image
         )
 
-        # ファイル書き込み（動画セクションを末尾に追加）
+        # 動画セクション除去（LLMが生成してしまった場合の安全策）
+        content = sanitize_video_content(content)
+
+        # ファイル書き込み
         full_content = front_matter + content
-        if video_section:
-            full_content += video_section
         filepath.write_text(full_content, encoding='utf-8')
         logger.info(f"Created post: {filepath}")
 
@@ -363,7 +330,6 @@ async def publish_to_github_pages(article: Dict) -> Dict:
             - categories: カテゴリリスト
             - tags: タグリスト（オプション）
             - images: 画像データ（オプション）
-            - videos: 動画データ（オプション）
 
     Returns:
         投稿結果
@@ -385,12 +351,6 @@ async def publish_to_github_pages(article: Dict) -> Dict:
         slug = publisher.slugify(title)
         featured_image = publisher.copy_images(article, slug)
 
-        # 動画コピー
-        copied_videos = publisher.copy_videos(article, slug)
-        video_section = publisher.embed_video_section(copied_videos)
-        if copied_videos:
-            logger.info(f"Videos embedded: {list(copied_videos.keys())}")
-
         # 記事ファイル作成
         post_path = publisher.create_post_file(
             title=title,
@@ -399,7 +359,6 @@ async def publish_to_github_pages(article: Dict) -> Dict:
             categories=categories,
             tags=tags,
             featured_image=featured_image,
-            video_section=video_section
         )
 
         # Git操作
@@ -440,15 +399,128 @@ async def publish_to_wordpress(article: dict) -> dict:
 
 if __name__ == "__main__":
     import json
+    import glob as globmod
 
-    # テスト用記事
-    test_article = {
-        "title": "テスト投稿",
-        "content": "# テスト\n\nこれはテスト投稿です。\n\n## セクション1\n\n本文...",
-        "description": "テスト投稿の説明文です。",
-        "categories": ["テスト"],
-        "tags": ["テスト", "GitHub Pages"]
-    }
+    # --- sanitize_video_content sanity tests ---
+    def _run_tests():
+        passed = 0
+        failed = 0
 
-    result = asyncio.run(publish_to_github_pages(test_article))
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+        def check(name, inp, must_not_contain, must_contain=None):
+            nonlocal passed, failed
+            out = sanitize_video_content(inp)
+            ok = True
+            for bad in must_not_contain:
+                if bad in out:
+                    print(f"  FAIL [{name}]: '{bad}' still present")
+                    ok = False
+            if must_contain:
+                for good in must_contain:
+                    if good not in out:
+                        print(f"  FAIL [{name}]: '{good}' missing")
+                        ok = False
+            if ok:
+                passed += 1
+            else:
+                failed += 1
+                print(f"  OUTPUT: {out!r}")
+
+        # Test 1: ## 動画で見る section removed
+        check(
+            "heading_section",
+            "## 前のセクション\n本文\n\n## 動画で見る\n<video src='x'></video>\nキャプション\n\n## 次のセクション\n続き",
+            ["## 動画で見る", "<video"],
+            ["## 前のセクション", "## 次のセクション"],
+        )
+
+        # Test 2: <video> tags removed
+        check(
+            "video_tag",
+            'テスト\n<video controls width="100%"><source src="/assets/videos/a.mp4" type="video/mp4"></video>\n続き',
+            ["<video", "</video>", "/assets/videos/"],
+            ["テスト", "続き"],
+        )
+
+        # Test 3: <source> referencing /assets/videos/
+        check(
+            "source_assets_videos",
+            '<source src="/assets/videos/demo.webm" type="video/webm">',
+            ["/assets/videos/"],
+        )
+
+        # Test 4: video-container div
+        check(
+            "video_container",
+            '<div class="video-container">\n<video src="x"></video>\n</div>\n本文',
+            ["video-container", "<video"],
+            ["本文"],
+        )
+
+        # Test 5: video-caption paragraph
+        check(
+            "video_caption",
+            '<p class="video-caption">ショート動画で概要を確認</p>\nテキスト',
+            ["video-caption"],
+            ["テキスト"],
+        )
+
+        # Test 6: ショート動画 standalone line
+        check(
+            "short_video_line",
+            "概要\n\nショート動画\n\n続き",
+            ["\nショート動画\n"],
+            ["概要", "続き"],
+        )
+
+        # Test 7: Liquid template
+        check(
+            "liquid_ref",
+            '{{ "/assets/videos/post.mp4" | relative_url }}',
+            ["/assets/videos/"],
+        )
+
+        # Test 8: front-matter tags cleaning
+        check(
+            "tags_cleanup",
+            'tags: [AI, ショート動画, 教育]\n本文',
+            ["ショート動画"],
+            ["AI", "教育", "本文"],
+        )
+
+        # Test 9: innocuous content preserved
+        innocent = "# タイトル\n\n本文です。動画や音声を含むマルチモーダルな回答を生成します。\n\n## まとめ\n完了"
+        out = sanitize_video_content(innocent)
+        if out.strip() == innocent.strip():
+            passed += 1
+        else:
+            failed += 1
+            print(f"  FAIL [innocent]: content was altered")
+
+        print(f"\nsanitize_video_content tests: {passed} passed, {failed} failed")
+        return failed == 0
+
+    # --- Main logic ---
+    if len(sys.argv) > 1 and sys.argv[1] == "--clean-posts":
+        # Bulk clean mode: strip video blocks from all docs/_posts/*.md
+        posts_dir = Path(__file__).parent.parent.parent / "docs" / "_posts"
+        md_files = sorted(posts_dir.glob("*.md"))
+        modified = 0
+        for f in md_files:
+            if strip_video_from_file(str(f)):
+                modified += 1
+        print(f"Cleaned {modified}/{len(md_files)} post files")
+    elif len(sys.argv) > 1 and sys.argv[1] == "--test":
+        success = _run_tests()
+        sys.exit(0 if success else 1)
+    else:
+        # Default: run tests then publish test article
+        _run_tests()
+        test_article = {
+            "title": "テスト投稿",
+            "content": "# テスト\n\nこれはテスト投稿です。\n\n## セクション1\n\n本文...",
+            "description": "テスト投稿の説明文です。",
+            "categories": ["テスト"],
+            "tags": ["テスト", "GitHub Pages"]
+        }
+        result = asyncio.run(publish_to_github_pages(test_article))
+        print(json.dumps(result, ensure_ascii=False, indent=2))
