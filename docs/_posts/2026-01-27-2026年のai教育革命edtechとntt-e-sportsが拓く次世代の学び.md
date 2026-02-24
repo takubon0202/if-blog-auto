@@ -67,14 +67,3 @@ AIを効果的に導入するためには、段階的なアプローチが必要
 - Bett Show UK 2026 公式レポート
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/2026年のai教育革命edtechとntt-e-sportsが拓く次世代の学び_standard_video_20260127_054713_education.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（141.03333333333333秒）</p>
-</div>

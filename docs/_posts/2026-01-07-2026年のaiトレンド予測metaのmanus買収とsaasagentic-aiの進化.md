@@ -61,14 +61,3 @@ A2: はい。現在はManusの一般公開やDify等のプラットフォーム�
 2026年は、AIが「便利な道具」から「自律的なパートナー」へと進化した年として記憶されるでしょう。MetaやSORA Technologyの動きが示す通り、ソフトウェアとハードウェアの境界は消滅しつつあります。最新のトレンドを注視し、早期の技術検証を行うことが、次の10年の勝敗を分けます。
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/2026年のaiトレンド予測metaのmanus買収とsaasagentic-aiの進化_standard_slide_video_20260107_111414_startup.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（30秒）</p>
-</div>

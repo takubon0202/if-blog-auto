@@ -63,14 +63,3 @@ A1: 総合力ではChatGPT（GPT-5期待値含む）ですが、Googleエコシ�
 A2: ユーザーの指示に対し、自ら計画を立て、外部ツールを操作して「航空券の予約」や「資料作成の完結」まで行う自律的なAIのことです。
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/2026年のaiトレンド予測chatgpt-vs-geminiの覇権争いとces最新動向_standard_video_20260109_054205_ai_tools.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（163.6秒）</p>
-</div>

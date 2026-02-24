@@ -75,14 +75,3 @@ A: 現在はChatGPT Enterpriseなど、入力データが学習に利用され�
 - MyNavi Career Research: AI導入実態調査
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/2026年最新ai導入率は45へclaude-coworkやopenaiの最新動向を解説_standard_video_20260116_054224_ai_tools.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（137.96666666666667秒）</p>
-</div>

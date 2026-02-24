@@ -49,14 +49,3 @@ UNESCO（ユネスコ）は、AIによる教育格差を是正するため、倫
 *参考文献：Alphabet 100-year bond issuance (Feb 2026), J-FLEC 金融経済教育ガイドライン, すららネット「Surala My Story」プレスリリース, MHDash: An Online Platform for Benchmarking Mental Health-Aware AI Assistants*
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/2026年最新aiトレンドgoogleの100年債発行とmhdash教育金融aiの進化を解説_standard_video_20260215_054716_weekly_summary.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（122.3秒）</p>
-</div>

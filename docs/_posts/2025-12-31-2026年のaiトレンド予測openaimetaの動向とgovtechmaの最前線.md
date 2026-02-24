@@ -73,14 +73,3 @@ Metaは、驚異的なタスク遂行能力で話題となった中国発・シ�
 - [U-NEXT HOLDINGS 公式発表](https://unext-hd.jp/newsrelease/)
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/2026年のaiトレンド予測openaimetaの動向とgovtechmaの最前線_standard_blog_video_20251231_102622_startup.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（30秒）</p>
-</div>

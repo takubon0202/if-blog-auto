@@ -64,14 +64,3 @@ Dove Medical Pressの報告（2025-2026）によると、AIを活用したディ
 2026年は教育AIの「社会実装期」となりました。今後は2027年に向けて、校務効率化による「教員の働き方改革」と、AIによる「超・個別最適化教育」がさらに加速するでしょう。最新のEdTechトレンドをキャッチアップし、テクノロジーと人間ならではの指導を融合させた新しい教育環境を築いていきましょう。
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/2026年の教育aiトレンドmicrosoftの動向とedtechの最新統計_standard_video_20260120_054142_education.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（135.03333333333333秒）</p>
-</div>

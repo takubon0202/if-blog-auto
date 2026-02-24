@@ -68,14 +68,3 @@ A1: 推論能力が格段に向上し、複数のアプリを跨いでタスク�
 A2: リアルタイムでの翻訳や複雑なデータ分析が瞬時に完了するため、意思決定のスピードが飛躍的に高まります。
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/2026年ai予測gpt-52登場とnvidiagroqが変える未来_standard_blog_video_20260102_053743_ai_tools.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（30秒）</p>
-</div>

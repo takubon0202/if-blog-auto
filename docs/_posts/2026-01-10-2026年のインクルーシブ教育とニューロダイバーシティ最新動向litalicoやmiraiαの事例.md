@@ -76,14 +76,3 @@ AI技術の高度化により、一人ひとりの特性に合わせた学習カ
 - [DPI日本会議](https://www.dpi-japan.org/)
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/2026年のインクルーシブ教育とニューロダイバーシティ最新動向litalicoやmiraiαの事例_standard_video_20260110_054154_inclusive_education.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（151.73333333333332秒）</p>
-</div>

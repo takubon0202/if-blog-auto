@@ -76,14 +76,3 @@ AIの出力を人間が検証し、フィードバックをループさせる体
 - 日経BP: AIビジネス利用動向調査
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/2026年最新aiトレンド解説gemini-3claude-46llmoと企業のai導入戦略_standard_video_20260220_124049_ai_tools.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（123.4秒）</p>
-</div>

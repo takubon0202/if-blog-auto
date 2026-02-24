@@ -47,14 +47,3 @@ OpenAI Prismの衝撃は、企業のR&D（研究開発）部門に及んでい�
 AIはもはや外部ツールではなく、ビジネスのOS（基盤）となりました。最新のトレンドを把握し、AIエージェントを「有能なパートナー」としてどう使いこなすかが、今後の企業の競争力と個人のキャリアを分ける鍵となるでしょう。
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/2026年のaiトレンド予測openai-prismとagentic-aiが変えるビジネスの未来_standard_video_20260201_054519_weekly_summary.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（133.4秒）</p>
-</div>

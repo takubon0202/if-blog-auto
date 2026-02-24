@@ -74,14 +74,3 @@ A: Physical AI（物理実体を持つAI）と、特定業界のワークフロ�
 A: Alpacaのように「Born Global」の視点を持ち、最初から海外市場の規制対応やAPI連携を視野に入れた戦略が必要です。
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/2026年deeptechaiトレンド予測physical-aiとsaasの融合が加速する_standard_video_20260121_055459_startup.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（146.7秒）</p>
-</div>

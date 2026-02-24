@@ -67,14 +67,3 @@ AIが処理しやすいデータ形式を整えます。Sansanの調査でも、
 **A:** AIが即座に参照・分析できるクリーンなデータ構造（構造化データ）と、AIを業務フローに組み込むための組織体制が整っている状態を指します。
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/2026年ai最新トレンドclaude-46とgemini-31-proが変える企業のai活用_standard_video_20260220_151544_ai_tools.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（113.73333333333333秒）</p>
-</div>

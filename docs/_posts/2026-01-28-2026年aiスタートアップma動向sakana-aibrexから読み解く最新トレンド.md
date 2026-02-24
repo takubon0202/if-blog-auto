@@ -52,14 +52,3 @@ A1: 「AIなら何でも投資される」時期は終わりました。現在�
 A2: はい。Sakana AIのようにグローバルな研究能力を持つ日本企業は、GAFAMを含むグローバル企業にとって極めて魅力的な戦略的パートナーであり続けるでしょう。
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/2026年aiスタートアップma動向sakana-aibrexから読み解く最新トレンド_standard_video_20260128_054156_startup.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（133.93333333333334秒）</p>
-</div>

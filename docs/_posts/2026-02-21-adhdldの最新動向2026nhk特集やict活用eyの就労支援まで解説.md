@@ -57,23 +57,3 @@ A1: 読み上げ機能（オーディオブック）や、音声入力ソフト�
 A2: 早期の特性把握だけでなく、EY Japanの事例のような「テクノロジーを活用した、強みを活かせる職務設計（ニューロダイバーシティの推進）」が重要視されています。
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/adhdldの最新動向2026nhk特集やict活用eyの就労支援まで解説_standard_blog_video_20260105_053726_psychology.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（30秒）</p>
-</div>
-
-
-<div class="video-container video-short">
-<video controls width="320" preload="metadata">
-  <source src="{{ '/assets/videos/adhdldの最新動向2026nhk特集やict活用eyの就労支援まで解説_short_blog_video_short_20251230_201638_education.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">ショート動画（15秒・縦型）</p>
-</div>

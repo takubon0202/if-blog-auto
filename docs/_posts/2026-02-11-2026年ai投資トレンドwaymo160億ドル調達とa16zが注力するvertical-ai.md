@@ -56,14 +56,3 @@ A2: 非常に大きなチャンスがあります。Shizuku AIのように、日
 *参考文献：Crunchbase News, ITmedia NEWS, STARTUP DB, Zacks Investment Research, PR TIMES*
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/2026年ai投資トレンドwaymo160億ドル調達とa16zが注力するvertical-ai_standard_video_20260211_060320_startup.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（145.06666666666666秒）</p>
-</div>

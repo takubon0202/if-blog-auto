@@ -57,14 +57,3 @@ Coatue Managementをリード投資家に、DayOneが3億ドルの資金を確�
 *本記事は2026年1月7日時点の予測シナリオに基づき、AIによって生成されました。*
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/2026年のaiスタートアップ資金調達トレンドprecision-fundingとdapの衝撃_standard_slide_video_20260107_211742_startup.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（30秒）</p>
-</div>

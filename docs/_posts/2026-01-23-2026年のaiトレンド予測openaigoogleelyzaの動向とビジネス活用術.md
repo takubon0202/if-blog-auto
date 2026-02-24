@@ -68,14 +68,3 @@ A2: 業務時間の削減だけでなく、意思決定のスピードアップ�
 - ELYZA: 日本語拡散言語モデル「ELYZA-LLM-Diffusion」の公開 (Jan 16, 2026)
 
 ---
-
-## 動画で見る
-
-
-<div class="video-container">
-<video controls width="100%" preload="metadata">
-  <source src="{{ '/assets/videos/2026年のaiトレンド予測openaigoogleelyzaの動向とビジネス活用術_standard_video_20260123_054551_ai_tools.mp4' | relative_url }}" type="video/mp4">
-  お使いのブラウザは動画再生に対応していません。
-</video>
-<p class="video-caption">記事の要約動画（148.03333333333333秒）</p>
-</div>
